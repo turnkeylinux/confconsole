@@ -42,7 +42,7 @@ class TurnkeyConsole:
     def _get_netservices():
         #todo: check listening ports
         ipaddr = ifutil.get_ipinfo()[0]
-        if not ipaddr:
+        if not ipaddr or ipaddr.startswith('169'): # self assigned
             return "Error: default interface not configured\n"
 
         info = "Web Browser:  http://%s\n" % ipaddr
