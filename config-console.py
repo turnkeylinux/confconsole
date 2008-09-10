@@ -17,6 +17,9 @@ class Console:
         return self.console.msgbox(text, self.height, self.width,
                                    title=title, ok_label=button_label)
 
+    def menu(self, title, text, choices):
+        return self.console.menu(text, self.height, self.width,
+                                 title=title, choices=choices)
 
 def _netservices():
     #todo: get preferred ifname
@@ -47,13 +50,35 @@ def infotext(height):
     bodypad = "\n"*(height - 5 - curlines)
     return header + body + bodypad + footer
 
+def advtext():
+    return "\n%s Advanced Menu\n" % appname()
+
+def advchoices():
+    return [
+        ("StaticIP", "Manual network configuration"),
+        ("DHCP", "Automatic network configuration"),
+        ("Reboot", "Reboot the appliance"),
+        ("Shutdown", "Shutdown the appliance")
+    ]
+
 def main():
     title = "Turnkey Linux Console Configuration"
     width = 60
     height = 18
 
-    console = Console(title, width, height)
-    console.msgbox(appname(), infotext(height), button_label="Advanced")
+    c = Console(title, width, height)
+    while 1:
+        retcode = c.msgbox(appname(), infotext(height), button_label="Advanced Menu")
+        if retcode is not 0:
+            break
+
+        retcode, choice = c.menu("Advanced Menu", advtext(), advchoices())
+        if retcode is 2:
+            break
+
+        if retcode is 0:
+            print choice
+            break
 
 
 if __name__ == "__main__":
