@@ -37,20 +37,26 @@ def _netstat():
 def appname():
     return "Turnkey Linux %s" % _get_hostname()
 
-def infotext():
+def infotext(height):
     header = "\nYou may access this %s Appliance over\n" % appname()
-    header += "the network using the following methods:\n"
+    header += "the network using the following methods:\n\n"
 
     body = _netstat()
 
     footer = "For more information visit the Turnkey Linux Website\n"
     footer += "             http://www.turnkeylinux.org"
 
-    return header + "\n" + body + "\n"*6 + footer
+    curlines = header.count('\n') + body.count('\n') + footer.count('\n')
+    bodypad = "\n"*(height - 5 - curlines)
+    return header + body + bodypad + footer
 
 def main():
-    console = Console("Turnkey Linux Console Configuration")
-    console.msgbox(appname(), infotext(), button_label="Advanced")
+    title = "Turnkey Linux Console Configuration"
+    width = 60
+    height = 18
+
+    console = Console(title, width, height)
+    console.msgbox(appname(), infotext(height), button_label="Advanced")
 
 if __name__ == "__main__":
     main()
