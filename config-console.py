@@ -2,6 +2,7 @@
 
 import dialog
 
+import executil
 import ifutil
 
 class Error(Exception):
@@ -18,6 +19,9 @@ class Console:
 
     def infobox(self, text):
         return self.console.infobox(text)
+
+    def yesno(self, text):
+        return self.console.yesno(text)
 
     def msgbox(self, title, text, button_label="ok"):
         return self.console.msgbox(text, self.height, self.width,
@@ -129,10 +133,12 @@ class TurnkeyConsole:
             self.console.msgbox("Error", "Could not obtain lease")
 
     def _adv_reboot(self):
-        self.console.msgbox("", "reboot")
+        if self.console.yesno("Reboot the appliance?") == 0:
+            executil.system("shutdown -r now")
 
     def _adv_shutdown(self):
-        self.console.msgbox("", "shutdown")
+        if self.console.yesno("Shutdown the appliance?") == 0:
+            executil.system("shutdown -h now")
 
     def loop(self):
         while 1:
@@ -141,10 +147,8 @@ class TurnkeyConsole:
 
             self.dialog_adv()
 
-
 def main():
     TurnkeyConsole().loop()
-    #TurnkeyConsole()._adv_staticip()
 
 
 
