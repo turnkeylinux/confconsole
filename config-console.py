@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import dialog
-import socket
+
+import ifutil
 
 class Console:
     def __init__(self, title=None, width=60, height=18):
@@ -16,32 +17,28 @@ class Console:
         return self.console.msgbox(text, self.height, self.width,
                                    title=title, ok_label=button_label)
 
-def _get_hostname():
-    return socket.gethostname()
 
-def _get_ipaddr():
-    #return "192.168.0.1"
-    return None
-
-def _netstat():
+def _netservices():
+    #todo: get preferred ifname
     #todo: check listening ports
-    ipaddr = _get_ipaddr()
-    if ipaddr:
-        info = "Web Browser:  http://%s\n" % ipaddr
-        info += "Secure Shell: ssh root@%s\n" % ipaddr
-    else:
-        info = "Error: Network not configured\n"
+    ifname = 'eth1'
+    ipaddr = ifutil.get_ipinfo(ifname)[0]
+    if not ipaddr:
+        return "Error: %s interface not configured\n" % ifname
+
+    info = "Web Browser:  http://%s\n" % ipaddr
+    info += "Secure Shell: ssh root@%s\n" % ipaddr
 
     return info
 
 def appname():
-    return "Turnkey Linux %s" % _get_hostname().capitalize()
+    return "Turnkey Linux %s" % ifutil.get_hostname().capitalize()
 
 def infotext(height):
     header = "\nYou may access this %s appliance\n" % appname()
     header += "over the network using the following methods:\n\n"
 
-    body = _netstat()
+    body = _netservices()
 
     footer = "For more information visit the Turnkey Linux Website\n"
     footer += "             http://www.turnkeylinux.org"
@@ -57,6 +54,7 @@ def main():
 
     console = Console(title, width, height)
     console.msgbox(appname(), infotext(height), button_label="Advanced")
+
 
 if __name__ == "__main__":
     main()
