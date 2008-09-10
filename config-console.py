@@ -4,43 +4,43 @@ import dialog
 
 
 class Console:
-    def __init__(self):
-        title = "Turnkey Linux Console Configuration"
-        self.appname = "Turnkey Linux %s" % self._get_hostname()
+    def __init__(self, title=None, width=60, height=18):
+        self.width = width
+        self.height = height
 
-        self.width = 60
-        self.height = 18
         self.console = dialog.Dialog(dialog="dialog")
-        self.console.add_persistent_args(["--backtitle", title])
+        if title:
+            self.console.add_persistent_args(["--backtitle", title])
 
-    @staticmethod
-    def _get_hostname():
-        return "Drupal"
-
-    @staticmethod
-    def _get_ipaddr():
-        return "192.168.0.1"
-
-    def dialog_info(self):
-        header = "\nYou may access this %s Appliance over\n" % self.appname
-        header += "the network using the following methods:\n"
-
-        ipaddr = self._get_ipaddr()
-        body = "Web Browser:  http://%s\n" % ipaddr
-        body += "Secure Shell: ssh root@%s\n" % ipaddr
-
-        footer = "For more information visit the Turnkey Linux Website\n"
-        footer += "             http://www.turnkeylinux.org"
-
-        text = header + "\n" + body + "\n"*6 + footer
-
+    def msgbox(self, title, text, button_label="ok"):
         return self.console.msgbox(text, self.height, self.width,
-                                   title=self.appname,
-                                   ok_label="Advanced")
+                                   title=title, ok_label=button_label)
+
+def _get_hostname():
+    return "Drupal"
+
+def _get_ipaddr():
+    return "192.168.0.1"
+
+def appname():
+    return "Turnkey Linux %s" % _get_hostname()
+
+def infotext():
+    header = "\nYou may access this %s Appliance over\n" % appname()
+    header += "the network using the following methods:\n"
+
+    ipaddr = _get_ipaddr()
+    body = "Web Browser:  http://%s\n" % ipaddr
+    body += "Secure Shell: ssh root@%s\n" % ipaddr
+
+    footer = "For more information visit the Turnkey Linux Website\n"
+    footer += "             http://www.turnkeylinux.org"
+
+    return header + "\n" + body + "\n"*6 + footer
 
 def main():
-    console = Console()
-    console.dialog_info()
+    console = Console("Turnkey Linux Console Configuration")
+    console.msgbox(appname(), infotext(), button_label="Advanced")
 
 if __name__ == "__main__":
     main()
