@@ -38,12 +38,17 @@ class NIC:
 
         return socket.inet_ntoa(result[20:24])
 
-    def set_ipaddr(self, addr, netmask):
-        #todo: calculate netmask if blank
+    def set_ipaddr(self, addr):
         if addr == self.addr or addr == "":
             return
 
-        system("ifconfig %s %s netmask %s up" % (self.ifname, addr, netmask))
+        system("ifconfig %s %s up" % (self.ifname, addr))
+
+    def set_netmask(self, netmask):
+        if netmask == self.netmask or netmask == "":
+            return
+
+        system("ifconfig %s netmask %s" % (self.ifname, netmask))
 
     def set_gateway(self, gateway):
         if gateway == self.gateway or gateway == "":
@@ -103,7 +108,8 @@ def get_ipinfo():
 
 def set_ipinfo(ipaddr, netmask, gateway, nameserver):
     nic = NIC(IFNAME)
-    nic.set_ipaddr(ipaddr, netmask)
+    nic.set_ipaddr(ipaddr)
+    nic.set_netmask(netmask)
     nic.set_gateway(gateway)
     nic.set_nameserver(nameserver)
 
