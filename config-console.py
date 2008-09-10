@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import dialog
-
+import socket
 
 class Console:
     def __init__(self, title=None, width=60, height=18):
@@ -17,7 +17,7 @@ class Console:
                                    title=title, ok_label=button_label)
 
 def _get_hostname():
-    return "Drupal"
+    return socket.gethostname()
 
 def _get_ipaddr():
     #return "192.168.0.1"
@@ -35,11 +35,11 @@ def _netstat():
     return info
 
 def appname():
-    return "Turnkey Linux %s" % _get_hostname()
+    return "Turnkey Linux %s" % _get_hostname().capitalize()
 
 def infotext(height):
-    header = "\nYou may access this %s Appliance over\n" % appname()
-    header += "the network using the following methods:\n\n"
+    header = "\nYou may access this %s appliance\n" % appname()
+    header += "over the network using the following methods:\n\n"
 
     body = _netstat()
 
