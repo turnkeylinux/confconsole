@@ -4,6 +4,9 @@ import dialog
 
 import ifutil
 
+class Error(Exception):
+    pass
+
 class Console:
     def __init__(self, title=None, width=60, height=18):
         self.width = width
@@ -21,65 +24,95 @@ class Console:
         return self.console.menu(text, self.height, self.width,
                                  title=title, choices=choices)
 
-def _netservices():
-    #todo: get preferred ifname
-    #todo: check listening ports
-    ifname = 'eth1'
-    ipaddr = ifutil.get_ipinfo(ifname)[0]
-    if not ipaddr:
-        return "Error: %s interface not configured\n" % ifname
+class TurnkeyConsole:
+    def __init__(self):
+        title = "Turnkey Linux Console Configuration"
+        self.width = 60
+        self.height = 18
 
-    info = "Web Browser:  http://%s\n" % ipaddr
-    info += "Secure Shell: ssh root@%s\n" % ipaddr
+        self.console = Console(title, self.width, self.height)
+        self.appname = "Turnkey Linux %s" % ifutil.get_hostname().capitalize()
 
-    return info
+    @staticmethod
+    def _get_netservices():
+        #todo: check listening ports
+        ipaddr = ifutil.get_ipinfo()[0]
+        if not ipaddr:
+            return "Error: default interface not configured\n"
 
-def appname():
-    return "Turnkey Linux %s" % ifutil.get_hostname().capitalize()
+        info = "Web Browser:  http://%s\n" % ipaddr
+        info += "Secure Shell: ssh root@%s\n" % ipaddr
+        return info
 
-def infotext(height):
-    header = "\nYou may access this %s appliance\n" % appname()
-    header += "over the network using the following methods:\n\n"
+    def _get_infotitle(self):
+        return self.appname
 
-    body = _netservices()
+    def _get_infotext(self):
+        header = "\nYou may access this %s appliance\n" % self.appname
+        header += "over the network using the following methods:\n\n"
 
-    footer = "For more information visit the Turnkey Linux Website\n"
-    footer += "             http://www.turnkeylinux.org"
+        body = self._get_netservices()
 
-    curlines = header.count('\n') + body.count('\n') + footer.count('\n')
-    bodypad = "\n"*(height - 5 - curlines)
-    return header + body + bodypad + footer
+        footer = "For more information visit the Turnkey Linux Website\n"
+        footer += "             http://www.turnkeylinux.org"
 
-def advtext():
-    return "\n%s Advanced Menu\n" % appname()
+        curlines = header.count('\n') + body.count('\n') + footer.count('\n')
+        bodypad = "\n"*(self.height - 5 - curlines)
+        return header + body + bodypad + footer
 
-def advchoices():
-    return [
-        ("StaticIP", "Manual network configuration"),
-        ("DHCP", "Automatic network configuration"),
-        ("Reboot", "Reboot the appliance"),
-        ("Shutdown", "Shutdown the appliance")
-    ]
+    def _get_advtitle(self):
+        return "Advanced Menu"
+
+    def _get_advtext(self):
+        return "\n%s %s\n" % (self.appname, self._get_advtitle())
+
+    def _get_advchoices(self):
+        return [("StaticIP", "Manual network configuration"),
+                ("DHCP", "Automatic network configuration"),
+                ("Reboot", "Reboot the appliance"),
+                ("Shutdown", "Shutdown the appliance")]
+
+    def dialog_info(self):
+        return self.console.msgbox(self._get_infotitle(),
+                                   self._get_infotext(), 
+                                   button_label=self._get_advtitle())
+
+    def dialog_adv(self):
+        retcode, choice = self.console.menu(self._get_advtitle(),
+                                            self._get_advtext(),
+                                            self._get_advchoices())
+        if retcode is not 0:
+            return
+        
+        try:
+            choice = choice.lower()
+            method = getattr(self, "_adv_" + choice)
+        except AttributeError:
+            raise Error("advanced choice not supported: " + choice)
+
+        method()
+
+    def _adv_staticip(self):
+        self.console.msgbox("", "staticip")
+
+    def _adv_dhcp(self):
+        self.console.msgbox("", "dhcp")
+
+    def _adv_reboot(self):
+        self.console.msgbox("", "reboot")
+
+    def _adv_shutdown(self):
+        self.console.msgbox("", "shutdown")
+
+    def loop(self):
+        while 1:
+            if self.dialog_info() is not 0:
+                break
+
+            self.dialog_adv()
 
 def main():
-    title = "Turnkey Linux Console Configuration"
-    width = 60
-    height = 18
-
-    c = Console(title, width, height)
-    while 1:
-        retcode = c.msgbox(appname(), infotext(height), button_label="Advanced Menu")
-        if retcode is not 0:
-            break
-
-        retcode, choice = c.menu("Advanced Menu", advtext(), advchoices())
-        if retcode is 2:
-            break
-
-        if retcode is 0:
-            print choice
-            break
-
+    TurnkeyConsole().loop()
 
 if __name__ == "__main__":
     main()

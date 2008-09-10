@@ -35,7 +35,7 @@ class NIC:
 
 # convenience functions
 
-def get_ipinfo(ifname):
+def get_ipinfo(ifname='eth1'):
     nic = NIC(ifname)
     return nic.addr, nic.netmask, nic.brdaddr
 
