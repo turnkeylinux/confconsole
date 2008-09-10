@@ -109,8 +109,16 @@ class TurnkeyConsole:
 
         retcode, input = self.console.form("\nNetwork Settings",
                                            "Static IP Configuration", fields)
-        if retcode is 0:
-            ifutil.set_ipinfo(*input)
+        if retcode is not 0:
+            return
+
+        # verify input are ipaddresss's - usability and security issues
+        for addr in input:
+            if addr and not ifutil.valid_ipv4(addr):
+                self.console.msgbox("Invalid Input", "Invalid Address: %s" % addr)
+                return
+
+        ifutil.set_ipinfo(*input)
 
     def _adv_dhcp(self):
         self.console.msgbox("", "dhcp")
@@ -128,9 +136,11 @@ class TurnkeyConsole:
 
             self.dialog_adv()
 
+
 def main():
     TurnkeyConsole().loop()
     #TurnkeyConsole()._adv_staticip()
+
 
 
 if __name__ == "__main__":

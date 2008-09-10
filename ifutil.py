@@ -39,8 +39,7 @@ class NIC:
         return socket.inet_ntoa(result[20:24])
 
     def set_ipaddr(self, addr, netmask):
-        #todo: check if ipaddr is valid
-        #      calculate netmask if blank
+        #todo: calculate netmask if blank
         if addr == self.addr or addr == "":
             return
 
@@ -88,6 +87,12 @@ class NIC:
                         pass
             return None
 
+
+def valid_ipv4(addr):
+    ip4_re = re.compile(r'^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$') 
+    if not ip4_re.search(addr):
+        return False
+    return True
 
 # convenience functions
 
