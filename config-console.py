@@ -107,9 +107,10 @@ class TurnkeyConsole:
             ("Name Server", nameserver, field_width)
         ]
 
-        retcode, input = self.console.form("Network Settings",
+        retcode, input = self.console.form("\nNetwork Settings",
                                            "Static IP Configuration", fields)
-        print retcode, input
+        if retcode is 0:
+            ifutil.set_ipinfo(*input)
 
     def _adv_dhcp(self):
         self.console.msgbox("", "dhcp")
@@ -128,8 +129,8 @@ class TurnkeyConsole:
             self.dialog_adv()
 
 def main():
-    #TurnkeyConsole().loop()
-    TurnkeyConsole()._adv_staticip()
+    TurnkeyConsole().loop()
+    #TurnkeyConsole()._adv_staticip()
 
 
 if __name__ == "__main__":
