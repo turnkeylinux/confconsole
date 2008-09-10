@@ -10,6 +10,12 @@ SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
 SIOCGIFBRDADDR = 0x8919
 
+def _readfile(path):
+    fh = file(path)
+    lines = fh.readlines()
+    fh.close()
+    return lines
+
 class NIC:
     class ATTRIBS:
         ADDRS = {
@@ -35,17 +41,28 @@ class NIC:
         if attrname in self.ATTRIBS.ADDRS:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
-        if attrname == "gw":
+        if attrname == "gateway":
             m = re.search('^0.0.0.0\s+(.*?)\s', getoutput("route -n"), re.M)
             if m:
                 return m.group(1)
             return None
 
+        if attrname == "nameserver":
+            for line in _readfile('/etc/resolv.conf'):
+                if line.startswith('nameserver'):
+                    try:
+                        junk, nameserver = line.strip().split()
+                        return nameserver
+                    except:
+                        pass
+            return None
+
+
 # convenience functions
 
 def get_ipinfo(ifname='eth1'):
     nic = NIC(ifname)
-    return nic.addr, nic.netmask, nic.gw
+    return nic.addr, nic.netmask, nic.gateway, nic.nameserver
 
 def get_hostname():
     return socket.gethostname()
