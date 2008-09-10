@@ -1,7 +1,10 @@
 
+import re
 import fcntl
 import struct
 import socket
+
+from executil import getoutput
 
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
@@ -32,12 +35,17 @@ class NIC:
         if attrname in self.ATTRIBS.ADDRS:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
+        if attrname == "gw":
+            m = re.search('^0.0.0.0\s+(.*?)\s', getoutput("route -n"), re.M)
+            if m:
+                return m.group(1)
+            return None
 
 # convenience functions
 
 def get_ipinfo(ifname='eth1'):
     nic = NIC(ifname)
-    return nic.addr, nic.netmask, nic.brdaddr
+    return nic.addr, nic.netmask, nic.gw
 
 def get_hostname():
     return socket.gethostname()
