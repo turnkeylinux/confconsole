@@ -20,7 +20,19 @@ def _get_hostname():
     return "Drupal"
 
 def _get_ipaddr():
-    return "192.168.0.1"
+    #return "192.168.0.1"
+    return None
+
+def _netstat():
+    #todo: check listening ports
+    ipaddr = _get_ipaddr()
+    if ipaddr:
+        info = "Web Browser:  http://%s\n" % ipaddr
+        info += "Secure Shell: ssh root@%s\n" % ipaddr
+    else:
+        info = "Error: Network not configured\n"
+
+    return info
 
 def appname():
     return "Turnkey Linux %s" % _get_hostname()
@@ -29,9 +41,7 @@ def infotext():
     header = "\nYou may access this %s Appliance over\n" % appname()
     header += "the network using the following methods:\n"
 
-    ipaddr = _get_ipaddr()
-    body = "Web Browser:  http://%s\n" % ipaddr
-    body += "Secure Shell: ssh root@%s\n" % ipaddr
+    body = _netstat()
 
     footer = "For more information visit the Turnkey Linux Website\n"
     footer += "             http://www.turnkeylinux.org"
