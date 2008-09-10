@@ -24,6 +24,11 @@ class Console:
         return self.console.menu(text, self.height, self.width,
                                  title=title, choices=choices)
 
+    def form(self, title, text, fields):
+        return self.console.form(text, self.height, self.width,
+                                 form_height=len(fields)+1,
+                                 title=title, fields=fields)
+
 class TurnkeyConsole:
     def __init__(self):
         title = "Turnkey Linux Console Configuration"
@@ -93,7 +98,18 @@ class TurnkeyConsole:
         method()
 
     def _adv_staticip(self):
-        self.console.msgbox("", "staticip")
+        field_width = 30
+        fields = [
+            ("IP Address", None, field_width),
+            ("Netmask", None, field_width),
+            ("Default Gateway", None, field_width),
+            ("Primary DNS", None, field_width),
+            ("Secondary DNS", None, field_width)
+        ]
+
+        retcode, input = self.console.form("Network Settings",
+                                           "Static IP Configuration", fields)
+        print retcode, input
 
     def _adv_dhcp(self):
         self.console.msgbox("", "dhcp")
@@ -112,7 +128,9 @@ class TurnkeyConsole:
             self.dialog_adv()
 
 def main():
-    TurnkeyConsole().loop()
+    #TurnkeyConsole().loop()
+    TurnkeyConsole()._adv_staticip()
+
 
 if __name__ == "__main__":
     main()
