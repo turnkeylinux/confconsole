@@ -5,7 +5,7 @@ import fcntl
 import struct
 import socket
 
-from executil import system, getoutput
+import executil
 
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
@@ -42,24 +42,24 @@ class NIC:
         if addr == self.addr or addr == "":
             return
 
-        system("ifconfig %s %s up" % (self.ifname, addr))
+        executil.system("ifconfig %s %s up" % (self.ifname, addr))
 
     def set_netmask(self, netmask):
         if netmask == self.netmask or netmask == "":
             return
 
-        system("ifconfig %s netmask %s" % (self.ifname, netmask))
+        executil.system("ifconfig %s netmask %s" % (self.ifname, netmask))
 
     def set_gateway(self, gateway):
         if gateway == self.gateway or gateway == "":
             return
 
         if self.gateway:
-            system("route del default gw %s" % self.gateway)
+            executil.system("route del default gw %s" % self.gateway)
 
         for i in range(3):
             try:
-                system("route add default gw %s" % gateway)
+                executil.system("route add default gw %s" % gateway)
                 break
             except:
                 time.sleep(1)
@@ -77,7 +77,8 @@ class NIC:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
         if attrname == "gateway":
-            m = re.search('^0.0.0.0\s+(.*?)\s', getoutput("route -n"), re.M)
+            output = executil.getoutput("route -n")
+            m = re.search('^0.0.0.0\s+(.*?)\s', output, re.M)
             if m:
                 return m.group(1)
             return None
@@ -102,10 +103,6 @@ def valid_ipv4(addr):
 # convenience functions
 
 IFNAME = 'eth0'
-def get_ipinfo():
-    nic = NIC(IFNAME)
-    return nic.addr, nic.netmask, nic.gateway, nic.nameserver
-
 def set_ipinfo(ipaddr, netmask, gateway, nameserver):
     nic = NIC(IFNAME)
     nic.set_ipaddr(ipaddr)
@@ -113,7 +110,19 @@ def set_ipinfo(ipaddr, netmask, gateway, nameserver):
     nic.set_gateway(gateway)
     nic.set_nameserver(nameserver)
 
+def get_ipinfo():
+    nic = NIC(IFNAME)
+    return nic.addr, nic.netmask, nic.gateway, nic.nameserver
+
+def get_dhcp():
+    try:
+        executil.getoutput("udhcpc --now --quit --interface %s" % IFNAME)
+    except executil.ExecError, e:
+        #print str(e)
+        return False
+
+    return True
+
 def get_hostname():
     return socket.gethostname()
-
 

@@ -16,6 +16,9 @@ class Console:
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 
+    def infobox(self, text):
+        return self.console.infobox(text)
+
     def msgbox(self, title, text, button_label="ok"):
         return self.console.msgbox(text, self.height, self.width,
                                    title=title, ok_label=button_label)
@@ -113,7 +116,6 @@ class TurnkeyConsole:
         if retcode is not 0:
             return
 
-        # verify input are ipaddresss's - usability and security issues
         for addr in input:
             if addr and not ifutil.valid_ipv4(addr):
                 self.console.msgbox("Invalid Input", "Invalid Address: %s" % addr)
@@ -122,7 +124,9 @@ class TurnkeyConsole:
         ifutil.set_ipinfo(*input)
 
     def _adv_dhcp(self):
-        self.console.msgbox("", "dhcp")
+        self.console.infobox("Requesting DHCP...")
+        if not ifutil.get_dhcp():
+            self.console.msgbox("Error", "Could not obtain lease")
 
     def _adv_reboot(self):
         self.console.msgbox("", "reboot")
