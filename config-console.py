@@ -4,10 +4,14 @@ import dialog
 
 
 class Console:
-    def __init__(self, title=None):
+    def __init__(self):
+        title = "Turnkey Linux Console Configuration"
+        self.appname = "Turnkey Linux %s" % self._get_hostname()
+
+        self.width = 60
+        self.height = 18
         self.console = dialog.Dialog(dialog="dialog")
-        if title:
-            self.console.add_persistent_args(["--backtitle", title])
+        self.console.add_persistent_args(["--backtitle", title])
 
     @staticmethod
     def _get_hostname():
@@ -18,25 +22,24 @@ class Console:
         return "192.168.0.1"
 
     def dialog_info(self):
-        appname = "%s Turnkey Linux" % self._get_hostname()
+        header = "\nYou may access this %s Appliance over\n" % self.appname
+        header += "the network using the following methods:\n"
+
         ipaddr = self._get_ipaddr()
-        text = """
-You may access this %s Appliance over
-the network using the following methods:
+        body = "Web Browser:  http://%s\n" % ipaddr
+        body += "Secure Shell: ssh root@%s\n" % ipaddr
 
-Web Browser:  http://%s
-Secure Shell: ssh root@%s
-%s
-For more information visit the Turnkey Linux Website:
-             http://www.turnkeylinux.org
-""" % (appname, ipaddr, ipaddr, "\n"*5)
+        footer = "For more information visit the Turnkey Linux Website\n"
+        footer += "             http://www.turnkeylinux.org"
 
-        return self.console.msgbox(text, 18, 60,
-                                   title = appname,
-                                   ok_label = "Advanced")
+        text = header + "\n" + body + "\n"*6 + footer
+
+        return self.console.msgbox(text, self.height, self.width,
+                                   title=self.appname,
+                                   ok_label="Advanced")
 
 def main():
-    console = Console("Turnkey Linux Console Configuration")
+    console = Console()
     console.dialog_info()
 
 if __name__ == "__main__":
