@@ -100,11 +100,12 @@ class TurnkeyConsole:
     def _adv_staticip(self):
         ipaddr, netmask, gateway, nameserver = ifutil.get_ipinfo()
         field_width = 30
+        field_limit = 15
         fields = [
-            ("IP Address", ipaddr, field_width),
-            ("Netmask", netmask, field_width),
-            ("Default Gateway", gateway, field_width),
-            ("Name Server", nameserver, field_width)
+            ("IP Address", ipaddr, field_width, field_limit),
+            ("Netmask", netmask, field_width, field_limit),
+            ("Default Gateway", gateway, field_width, field_limit),
+            ("Name Server", nameserver, field_width, field_limit)
         ]
 
         retcode, input = self.console.form("\nNetwork Settings",
