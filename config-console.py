@@ -29,6 +29,7 @@ class Console:
 
     def menu(self, title, text, choices):
         return self.console.menu(text, self.height, self.width,
+                                 menu_height=len(choices)+1,
                                  title=title, choices=choices)
 
     def form(self, title, text, fields):
