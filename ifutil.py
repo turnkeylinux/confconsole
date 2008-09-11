@@ -17,6 +17,9 @@ def _readfile(path):
     fh.close()
     return lines
 
+class Error(Exception):
+    pass
+
 class NIC:
     class ATTRIBS:
         ADDRS = {
@@ -93,6 +96,39 @@ class NIC:
                         pass
             return None
 
+class Connection:
+    def __init__(self, proto, attribs):
+        self.proto = proto # tcp, tcp6, udp
+        self.lhost, self.lport = self._map_hostport(attribs[1])
+        self.rhost, self.rport = self._map_hostport(attribs[2])
+
+        self.status = self._map_status(attribs[3])
+
+        #print "%s\t%s:%s\t\t%s:%s\t\t%s" % (self.proto, self.lhost, self.lport,
+        #                                    self.rhost, self.rport, self.status)
+
+    @staticmethod
+    def _int2host(host):
+        return ".".join(map(str, ((host >> 0) & 0xff, (host >> 8) & 0xff,
+                                  (host >> 16) & 0xff, (host >> 24) & 0xff)))
+
+    @classmethod
+    def _map_hostport(cls, attrib):
+        host, port = attrib.split(":", 1)
+        host = cls._int2host(int(host, 16))
+        port = int(port, 16)
+
+        return host, port
+
+    @staticmethod
+    def _map_status(attrib):
+        status = {'01': 'ESTABLISHED',
+                  '0A': 'LISTENING',
+                  '10': 'WAITING'}
+        try:
+            return status[attrib]
+        except KeyError:
+            return 'UNKNOWN'
 
 def valid_ipv4(addr):
     ip4_re = re.compile(r'^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$') 
@@ -102,7 +138,7 @@ def valid_ipv4(addr):
 
 # convenience functions
 
-IFNAME = 'eth0'
+IFNAME = 'eth0'  # todo: get preferred interface
 def set_ipinfo(ipaddr, netmask, gateway, nameserver):
     nic = NIC(IFNAME)
     nic.set_ipaddr(ipaddr)
@@ -125,4 +161,15 @@ def get_dhcp():
 
 def get_hostname():
     return socket.gethostname()
+
+def get_connections():
+    connections = []
+    for proto in ('tcp', 'tcp6', 'udp'):
+        lines = _readfile('/proc/net/' + proto)
+        for line in lines[1:]:
+            conn = Connection(proto, line.split())
+            connections.append(conn)
+
+    return connections
+
 
