@@ -48,14 +48,30 @@ class TurnkeyConsole:
 
     @staticmethod
     def _get_netservices():
-        #todo: check listening ports
+        def _openport(port):
+            for conn in ifutil.get_connections():
+                if conn.proto in ('tcp', 'tcp6') and \
+                   conn.lhost in ('0.0.0.0', ipaddr) and \
+                   conn.lport == port:
+                    return True
+            return False
+
         ipaddr = ifutil.get_ipinfo()[0]
         if not ipaddr or ipaddr.startswith('169'): # self assigned
             return "Error: default interface not configured\n"
 
-        info = "Web Browser:  http://%s\n" % ipaddr
-        info += "Secure Shell: ssh root@%s\n" % ipaddr
-        return info
+        services = {80: "Web Browser:  http://%s\n" % ipaddr,
+                    22: "Secure Shell: ssh root@%s\n" % ipaddr}
+
+        services_list = ""
+        for port in services:
+            if _openport(port):
+                services_list += services[port]
+
+        if not services_list:
+            return "Error: no services binded to default interface"
+
+        return services_list
 
     def _get_infotitle(self):
         return self.appname
@@ -150,7 +166,6 @@ class TurnkeyConsole:
 
 def main():
     TurnkeyConsole().loop()
-
 
 
 if __name__ == "__main__":
