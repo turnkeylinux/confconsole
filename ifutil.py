@@ -58,6 +58,15 @@ class NIC:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
 class Netconf(NIC):
+
+    @staticmethod
+    def get_gateway():
+        output = executil.getoutput("route -n")
+        m = re.search('^0.0.0.0\s+(.*?)\s', output, re.M)
+        if m:
+            return m.group(1)
+        return None
+
     def set_gateway(self, gateway):
         if gateway == self.gateway or gateway == "":
             return
@@ -72,6 +81,17 @@ class Netconf(NIC):
             except:
                 time.sleep(1)
 
+    @staticmethod
+    def get_nameserver():
+        for line in _readfile('/etc/resolv.conf'):
+            if line.startswith('nameserver'):
+                try:
+                    junk, nameserver = line.strip().split()
+                    return nameserver
+                except:
+                    pass
+        return None
+
     def set_nameserver(self, nameserver):
         if self.nameserver == nameserver:
             return
@@ -85,21 +105,10 @@ class Netconf(NIC):
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
         if attrname == "gateway":
-            output = executil.getoutput("route -n")
-            m = re.search('^0.0.0.0\s+(.*?)\s', output, re.M)
-            if m:
-                return m.group(1)
-            return None
+            return self.get_gateway()
 
         if attrname == "nameserver":
-            for line in _readfile('/etc/resolv.conf'):
-                if line.startswith('nameserver'):
-                    try:
-                        junk, nameserver = line.strip().split()
-                        return nameserver
-                    except:
-                        pass
-            return None
+            return self.get_nameserver()
 
 
 class Connection:
