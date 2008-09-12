@@ -53,6 +53,11 @@ class NIC:
 
         executil.system("ifconfig %s netmask %s" % (self.ifname, netmask))
 
+    def __getattr__(self, attrname):
+        if attrname in self.ATTRIBS.ADDRS:
+            return self._get_addr(self.ATTRIBS.ADDRS[attrname])
+
+class Netconf(NIC):
     def set_gateway(self, gateway):
         if gateway == self.gateway or gateway == "":
             return
@@ -96,6 +101,7 @@ class NIC:
                         pass
             return None
 
+
 class Connection:
     def __init__(self, proto, attribs):
         self.proto = proto # tcp, tcp6, udp
@@ -138,17 +144,17 @@ def valid_ipv4(addr):
 
 # convenience functions
 
-IFNAME = 'eth0'  # todo: get preferred interface
+IFNAME = 'eth0'  # todo: get preferred interface (ifprobe)
 def set_ipinfo(ipaddr, netmask, gateway, nameserver):
-    nic = NIC(IFNAME)
-    nic.set_ipaddr(ipaddr)
-    nic.set_netmask(netmask)
-    nic.set_gateway(gateway)
-    nic.set_nameserver(nameserver)
+    net = Netconf(IFNAME)
+    net.set_ipaddr(ipaddr)
+    net.set_netmask(netmask)
+    net.set_gateway(gateway)
+    net.set_nameserver(nameserver)
 
 def get_ipinfo():
-    nic = NIC(IFNAME)
-    return nic.addr, nic.netmask, nic.gateway, nic.nameserver
+    net = Netconf(IFNAME)
+    return net.addr, net.netmask, net.gateway, net.nameserver
 
 def get_dhcp():
     try:
