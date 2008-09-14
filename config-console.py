@@ -56,7 +56,7 @@ class TurnkeyConsole:
                     return True
             return False
 
-        ipaddr = ifutil.get_ipinfo()[0]
+        ipaddr = ifutil.get_ipconf()[0]
         if not ipaddr or ipaddr.startswith('169'): # self assigned
             return "Error: default interface not configured\n"
 
@@ -122,7 +122,7 @@ class TurnkeyConsole:
         method()
 
     def _adv_staticip(self):
-        ipaddr, netmask, gateway, nameserver = ifutil.get_ipinfo()
+        ipaddr, netmask, gateway, nameserver = ifutil.get_ipconf()
         field_width = 30
         field_limit = 15
         fields = [
@@ -142,7 +142,7 @@ class TurnkeyConsole:
                 self.console.msgbox("Invalid Input", "Invalid Address: %s" % addr)
                 return
 
-        ifutil.set_ipinfo(*input)
+        ifutil.set_ipconf(*input)
 
     def _adv_dhcp(self):
         self.console.infobox("Requesting DHCP...")

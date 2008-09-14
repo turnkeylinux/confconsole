@@ -17,9 +17,6 @@ def _readfile(path):
     fh.close()
     return lines
 
-class Error(Exception):
-    pass
-
 class NIC:
     class ATTRIBS:
         ADDRS = {
@@ -58,6 +55,15 @@ class NIC:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
 class Netconf(NIC):
+
+    def set_staticip(self, addr, netmask):
+        self.set_ipaddr(addr)
+        self.set_netmask(netmask)
+        Interfaces(self.ifname).set_staticip(addr, netmask)
+
+    def get_dhcp(self):
+        executil.getoutput("udhcpc --now --quit --interface %s" % IFNAME)
+        Interfaces(self.ifname).set_dhcp()
 
     @staticmethod
     def get_gateway():
@@ -110,6 +116,51 @@ class Netconf(NIC):
         if attrname == "nameserver":
             return self.get_nameserver()
 
+class InterfacesError(Exception):
+    pass
+
+class Interfaces:
+    def __init__(self, ifname):
+        self.ifname = ifname
+        self.path = '/etc/network/interfaces'
+
+        if not self._is_unconfigured():
+            raise InterfacesError("%s is not \'unconfigured\'" % self.path)
+
+    @staticmethod
+    def _header():
+        return "\n".join(["# UNCONFIGURED INTERFACES",
+                          "# remove the above line if you edit this file"])
+
+    @staticmethod
+    def _loopback():
+        return "\n".join(["auto lo",
+                          "iface lo inet loopback"])
+
+    def _is_unconfigured(self):
+        for line in _readfile(self.path):
+            if line.strip() == self._header().splitlines()[0]:
+                return True
+
+        return False
+
+    def set_dhcp(self):
+        fh = file(self.path, "w")
+        print >> fh, self._header() + "\n"
+        print >> fh, self._loopback() + "\n"
+        print >> fh, "auto %s" % self.ifname
+        print >> fh, "iface %s inet dhcp" % self.ifname
+        fh.close()
+
+    def set_staticip(self, addr, netmask):
+        fh = file(self.path, "w")
+        print >> fh, self._header() + "\n"
+        print >> fh, self._loopback() + "\n"
+        print >> fh, "auto %s" % self.ifname
+        print >> fh, "iface %s inet static" % self.ifname
+        print >> fh, "    address %s" % addr
+        print >> fh, "    netmask %s" % netmask
+        fh.close()
 
 class Connection:
     def __init__(self, proto, attribs):
@@ -154,25 +205,19 @@ def valid_ipv4(addr):
 # convenience functions
 
 IFNAME = 'eth0'  # todo: get preferred interface (ifprobe)
-def set_ipinfo(ipaddr, netmask, gateway, nameserver):
+def set_ipconf(addr, netmask, gateway, nameserver):
     net = Netconf(IFNAME)
-    net.set_ipaddr(ipaddr)
-    net.set_netmask(netmask)
+    net.set_staticip(addr, netmask)
     net.set_gateway(gateway)
     net.set_nameserver(nameserver)
 
-def get_ipinfo():
+def get_ipconf():
     net = Netconf(IFNAME)
     return net.addr, net.netmask, net.gateway, net.nameserver
 
 def get_dhcp():
-    try:
-        executil.getoutput("udhcpc --now --quit --interface %s" % IFNAME)
-    except executil.ExecError, e:
-        #print str(e)
-        return False
-
-    return True
+    net = Netconf(IFNAME)
+    net.get_dhcp()
 
 def get_hostname():
     return socket.gethostname()
