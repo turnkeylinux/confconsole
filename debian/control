@@ -1,0 +1,13 @@
+Source: confconsole
+Section: misc
+Priority: optional
+Maintainer: Alon Swartz <alon@turnkeylinux.org>
+Build-Depends: debhelper (>> 4.2.0)
+Standards-Version: 3.6.1
+
+Package: confconsole
+Architecture: all
+Depends: python (>= 2.4)
+Recommends: kbd
+Section: misc
+Description: TurnKey Linux Configuration Console
