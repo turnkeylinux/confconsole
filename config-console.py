@@ -18,21 +18,26 @@ class Console:
             self.console.add_persistent_args(["--backtitle", title])
 
     def infobox(self, text):
+        text = "\n" + text
         return self.console.infobox(text)
 
     def yesno(self, text):
+        text = "\n" + text
         return self.console.yesno(text)
 
     def msgbox(self, title, text, button_label="ok"):
+        text = "\n" + text
         return self.console.msgbox(text, self.height, self.width,
                                    title=title, ok_label=button_label)
 
     def menu(self, title, text, choices):
+        text = "\n" + text
         return self.console.menu(text, self.height, self.width,
                                  menu_height=len(choices)+1,
                                  title=title, choices=choices)
 
     def form(self, title, text, fields):
+        text = "\n" + text
         return self.console.form(text, self.height, self.width,
                                  form_height=len(fields)+1,
                                  title=title, fields=fields)
@@ -77,7 +82,7 @@ class TurnkeyConsole:
         return self.appname
 
     def _get_infotext(self):
-        header = "\nYou may access this %s appliance\n" % self.appname
+        header = "You may access this %s appliance\n" % self.appname
         header += "over the network using the following methods:\n\n"
 
         body = self._get_netservices()
@@ -86,14 +91,14 @@ class TurnkeyConsole:
         footer += "             http://www.turnkeylinux.org"
 
         curlines = header.count('\n') + body.count('\n') + footer.count('\n')
-        bodypad = "\n"*(self.height - 5 - curlines)
+        bodypad = "\n"*(self.height - 6 - curlines)
         return header + body + bodypad + footer
 
     def _get_advtitle(self):
         return "Advanced Menu"
 
     def _get_advtext(self):
-        return "\n%s %s\n" % (self.appname, self._get_advtitle())
+        return "%s %s\n" % (self.appname, self._get_advtitle())
 
     def _get_advchoices(self):
         return [("StaticIP", "Manual network configuration"),
@@ -132,7 +137,7 @@ class TurnkeyConsole:
             ("Name Server", nameserver, field_width, field_limit)
         ]
 
-        retcode, input = self.console.form("\nNetwork Settings",
+        retcode, input = self.console.form("Network Settings",
                                            "Static IP Configuration", fields)
         if retcode is not 0:
             return
