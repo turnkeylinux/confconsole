@@ -104,7 +104,8 @@ class TurnkeyConsole:
         return [("StaticIP", "Manual network configuration"),
                 ("DHCP", "Automatic network configuration"),
                 ("Reboot", "Reboot the appliance"),
-                ("Shutdown", "Shutdown the appliance")]
+                ("Shutdown", "Shutdown the appliance"),
+                ("Exit", "Exit the configuration console")]
 
     def dialog_info(self):
         return self.console.msgbox(self._get_infotitle(),
@@ -165,8 +166,12 @@ class TurnkeyConsole:
         if self.console.yesno("Shutdown the appliance?") == 0:
             executil.system("shutdown -h now")
 
+    def _adv_exit(self):
+        self.running = False
+
     def loop(self):
-        while 1:
+        self.running = True
+        while self.running:
             if self.dialog_info() is not 0:
                 break
 
