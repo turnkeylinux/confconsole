@@ -18,6 +18,8 @@ def _readfile(path):
     return lines
 
 class NIC:
+    """class to control a network interface cards configuration"""
+
     class ATTRIBS:
         ADDRS = {
             'addr':         SIOCGIFADDR,
@@ -55,7 +57,10 @@ class NIC:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
 class Netconf(NIC):
+    """class to extend the NIC class with network related configurations
+    not directly related to the interface itself
 
+    """
     def set_staticip(self, addr, netmask):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
@@ -120,6 +125,13 @@ class InterfacesError(Exception):
     pass
 
 class Interfaces:
+    """class for controlling /etc/network/interfaces
+
+    an error will be raised if the interfaces file does not include the
+    header: # UNCONFIGURED INTERFACES (in other words, we will not override
+    any customizations)
+    """
+
     def __init__(self, ifname):
         self.ifname = ifname
         self.path = '/etc/network/interfaces'
@@ -163,15 +175,22 @@ class Interfaces:
         fh.close()
 
 class Connection:
-    def __init__(self, proto, attribs):
-        self.proto = proto # tcp, tcp6, udp
+    """class for holding a network connections configuration"""
+
+    def __init__(self, proto, attribs, debug=False):
+        """
+        proto is one of tcp, tcp6, udp
+        attribs is a line from /proc/net/$proto (split into an array) 
+        """
+        self.proto = proto
         self.lhost, self.lport = self._map_hostport(attribs[1])
         self.rhost, self.rport = self._map_hostport(attribs[2])
 
         self.status = self._map_status(attribs[3])
 
-        #print "%s\t%s:%s\t\t%s:%s\t\t%s" % (self.proto, self.lhost, self.lport,
-        #                                    self.rhost, self.rport, self.status)
+        if debug:
+            print "%s\t%s:%s\t\t%s:%s\t\t%s" % (self.proto, self.lhost, self.lport,
+                                                self.rhost, self.rport, self.status)
 
     @staticmethod
     def _int2host(host):
