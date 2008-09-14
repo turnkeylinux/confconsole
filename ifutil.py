@@ -59,8 +59,8 @@ class NIC:
 class Netconf(NIC):
     """class to extend the NIC class with network related configurations
     not directly related to the interface itself
-
     """
+
     def set_staticip(self, addr, netmask):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)

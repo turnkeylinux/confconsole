@@ -44,12 +44,12 @@ class Console:
 
 class TurnkeyConsole:
     def __init__(self):
-        title = "Turnkey Linux Console Configuration"
+        title = "TurnKey Linux Console Configuration"
         self.width = 60
         self.height = 18
 
         self.console = Console(title, self.width, self.height)
-        self.appname = "Turnkey Linux %s" % ifutil.get_hostname().capitalize()
+        self.appname = "TurnKey Linux %s" % ifutil.get_hostname().capitalize()
 
     @staticmethod
     def _get_netservices():
@@ -87,7 +87,7 @@ class TurnkeyConsole:
 
         body = self._get_netservices()
 
-        footer = "For more information visit the Turnkey Linux Website\n"
+        footer = "For more information visit the TurnKey Linux Website\n"
         footer += "             http://www.turnkeylinux.org"
 
         curlines = header.count('\n') + body.count('\n') + footer.count('\n')
