@@ -207,9 +207,12 @@ def valid_ipv4(addr):
 IFNAME = 'eth0'  # todo: get preferred interface (ifprobe)
 def set_ipconf(addr, netmask, gateway, nameserver):
     net = Netconf(IFNAME)
-    net.set_staticip(addr, netmask)
     net.set_gateway(gateway)
     net.set_nameserver(nameserver)
+    try:
+        net.set_staticip(addr, netmask)
+    except InterfacesError, e:
+        return str(e)
 
 def get_ipconf():
     net = Netconf(IFNAME)
@@ -217,7 +220,12 @@ def get_ipconf():
 
 def get_dhcp():
     net = Netconf(IFNAME)
-    net.get_dhcp()
+    try:
+        net.get_dhcp()
+    except executil.ExecError, e:
+        return str(e)
+    except InterfacesError, e:
+        return str(e)
 
 def get_hostname():
     return socket.gethostname()

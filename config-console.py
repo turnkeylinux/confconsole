@@ -142,12 +142,15 @@ class TurnkeyConsole:
                 self.console.msgbox("Invalid Input", "Invalid Address: %s" % addr)
                 return
 
-        ifutil.set_ipconf(*input)
+        err = ifutil.set_ipconf(*input)
+        if err:
+            self.console.msgbox("Error", err)
 
     def _adv_dhcp(self):
         self.console.infobox("Requesting DHCP...")
-        if not ifutil.get_dhcp():
-            self.console.msgbox("Error", "Could not obtain lease")
+        err = ifutil.get_dhcp()
+        if err:
+            self.console.msgbox("Error", err)
 
     def _adv_reboot(self):
         if self.console.yesno("Reboot the appliance?") == 0:
