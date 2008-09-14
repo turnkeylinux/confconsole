@@ -202,7 +202,6 @@ class TurnkeyConsole:
         self.installer.execute()
 
     def _adv_reboot(self):
-
         if self.console.yesno("Reboot the appliance?") == 0:
             executil.system("shutdown -r now")
 
