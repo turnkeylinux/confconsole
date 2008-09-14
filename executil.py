@@ -1,3 +1,5 @@
+# Copyright (c) 2008 Liraz Siri <liraz@turnkeylinux.org> - all rights reserved
+
 """This module contains high-level convenience functions for safe
 command execution that properly escape arguments and raise an
 ExecError exception on error"""

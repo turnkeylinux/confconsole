@@ -1,3 +1,4 @@
+# Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import re
 import time

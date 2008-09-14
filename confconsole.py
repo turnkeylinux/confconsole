@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import dialog
 
@@ -44,7 +45,7 @@ class Console:
 
 class TurnkeyConsole:
     def __init__(self):
-        title = "TurnKey Linux Console Configuration"
+        title = "TurnKey Linux Configuration Console"
         self.width = 60
         self.height = 18
 
