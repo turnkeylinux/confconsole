@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
+import os
 import dialog
 
-import executil
 import ifutil
+import executil
 
 class Error(Exception):
     pass
@@ -43,6 +44,31 @@ class Console:
                                  form_height=len(fields)+1,
                                  title=title, fields=fields)
 
+class Installer:
+    def __init__(self, path):
+        self.path = path
+        self.available = self._is_available()
+
+    def _is_available(self):
+        if not os.path.exists(self.path):
+            return False
+
+        fh = file('/proc/cmdline')
+        cmdline = fh.readline()
+        fh.close()
+
+        for cmd in cmdline.split():
+            if cmd == "boot=casper":
+                return True
+
+        return False
+
+    def execute(self):
+        if not self.available:
+            raise Error("installer is not available to be executed")
+
+        executil.system(self.path)
+
 class TurnkeyConsole:
     def __init__(self):
         title = "TurnKey Linux Configuration Console"
@@ -51,6 +77,8 @@ class TurnkeyConsole:
 
         self.console = Console(title, self.width, self.height)
         self.appname = "TurnKey Linux %s" % ifutil.get_hostname().capitalize()
+
+        self.installer = Installer(path='/usr/bin/di-live')
 
     @staticmethod
     def _get_netservices():
@@ -101,12 +129,19 @@ class TurnkeyConsole:
     def _get_advtext(self):
         return "%s %s\n" % (self.appname, self._get_advtitle())
 
-    def _get_advchoices(self):
-        return [("StaticIP", "Manual network configuration"),
-                ("DHCP", "Automatic network configuration"),
-                ("Reboot", "Reboot the appliance"),
-                ("Shutdown", "Shutdown the appliance"),
-                ("Quit", "Quit the configuration console")]
+    def _get_advmenu(self):
+        items = []
+        items.append(("StaticIP", "Manual network configuration"))
+        items.append(("DHCP", "Automatic network configuration"))
+
+        if self.installer.available:
+            items.append(("Install", "Install to hard disk"))
+
+        items.append(("Reboot", "Reboot the appliance"))
+        items.append(("Shutdown", "Shutdown the appliance"))
+        items.append(("Quit", "Quit the configuration console"))
+
+        return items
 
     def dialog_info(self):
         return self.console.msgbox(self._get_infotitle(),
@@ -116,7 +151,7 @@ class TurnkeyConsole:
     def dialog_adv(self):
         retcode, choice = self.console.menu(self._get_advtitle(),
                                             self._get_advtext(),
-                                            self._get_advchoices())
+                                            self._get_advmenu())
         if retcode is not 0:
             return
         
@@ -159,7 +194,15 @@ class TurnkeyConsole:
         if err:
             self.console.msgbox("Error", err)
 
+    def _adv_install(self):
+        text = "Please note that any changes you may have made to the\n"
+        text += "live system will *not* be installed to the hard disk.\n\n"
+        self.console.msgbox("Installer", text)
+
+        self.installer.execute()
+
     def _adv_reboot(self):
+
         if self.console.yesno("Reboot the appliance?") == 0:
             executil.system("shutdown -r now")
 
