@@ -21,6 +21,7 @@ install:
 binary-indep: install
 	dh_testdir
 	dh_testroot
+	dh_installinit -r --no-start -- start 99 2 .
 	dh_installdocs
 	dh_installdeb
 	dh_gencontrol

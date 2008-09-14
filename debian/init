@@ -1,0 +1,49 @@
+#!/bin/sh
+# Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+
+NAME=confconsole
+
+set -e
+. /lib/lsb/init-functions
+
+# don't run the console if noconfconsole is passed as a boot param
+for x in $(cat /proc/cmdline); do
+    if [ $x = "noconfconsole" ]; then
+        exit 0
+    fi
+done
+
+which openvt >/dev/null || exit 0
+
+case "$1" in
+  start)
+    log_begin_msg "Starting $NAME"
+
+    # if usplash is running, make sure to stop it now, yes "start" kills it.
+    if pidof usplash > /dev/null; then
+        DO_NOT_SWITCH_VT=yes /etc/init.d/usplash start
+    fi
+
+    # turn off console blanking for install process
+    setterm -blank 0
+
+    # start the configuration console on a new virtual terminal
+    openvt -s -w -- confconsole
+
+    log_action_end_msg $?
+  ;;
+  restart|reload|force-reload)
+        echo "Error: argument '$1' not supported" >&2
+        exit 3
+        ;;
+  stop)
+        # No-op
+        ;;
+  *)
+    N=/etc/init.d/$NAME
+    echo "Usage: $N {start}" >&2
+    exit 1
+  ;;
+esac
+
+exit 0
