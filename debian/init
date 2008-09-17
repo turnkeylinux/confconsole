@@ -28,7 +28,7 @@ case "$1" in
     setterm -blank 0
 
     # start the configuration console on a new virtual terminal
-    openvt -s -w -- confconsole
+    openvt -s -w -- confconsole &
 
     log_action_end_msg $?
   ;;
