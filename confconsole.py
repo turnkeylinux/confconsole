@@ -94,9 +94,9 @@ class TurnkeyConsole:
         if not ipaddr or ipaddr.startswith('169'): # self assigned
             return "Error: default interface not configured\n"
 
-        services = {22: "Secure Shell: ssh root@%s\n" % ipaddr,
-                    80: "Web Browser:  http://%s\n" % ipaddr,
-                    10000: "Web Admin:    https://%s:10000\n" % ipaddr}
+        services = {22:    "Secure Shell:  ssh root@%s\n" % ipaddr,
+                    80:    "HTTP Browser:  http://%s\n" % ipaddr,
+                    10000: "Admin Console: https://%s:10000\n" % ipaddr}
 
         services_list = ""
         for port in services:
