@@ -83,13 +83,13 @@ class TurnkeyConsole:
         self.installer = Installer(path='/usr/bin/di-live')
 
     @staticmethod
-    def _get_templates_path():
-        INSTALL_PATH = os.path.dirname(os.path.dirname(__file__))
-        templates_path = os.path.join(INSTALL_PATH, 'templates')
-        if os.path.exists(templates_path):
-            return templates_path
+    def _get_template_path(filename):
+        for dir in ("templates", "/usr/share/confconsole/templates"):
+            template_path = os.path.join(dir, filename)
+            if os.path.exists(template_path):
+                return template_path
 
-        raise Error('could not find templates path')
+        raise Error('could not find template: %s' % filename)
 
     def _get_infotitle(self):
         return self.appname
@@ -99,8 +99,7 @@ class TurnkeyConsole:
         if not ipaddr or ipaddr.startswith('169'): # self assigned
             return "Error: default interface not configured"
 
-        template = os.path.join(self._get_templates_path(), "info.txt")
-        text = file(template, 'r').read()
+        text = file(self._get_template_path("info.txt"), 'r').read()
         return Template(text).substitute(appname=self.appname,
                                          ipaddr=ipaddr)
 
