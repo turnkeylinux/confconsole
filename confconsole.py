@@ -16,6 +16,7 @@ class Console:
         self.height = height
 
         self.console = dialog.Dialog(dialog="dialog")
+        self.console.add_persistent_args(["--no-collapse"])
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 
