@@ -1,0 +1,13 @@
+You may access this $appname appliance
+over the network using the following methods:
+
+Webmin: https://$ipaddr:10000
+Web:    http://$ipaddr
+SSH:    ssh root@$ipaddr
+
+
+
+
+
+For more information visit the TurnKey Linux Website
+             http://www.turnkeylinux.org

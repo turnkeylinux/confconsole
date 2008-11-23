@@ -3,6 +3,7 @@
 
 import os
 import dialog
+from string import Template
 
 import ifutil
 import executil
@@ -82,48 +83,26 @@ class TurnkeyConsole:
         self.installer = Installer(path='/usr/bin/di-live')
 
     @staticmethod
-    def _get_netservices():
-        def _openport(port):
-            for conn in ifutil.get_connections():
-                if conn.proto in ('tcp', 'tcp6') and \
-                   conn.lhost in ('0.0.0.0', ipaddr) and \
-                   conn.lport == port:
-                    return True
-            return False
+    def _get_templates_path():
+        INSTALL_PATH = os.path.dirname(os.path.dirname(__file__))
+        templates_path = os.path.join(INSTALL_PATH, 'templates')
+        if os.path.exists(templates_path):
+            return templates_path
 
-        ipaddr = ifutil.get_ipconf()[0]
-        if not ipaddr or ipaddr.startswith('169'): # self assigned
-            return "Error: default interface not configured\n"
-
-        services = {22:    "Secure Shell:  ssh root@%s\n" % ipaddr,
-                    80:    "HTTP Browser:  http://%s\n" % ipaddr,
-                    10000: "Admin Console: https://%s:10000\n" % ipaddr}
-
-        services_list = ""
-        for port in services:
-            if _openport(port):
-                services_list += services[port]
-
-        if not services_list:
-            return "Error: no services binded to default interface"
-
-        return services_list
+        raise Error('could not find templates path')
 
     def _get_infotitle(self):
         return self.appname
 
     def _get_infotext(self):
-        header = "You may access this %s appliance\n" % self.appname
-        header += "over the network using the following methods:\n\n"
+        ipaddr = ifutil.get_ipconf()[0]
+        if not ipaddr or ipaddr.startswith('169'): # self assigned
+            return "Error: default interface not configured"
 
-        body = self._get_netservices()
-
-        footer = "For more information visit the TurnKey Linux Website\n"
-        footer += "             http://www.turnkeylinux.org"
-
-        curlines = header.count('\n') + body.count('\n') + footer.count('\n')
-        bodypad = "\n"*(self.height - 6 - curlines)
-        return header + body + bodypad + footer
+        template = os.path.join(self._get_templates_path(), "info.txt")
+        text = file(template, 'r').read()
+        return Template(text).substitute(appname=self.appname,
+                                         ipaddr=ipaddr)
 
     def _get_advtitle(self):
         return "Advanced Menu"
