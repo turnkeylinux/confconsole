@@ -165,7 +165,7 @@ class Interfaces:
         print >> fh, "iface %s inet dhcp" % self.ifname
         fh.close()
 
-    def set_staticip(self, addr, netmask):
+    def set_staticip(self, addr, netmask, gateway):
         fh = file(self.path, "w")
         print >> fh, self._header() + "\n"
         print >> fh, self._loopback() + "\n"
@@ -173,6 +173,7 @@ class Interfaces:
         print >> fh, "iface %s inet static" % self.ifname
         print >> fh, "    address %s" % addr
         print >> fh, "    netmask %s" % netmask
+        print >> fh, "    gateway %s" % gateway
         fh.close()
 
 class Connection:
@@ -230,7 +231,7 @@ def set_ipconf(addr, netmask, gateway, nameserver):
     net.set_gateway(gateway)
     net.set_nameserver(nameserver)
     try:
-        net.set_staticip(addr, netmask)
+        net.set_staticip(addr, netmask, gateway)
     except InterfacesError, e:
         return str(e)
 
