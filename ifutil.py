@@ -62,10 +62,10 @@ class Netconf(NIC):
     not directly related to the interface itself
     """
 
-    def set_staticip(self, addr, netmask):
+    def set_staticip(self, addr, netmask, gateway):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
-        Interfaces(self.ifname).set_staticip(addr, netmask)
+        Interfaces(self.ifname).set_staticip(addr, netmask, gateway)
 
     def get_dhcp(self):
         executil.getoutput("udhcpc --now --quit --interface %s" % IFNAME)
