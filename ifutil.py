@@ -100,12 +100,20 @@ class Netconf(NIC):
         if self.gateway:
             executil.system("route del default gw %s" % self.gateway)
 
-        for i in range(3):
+        def _set_gateway(gateway):
             try:
                 executil.system("route add default gw %s" % gateway)
-                break
-            except:
-                time.sleep(1)
+            except executil.ExecError:
+                return False
+            return True
+
+        for i in range(3):
+            if _set_gateway(gateway):
+                return
+
+            time.sleep(1)
+
+        raise Error("Unable to configure gateway: %s" % gateway)
 
     @staticmethod
     def get_nameserver():
