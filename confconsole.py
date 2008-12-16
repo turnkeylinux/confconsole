@@ -178,10 +178,12 @@ class TurnkeyConsole:
 
     def _adv_reboot(self):
         if self.console.yesno("Reboot the appliance?") == 0:
+            self.running = False
             executil.system("shutdown -r now")
 
     def _adv_shutdown(self):
         if self.console.yesno("Shutdown the appliance?") == 0:
+            self.running = False
             executil.system("shutdown -h now")
 
     def _adv_quit(self):
