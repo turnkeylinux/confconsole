@@ -159,11 +159,6 @@ class TurnkeyConsole:
         if retcode is not 0:
             return
 
-        for addr in input:
-            if addr and not ifutil.valid_ipv4(addr):
-                self.console.msgbox("Invalid Input", "Invalid Address: %s" % addr)
-                return
-
         err = ifutil.set_ipconf(*input)
         if err:
             self.console.msgbox("Error", err)

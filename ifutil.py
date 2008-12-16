@@ -18,6 +18,9 @@ def _readfile(path):
     fh.close()
     return lines
 
+class Error(Exception):
+    pass
+
 class NIC:
     """class to control a network interface cards configuration"""
 
@@ -42,20 +45,27 @@ class NIC:
         return socket.inet_ntoa(result[20:24])
 
     def set_ipaddr(self, addr):
-        if addr == self.addr or addr == "":
+        if addr == self.addr:
             return
+
+        if not is_ipaddr(addr):
+            raise Error("Invalid IP Address: %s" % addr)
 
         executil.system("ifconfig %s %s up" % (self.ifname, addr))
 
     def set_netmask(self, netmask):
-        if netmask == self.netmask or netmask == "":
+        if netmask == self.netmask:
             return
+
+        if not is_ipaddr(netmask):
+            raise Error("Invalid IP Address: %s" % netmask)
 
         executil.system("ifconfig %s netmask %s" % (self.ifname, netmask))
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
+
 
 class Netconf(NIC):
     """class to extend the NIC class with network related configurations
@@ -65,6 +75,8 @@ class Netconf(NIC):
     def set_staticip(self, addr, netmask, gateway):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
+        if gateway:
+            self.set_gateway(gateway)
         Interfaces(self.ifname).set_staticip(addr, netmask, gateway)
 
     def get_dhcp(self):
@@ -80,8 +92,11 @@ class Netconf(NIC):
         return None
 
     def set_gateway(self, gateway):
-        if gateway == self.gateway or gateway == "":
+        if gateway == self.gateway:
             return
+
+        if not is_ipaddr(gateway):
+            raise Error("Invalid IP Address: %s" % gateway)
 
         if self.gateway:
             executil.system("route del default gw %s" % self.gateway)
@@ -122,9 +137,6 @@ class Netconf(NIC):
         if attrname == "nameserver":
             return self.get_nameserver()
 
-class InterfacesError(Exception):
-    pass
-
 class Interfaces:
     """class for controlling /etc/network/interfaces
 
@@ -138,7 +150,7 @@ class Interfaces:
         self.path = '/etc/network/interfaces'
 
         if not self._is_unconfigured():
-            raise InterfacesError("%s is not \'unconfigured\'" % self.path)
+            raise Error("%s is not \'unconfigured\'" % self.path)
 
     @staticmethod
     def _header():
@@ -173,7 +185,8 @@ class Interfaces:
         print >> fh, "iface %s inet static" % self.ifname
         print >> fh, "    address %s" % addr
         print >> fh, "    netmask %s" % netmask
-        print >> fh, "    gateway %s" % gateway
+        if gateway:
+            print >> fh, "    gateway %s" % gateway
         fh.close()
 
 class Connection:
@@ -217,10 +230,15 @@ class Connection:
         except KeyError:
             return 'UNKNOWN'
 
-def valid_ipv4(addr):
-    ip4_re = re.compile(r'^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$') 
-    if not ip4_re.search(addr):
+def is_ipaddr(ip):
+    if ip.count('.') is not 3: # workaround for inet_aton bug
         return False
+
+    try:
+        packed = socket.inet_aton(ip)
+    except socket.error:
+        return False
+
     return True
 
 # convenience functions
@@ -228,11 +246,10 @@ def valid_ipv4(addr):
 IFNAME = 'eth0'  # todo: get preferred interface (ifprobe)
 def set_ipconf(addr, netmask, gateway, nameserver):
     net = Netconf(IFNAME)
-    net.set_gateway(gateway)
-    net.set_nameserver(nameserver)
     try:
         net.set_staticip(addr, netmask, gateway)
-    except InterfacesError, e:
+        net.set_nameserver(nameserver)
+    except Error, e:
         return str(e)
 
 def get_ipconf():
@@ -245,7 +262,7 @@ def get_dhcp():
         net.get_dhcp()
     except executil.ExecError, e:
         return str(e)
-    except InterfacesError, e:
+    except Error, e:
         return str(e)
 
 def get_hostname():
