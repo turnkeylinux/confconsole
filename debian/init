@@ -1,7 +1,10 @@
 #!/bin/sh
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
+DESC="Configuration Console"
 NAME=confconsole
+DAEMON=/usr/bin/$NAME
+PIDFILE=/var/run/$NAME.pid
 
 set -e
 . /lib/lsb/init-functions
@@ -13,7 +16,11 @@ for x in $(cat /proc/cmdline); do
     fi
 done
 
+# Exit if openvt is not available
 which openvt >/dev/null || exit 0
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
 
 case "$1" in
   start)
@@ -28,22 +35,34 @@ case "$1" in
     setterm -blank 0
 
     # start the configuration console on a new virtual terminal
-    openvt -s -w -- confconsole &
+    START="start-stop-daemon --start \
+               --pidfile $PIDFILE --make-pidfile \
+               --startas $DAEMON"
 
+    if $START --quiet --test; then
+        openvt -s -w -- $START &
+    fi
     log_action_end_msg $?
-  ;;
-  restart|reload|force-reload)
-        echo "Error: argument '$1' not supported" >&2
-        exit 3
-        ;;
+    ;;
+
   stop)
-        # No-op
-        ;;
+    STOP="start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile $PIDFILE"
+    if $STOP --quiet; then
+        rm -f $PIDFILE
+    fi
+    log_action_end_msg $?
+    ;;
+
+  restart|reload|force-reload)
+    echo "Error: argument '$1' not supported" >&2
+    exit 3
+    ;;
+
   *)
     N=/etc/init.d/$NAME
     echo "Usage: $N {start}" >&2
     exit 1
-  ;;
+    ;;
 esac
 
 exit 0
