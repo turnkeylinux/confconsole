@@ -66,7 +66,6 @@ class NIC:
         if attrname in self.ATTRIBS.ADDRS:
             return self._get_addr(self.ATTRIBS.ADDRS[attrname])
 
-
 class Netconf(NIC):
     """class to extend the NIC class with network related configurations
     not directly related to the interface itself
@@ -122,6 +121,9 @@ class Netconf(NIC):
     def set_nameserver(self, nameserver):
         if self.nameserver == nameserver:
             return
+
+        if not is_ipaddr(nameserver):
+            raise Error("Invalid IP Address: %s" % nameserver)
 
         fh = file('/etc/resolv.conf', "w")
         print >> fh, "nameserver %s" % nameserver
@@ -248,7 +250,8 @@ def set_ipconf(addr, netmask, gateway, nameserver):
     net = Netconf(IFNAME)
     try:
         net.set_staticip(addr, netmask, gateway)
-        net.set_nameserver(nameserver)
+        if nameserver:
+            net.set_nameserver(nameserver)
     except Error, e:
         return str(e)
 
