@@ -84,7 +84,11 @@ class Netconf(NIC):
 
     @staticmethod
     def get_gateway():
-        output = executil.getoutput("route -n")
+        try:
+            output = executil.getoutput("route -n")
+        except executil.ExecError:
+            return None
+
         m = re.search('^0.0.0.0\s+(.*?)\s', output, re.M)
         if m:
             return m.group(1)
