@@ -124,18 +124,24 @@ class TurnkeyConsole:
             if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
                 continue
 
-            # todo: static or dhcp + default?
+            # todo: default?
             # 1.0.0.1 (static) [*]
             addr = ifutil.get_ipconf(ifname)[0]
+            desc = addr
+
+            ifmethod = ifutil.get_ifmethod(ifname)
+            if ifmethod:
+                desc += " (%s)" % ifmethod
+
             if addr is None:
-                addr = "not configured"
-            
-            menu.append((ifname, addr))
+                desc = "not configured"
+
+            menu.append((ifname, desc))
 
         return menu
 
     def _get_ifconftext(self, ifname):
-        # todo: static or dhcp + default?
+        # todo: default?
         addr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
         if addr is None:
             return "Interface is not configured\n"
@@ -144,6 +150,10 @@ class TurnkeyConsole:
         text += "Netmask:         %s\n" % netmask
         text += "Default Gateway: %s\n" % gateway
         text += "Name Server:     %s\n" % nameserver
+
+        ifmethod = ifutil.get_ifmethod(ifname)
+        if ifmethod:
+            text += "\nInterface configuration method: %s\n" % ifmethod
 
         return text
 

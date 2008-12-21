@@ -207,6 +207,17 @@ def is_ipaddr(ip):
 
     return True
 
+def get_ifmethod(ifname):
+    conf = Interfaces().conf
+    if not conf.has_key(ifname):
+        return None
+
+    m = re.match(".*\niface %s inet (.*)" % ifname, conf[ifname])
+    if m:
+        return m.group(1)
+
+    return None
+
 def get_ifnames():
     """ returns list of interface names (up and down) """
     ifnames = []

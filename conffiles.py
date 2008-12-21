@@ -15,7 +15,7 @@ class Interfaces:
 
     CONF_FILE='/etc/network/interfaces'
 
-    def load_conf(self):
+    def _load_conf(self):
         self.conf = {}
         self.unconfigured = False
 
@@ -37,9 +37,7 @@ class Interfaces:
                 self.conf[ifname] = self.conf[ifname] + line + "\n"
 
     def __init__(self):
-        self.load_conf()
-        if not self.unconfigured:
-            raise Error("%s is not \'unconfigured\'" % self.CONF_FILE)
+        self._load_conf()
 
     @staticmethod
     def _header():
@@ -52,7 +50,9 @@ class Interfaces:
                           "iface lo inet loopback"])
 
     def write_conf(self, ifname, ifconf):
-        self.load_conf()
+        self._load_conf()
+        if not self.unconfigured:
+            raise Error("%s is not \'unconfigured\'" % self.CONF_FILE)
 
         fh = file(self.CONF_FILE, "w")
         print >> fh, self._header() + "\n"
