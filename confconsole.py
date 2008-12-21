@@ -91,15 +91,10 @@ class TurnkeyConsole:
 
         raise Error('could not find template: %s' % filename)
 
-    def _get_infotitle(self):
-        return self.appname
-
-    def _get_infotext(self):
-        ipaddr = ifutil.get_ipconf()[0]
-        if not ipaddr or ipaddr.startswith('169'): # self assigned
-            return "Error: default interface not configured"
-
+    def _get_infotext(self, ifname):
+        ipaddr = ifutil.get_ipconf(ifname)[0]
         text = file(self._get_template_path("info.txt"), 'r').read()
+
         return Template(text).substitute(appname=self.appname,
                                          ipaddr=ipaddr)
 
@@ -111,8 +106,7 @@ class TurnkeyConsole:
 
     def _get_advmenu(self):
         items = []
-        items.append(("StaticIP", "Manual network configuration"))
-        items.append(("DHCP", "Automatic network configuration"))
+        items.append(("Networking", "Configure appliance networking"))
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
@@ -123,9 +117,52 @@ class TurnkeyConsole:
 
         return items
 
+    def _get_netmenu(self):
+        ifnames = ifutil.get_ifnames()
+        menu = []
+        for ifname in ifnames:
+            if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
+                continue
+
+            # todo: static or dhcp + default?
+            # 1.0.0.1 (static) [*]
+            addr = ifutil.get_ipconf(ifname)[0]
+            if addr is None:
+                addr = "not configured"
+            
+            menu.append((ifname, addr))
+
+        return menu
+
+    def _get_ifconftext(self, ifname):
+        # todo: static or dhcp + default?
+        addr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
+        if addr is None:
+            return "Interface is not configured\n"
+        
+        text =  "IP Address:      %s\n" % addr
+        text += "Netmask:         %s\n" % netmask
+        text += "Default Gateway: %s\n" % gateway
+        text += "Name Server:     %s\n" % nameserver
+
+        return text
+
+    def _get_ifconfmenu(self, ifname):
+        #todo: if already configured as default, dont display option
+        menu = []
+        menu.append(("DHCP", "Configure this NIC automatically"))
+        menu.append(("StaticIP", "Configure this NIC manually"))
+        menu.append(("Default", "Set as default NIC displayed in Usage"))
+
+        return menu
+
     def dialog_info(self):
-        return self.console.msgbox(self._get_infotitle(),
-                                   self._get_infotext(), 
+        ifname = 'eth1'
+        #if not ipaddr or ipaddr.startswith('169'): # self assigned
+        #    return "Error: default interface not configured"
+
+        return self.console.msgbox("Usage",
+                                   self._get_infotext(ifname),
                                    button_label=self._get_advtitle())
 
     def dialog_adv(self):
@@ -143,8 +180,37 @@ class TurnkeyConsole:
 
         method()
 
-    def _adv_staticip(self):
-        ipaddr, netmask, gateway, nameserver = ifutil.get_ipconf()
+    def dialog_net(self):
+        retcode, choice = self.console.menu("Networking configuration", 
+                                            "Choose interface to configure", 
+                                            self._get_netmenu())
+
+        if retcode is not 0:
+            return
+
+        self.dialog_ifconf(choice)
+
+    _adv_networking = dialog_net
+
+    def dialog_ifconf(self, ifname):
+        while 1:
+            retcode, choice = self.console.menu("%s configuration" % ifname,
+                                                self._get_ifconftext(ifname),
+                                                self._get_ifconfmenu(ifname))
+
+            if retcode is not 0:
+                break
+
+            try:
+                choice = choice.lower()
+                method = getattr(self, "_ifconf_" + choice)
+            except AttributeError:
+                raise Error("ifconf choice not supported: " + choice)
+
+            method(ifname)
+
+    def _ifconf_staticip(self, ifname):
+        ipaddr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
         field_width = 30
         field_limit = 15
         fields = [
@@ -154,20 +220,25 @@ class TurnkeyConsole:
             ("Name Server", nameserver, field_width, field_limit)
         ]
 
-        retcode, input = self.console.form("Network Settings",
-                                           "Static IP Configuration", fields)
+        retcode, input = self.console.form("Network settings",
+                                           "Static IP configuration (%s)" % ifname,
+                                           fields)
         if retcode is not 0:
             return
 
-        err = ifutil.set_ipconf(*input)
+        err = ifutil.set_ipconf(ifname, *input)
         if err:
             self.console.msgbox("Error", err)
 
-    def _adv_dhcp(self):
-        self.console.infobox("Requesting DHCP...")
-        err = ifutil.get_dhcp()
+    def _ifconf_dhcp(self, ifname):
+        self.console.infobox("Requesting DHCP for %s..." % ifname)
+        err = ifutil.get_dhcp(ifname)
         if err:
             self.console.msgbox("Error", err)
+
+    def _ifconf_default(self, ifname):
+        # todo
+        pass
 
     def _adv_install(self):
         text = "Please note that any changes you may have made to the\n"

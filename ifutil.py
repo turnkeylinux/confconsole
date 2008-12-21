@@ -79,7 +79,7 @@ class Netconf(NIC):
         Interfaces(self.ifname).set_staticip(addr, netmask, gateway)
 
     def get_dhcp(self):
-        executil.getoutput("udhcpc --now --quit --interface %s" % IFNAME)
+        executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
         Interfaces(self.ifname).set_dhcp()
 
     @staticmethod
@@ -244,6 +244,7 @@ class Connection:
         except KeyError:
             return 'UNKNOWN'
 
+
 def is_ipaddr(ip):
     if ip.count('.') is not 3: # workaround for inet_aton bug
         return False
@@ -255,11 +256,20 @@ def is_ipaddr(ip):
 
     return True
 
-# convenience functions
+def get_ifnames():
+    """ returns list of interface names (up and down) """
+    ifnames = []
+    for line in _readfile('/proc/net/dev'):
+        try:
+            ifname, junk = line.strip().split(":")
+            ifnames.append(ifname)
+        except ValueError:
+            pass
 
-IFNAME = 'eth0'  # todo: get preferred interface (ifprobe)
-def set_ipconf(addr, netmask, gateway, nameserver):
-    net = Netconf(IFNAME)
+    return ifnames
+
+def set_ipconf(ifname, addr, netmask, gateway, nameserver):
+    net = Netconf(ifname)
     try:
         net.set_staticip(addr, netmask, gateway)
         if nameserver:
@@ -267,12 +277,13 @@ def set_ipconf(addr, netmask, gateway, nameserver):
     except Error, e:
         return str(e)
 
-def get_ipconf():
-    net = Netconf(IFNAME)
+def get_ipconf(ifname):
+    #todo: type=(static, dhcp)
+    net = Netconf(ifname)
     return net.addr, net.netmask, net.gateway, net.nameserver
 
-def get_dhcp():
-    net = Netconf(IFNAME)
+def get_dhcp(ifname):
+    net = Netconf(ifname)
     try:
         net.get_dhcp()
     except executil.ExecError, e:
