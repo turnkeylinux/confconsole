@@ -7,6 +7,7 @@ import struct
 import socket
 
 import executil
+from conffiles import Interfaces
 
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
@@ -76,11 +77,13 @@ class Netconf(NIC):
         self.set_netmask(netmask)
         if gateway:
             self.set_gateway(gateway)
-        Interfaces(self.ifname).set_staticip(addr, netmask, gateway)
+            Interfaces().set_staticip(self.ifname, addr, netmask, gateway)
+        else:
+            Interfaces().set_staticip(self.ifname, addr, netmask)
 
     def get_dhcp(self):
         executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
-        Interfaces(self.ifname).set_dhcp()
+        Interfaces().set_dhcp(self.ifname)
 
     @staticmethod
     def get_gateway():
@@ -150,58 +153,6 @@ class Netconf(NIC):
 
         if attrname == "nameserver":
             return self.get_nameserver()
-
-class Interfaces:
-    """class for controlling /etc/network/interfaces
-
-    an error will be raised if the interfaces file does not include the
-    header: # UNCONFIGURED INTERFACES (in other words, we will not override
-    any customizations)
-    """
-
-    def __init__(self, ifname):
-        self.ifname = ifname
-        self.path = '/etc/network/interfaces'
-
-        if not self._is_unconfigured():
-            raise Error("%s is not \'unconfigured\'" % self.path)
-
-    @staticmethod
-    def _header():
-        return "\n".join(["# UNCONFIGURED INTERFACES",
-                          "# remove the above line if you edit this file"])
-
-    @staticmethod
-    def _loopback():
-        return "\n".join(["auto lo",
-                          "iface lo inet loopback"])
-
-    def _is_unconfigured(self):
-        for line in _readfile(self.path):
-            if line.strip() == self._header().splitlines()[0]:
-                return True
-
-        return False
-
-    def set_dhcp(self):
-        fh = file(self.path, "w")
-        print >> fh, self._header() + "\n"
-        print >> fh, self._loopback() + "\n"
-        print >> fh, "auto %s" % self.ifname
-        print >> fh, "iface %s inet dhcp" % self.ifname
-        fh.close()
-
-    def set_staticip(self, addr, netmask, gateway):
-        fh = file(self.path, "w")
-        print >> fh, self._header() + "\n"
-        print >> fh, self._loopback() + "\n"
-        print >> fh, "auto %s" % self.ifname
-        print >> fh, "iface %s inet static" % self.ifname
-        print >> fh, "    address %s" % addr
-        print >> fh, "    netmask %s" % netmask
-        if gateway:
-            print >> fh, "    gateway %s" % gateway
-        fh.close()
 
 class Connection:
     """class for holding a network connections configuration"""
