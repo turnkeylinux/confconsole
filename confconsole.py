@@ -185,9 +185,10 @@ class TurnkeyConsole:
         if not ifname or ifutil.get_ipconf(ifname)[0].startswith('169'):
             self.console.msgbox("Error", "No interfaces are configured")
             if len(self._get_filtered_ifnames()) > 1:
-                return self.dialog_net()
-            
-            return self.dialog_ifconf(ifname)
+                self.dialog_net()
+            else:
+                self.dialog_ifconf(ifname)
+            return 0
 
         t = file(self._get_template_path("usage.txt"), 'r').read()
         text = Template(t).substitute(appname=self.appname,
