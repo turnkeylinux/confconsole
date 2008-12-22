@@ -91,9 +91,9 @@ class TurnkeyConsole:
 
         raise Error('could not find template: %s' % filename)
 
-    def _get_infotext(self, ifname):
+    def _get_usagetext(self, ifname):
         ipaddr = ifutil.get_ipconf(ifname)[0]
-        text = file(self._get_template_path("info.txt"), 'r').read()
+        text = file(self._get_template_path("usage.txt"), 'r').read()
 
         return Template(text).substitute(appname=self.appname,
                                          ipaddr=ipaddr)
@@ -166,13 +166,13 @@ class TurnkeyConsole:
 
         return menu
 
-    def dialog_info(self):
+    def dialog_usage(self):
         ifname = 'eth1'
         #if not ipaddr or ipaddr.startswith('169'): # self assigned
         #    return "Error: default interface not configured"
 
         return self.console.msgbox("Usage",
-                                   self._get_infotext(ifname),
+                                   self._get_usagetext(ifname),
                                    button_label=self._get_advtitle())
 
     def dialog_adv(self):
@@ -273,7 +273,7 @@ class TurnkeyConsole:
     def loop(self):
         self.running = True
         while self.running:
-            if self.dialog_info() is not 0:
+            if self.dialog_usage() is not 0:
                 break
 
             self.dialog_adv()
