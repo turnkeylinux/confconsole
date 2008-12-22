@@ -104,29 +104,16 @@ class TurnkeyConsole:
         return ifnames
 
     @classmethod
-    def _get_ifdefault(cls):
-        ifdefault = ConsoleConf().default_nic
-        if ifdefault and ifutil.get_ipconf(ifdefault)[0]:
-            return ifdefault
+    def _get_default_nic(cls):
+        ifname = ConsoleConf().default_nic
+        if ifname and ifutil.get_ipconf(ifname)[0]:
+            return ifname
 
         for ifname in cls._get_filtered_ifnames():
             if ifutil.get_ipconf(ifname)[0]:
                 return ifname
 
         return None
-
-    def _get_usagetext(self, ifname):
-        ipaddr = ifutil.get_ipconf(ifname)[0]
-        text = file(self._get_template_path("usage.txt"), 'r').read()
-
-        return Template(text).substitute(appname=self.appname,
-                                         ipaddr=ipaddr)
-
-    def _get_advtitle(self):
-        return "Advanced Menu"
-
-    def _get_advtext(self):
-        return "%s %s\n" % (self.appname, self._get_advtitle())
 
     def _get_advmenu(self):
         items = []
@@ -142,7 +129,6 @@ class TurnkeyConsole:
         return items
 
     def _get_netmenu(self):
-        ifnames = ifutil.get_ifnames()
         menu = []
         for ifname in self._get_filtered_ifnames():
             addr = ifutil.get_ipconf(ifname)[0]
@@ -153,12 +139,22 @@ class TurnkeyConsole:
                 if ifmethod:
                     desc += " (%s)" % ifmethod
 
-                if ifname == self._get_ifdefault():
+                if ifname == self._get_default_nic():
                     desc += " [*]"
             else:
                 desc = "not configured"
 
             menu.append((ifname, desc))
+
+        return menu
+
+    def _get_ifconfmenu(self, ifname):
+        menu = []
+        menu.append(("DHCP", "Configure this NIC automatically"))
+        menu.append(("StaticIP", "Configure this NIC manually"))
+
+        if not ifname == self._get_default_nic():
+            menu.append(("Default", "Set as default NIC displayed in Usage"))
 
         return menu
 
@@ -176,23 +172,16 @@ class TurnkeyConsole:
         if ifmethod:
             text += "Interface configuration method: %s\n" % ifmethod
 
-        if ifname == self._get_ifdefault():
+        if ifname == self._get_default_nic():
             text += "Set as default NIC displayed in Usage\n"
 
         return text
 
-    def _get_ifconfmenu(self, ifname):
-        menu = []
-        menu.append(("DHCP", "Configure this NIC automatically"))
-        menu.append(("StaticIP", "Configure this NIC manually"))
-
-        if not ifname == self._get_ifdefault():
-            menu.append(("Default", "Set as default NIC displayed in Usage"))
-
-        return menu
-
     def dialog_usage(self):
-        ifname = self._get_ifdefault()
+        """display usage unless no interfaces are configured, in which
+           case display an error and go directly to network configuration
+        """
+        ifname = self._get_default_nic()
         if not ifname or ifutil.get_ipconf(ifname)[0].startswith('169'):
             self.console.msgbox("Error", "No interfaces are configured")
             if len(self._get_filtered_ifnames()) > 1:
@@ -200,13 +189,15 @@ class TurnkeyConsole:
             
             return self.dialog_ifconf(ifname)
 
-        return self.console.msgbox("Usage",
-                                   self._get_usagetext(ifname),
-                                   button_label=self._get_advtitle())
+        t = file(self._get_template_path("usage.txt"), 'r').read()
+        text = Template(t).substitute(appname=self.appname,
+                                      ipaddr=ifutil.get_ipconf(ifname)[0])
+
+        return self.console.msgbox("Usage", text, button_label="Advanced Menu")
 
     def dialog_adv(self):
-        retcode, choice = self.console.menu(self._get_advtitle(),
-                                            self._get_advtext(),
+        retcode, choice = self.console.menu("Advanced Menu",
+                                            self.appname + " Advanced Menu\n",
                                             self._get_advmenu())
         if retcode is not 0:
             return
