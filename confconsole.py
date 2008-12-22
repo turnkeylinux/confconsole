@@ -102,6 +102,14 @@ class TurnkeyConsole:
         ifnames.sort()
         return ifnames
 
+    @classmethod
+    def _get_ifdefault(cls):
+        for ifname in cls._get_filtered_ifnames():
+            if ifutil.get_ipconf(ifname)[0]:
+                return ifname
+
+        return None
+
     def _get_usagetext(self, ifname):
         ipaddr = ifutil.get_ipconf(ifname)[0]
         text = file(self._get_template_path("usage.txt"), 'r').read()
@@ -127,13 +135,6 @@ class TurnkeyConsole:
         items.append(("Quit", "Quit the configuration console"))
 
         return items
-
-    def _get_ifdefault(self):
-        for ifname in self._get_filtered_ifnames():
-            if ifutil.get_ipconf(ifname)[0]:
-                return ifname
-
-        return None
 
     def _get_netmenu(self):
         ifnames = ifutil.get_ifnames()
