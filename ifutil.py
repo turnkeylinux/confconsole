@@ -240,7 +240,6 @@ def set_ipconf(ifname, addr, netmask, gateway, nameserver):
         return str(e)
 
 def get_ipconf(ifname):
-    #todo: type=(static, dhcp)
     net = Netconf(ifname)
     return net.addr, net.netmask, net.gateway, net.nameserver
 

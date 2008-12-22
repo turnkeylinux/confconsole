@@ -91,6 +91,17 @@ class TurnkeyConsole:
 
         raise Error('could not find template: %s' % filename)
 
+    @staticmethod
+    def _get_filtered_ifnames():
+        ifnames = []
+        for ifname in ifutil.get_ifnames():
+            if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
+                continue
+            ifnames.append(ifname)
+
+        ifnames.sort()
+        return ifnames
+
     def _get_usagetext(self, ifname):
         ipaddr = ifutil.get_ipconf(ifname)[0]
         text = file(self._get_template_path("usage.txt"), 'r').read()
@@ -117,23 +128,28 @@ class TurnkeyConsole:
 
         return items
 
+    def _get_ifdefault(self):
+        for ifname in self._get_filtered_ifnames():
+            if ifutil.get_ipconf(ifname)[0]:
+                return ifname
+
+        return None
+
     def _get_netmenu(self):
         ifnames = ifutil.get_ifnames()
         menu = []
-        for ifname in ifnames:
-            if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
-                continue
-
-            # todo: default?
-            # 1.0.0.1 (static) [*]
+        for ifname in self._get_filtered_ifnames():
             addr = ifutil.get_ipconf(ifname)[0]
-            desc = addr
-
             ifmethod = ifutil.get_ifmethod(ifname)
-            if ifmethod:
-                desc += " (%s)" % ifmethod
 
-            if addr is None:
+            if addr:
+                desc = addr
+                if ifmethod:
+                    desc += " (%s)" % ifmethod
+
+                if ifname == self._get_ifdefault():
+                    desc += " [*]"
+            else:
                 desc = "not configured"
 
             menu.append((ifname, desc))
@@ -141,7 +157,6 @@ class TurnkeyConsole:
         return menu
 
     def _get_ifconftext(self, ifname):
-        # todo: default?
         addr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
         if addr is None:
             return "Interface is not configured\n"
@@ -149,27 +164,35 @@ class TurnkeyConsole:
         text =  "IP Address:      %s\n" % addr
         text += "Netmask:         %s\n" % netmask
         text += "Default Gateway: %s\n" % gateway
-        text += "Name Server:     %s\n" % nameserver
+        text += "Name Server:     %s\n\n" % nameserver
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
-            text += "\nInterface configuration method: %s\n" % ifmethod
+            text += "Interface configuration method: %s\n" % ifmethod
+
+        if ifname == self._get_ifdefault():
+            text += "Set as default NIC displayed in Usage\n"
 
         return text
 
     def _get_ifconfmenu(self, ifname):
-        #todo: if already configured as default, dont display option
         menu = []
         menu.append(("DHCP", "Configure this NIC automatically"))
         menu.append(("StaticIP", "Configure this NIC manually"))
-        menu.append(("Default", "Set as default NIC displayed in Usage"))
+
+        if not ifname == self._get_ifdefault():
+            menu.append(("Default", "Set as default NIC displayed in Usage"))
 
         return menu
 
     def dialog_usage(self):
-        ifname = 'eth1'
-        #if not ipaddr or ipaddr.startswith('169'): # self assigned
-        #    return "Error: default interface not configured"
+        ifname = self._get_ifdefault()
+        if not ifname or ifutil.get_ipconf(ifname)[0].startswith('169'):
+            self.console.msgbox("Error", "No interfaces are configured")
+            if len(self._get_filtered_ifnames()) > 1:
+                return self.dialog_net()
+            
+            return self.dialog_ifconf(ifname)
 
         return self.console.msgbox("Usage",
                                    self._get_usagetext(ifname),
