@@ -1,6 +1,7 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import re
+import os
 
 class Error(Exception):
     pass
@@ -83,4 +84,34 @@ class Interfaces:
             ifconf.append("    gateway %s" % gateway)
 
         self.write_conf(ifname, ifconf)
+
+class ConsoleConf:
+    CONF_FILE="/etc/confconsole.conf"
+
+    def _load_conf(self):
+        if not os.path.exists(self.CONF_FILE):
+            return
+
+        for line in file(self.CONF_FILE).readlines():
+            line = line.strip()
+
+            if not line or line.startswith("#"):
+                continue
+
+            op, val = re.split(r'\s+', line, 1)
+            if op == 'default_nic':
+                self.default_nic = val
+            else:
+                raise Error("illegal configuration line: " + line)
+
+    def __init__(self):
+        self.default_nic = None
+        self._load_conf()
+
+    def set_default_nic(self, ifname):
+        self.default_nic = ifname
+
+        fh = file(self.CONF_FILE, "w")
+        print >> fh, "default_nic %s" % ifname
+        fh.close()
 

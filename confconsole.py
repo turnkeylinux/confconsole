@@ -7,6 +7,7 @@ from string import Template
 
 import ifutil
 import executil
+from conffiles import ConsoleConf
 
 class Error(Exception):
     pass
@@ -104,6 +105,10 @@ class TurnkeyConsole:
 
     @classmethod
     def _get_ifdefault(cls):
+        ifdefault = ConsoleConf().default_nic
+        if ifdefault and ifutil.get_ipconf(ifdefault)[0]:
+            return ifdefault
+
         for ifname in cls._get_filtered_ifnames():
             if ifutil.get_ipconf(ifname)[0]:
                 return ifname
@@ -271,8 +276,7 @@ class TurnkeyConsole:
             self.console.msgbox("Error", err)
 
     def _ifconf_default(self, ifname):
-        # todo
-        pass
+        ConsoleConf().set_default_nic(ifname)
 
     def _adv_install(self):
         text = "Please note that any changes you may have made to the\n"
