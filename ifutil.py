@@ -1,5 +1,6 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
+import os
 import re
 import time
 import fcntl
@@ -122,15 +123,16 @@ class Netconf(NIC):
 
         raise Error("Unable to configure gateway: %s" % gateway)
 
-    @staticmethod
-    def get_nameserver():
-        for line in _readfile('/etc/resolv.conf'):
-            if line.startswith('nameserver'):
-                try:
-                    junk, nameserver = line.strip().split()
-                    return nameserver
-                except:
-                    pass
+    def get_nameserver(self):
+        conf = '/var/run/resolvconf/interface/%s' % self.ifname
+        if os.path.exists(conf):
+            for line in _readfile(conf):
+                if line.startswith('nameserver'):
+                    try:
+                        junk, nameserver = line.strip().split()
+                        return nameserver
+                    except:
+                        pass
         return None
 
     def set_nameserver(self, nameserver):
@@ -140,9 +142,8 @@ class Netconf(NIC):
         if not is_ipaddr(nameserver):
             raise Error("Invalid IP Address: %s" % nameserver)
 
-        fh = file('/etc/resolv.conf', "w")
-        print >> fh, "nameserver %s" % nameserver
-        fh.close()
+        cmd = "echo nameserver %s | resolvconf -a %s" % (nameserver, self.ifname)
+        executil.system(cmd)
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
