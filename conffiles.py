@@ -53,7 +53,8 @@ class Interfaces:
     def write_conf(self, ifname, ifconf):
         self._load_conf()
         if not self.unconfigured:
-            raise Error("%s is not \'unconfigured\'" % self.CONF_FILE)
+            raise Error("not writing to %s\nheader not found: %s" %
+                        (self.CONF_FILE, self._header().splitlines()[0]))
 
         fh = file(self.CONF_FILE, "w")
         print >> fh, self._header() + "\n"

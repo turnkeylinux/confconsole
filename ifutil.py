@@ -8,7 +8,7 @@ import struct
 import socket
 
 import executil
-from conffiles import Interfaces
+import conffiles
 
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
@@ -76,15 +76,17 @@ class Netconf(NIC):
     def set_staticip(self, addr, netmask, gateway):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
+        interfaces = conffiles.Interfaces()
         if gateway:
             self.set_gateway(gateway)
-            Interfaces().set_staticip(self.ifname, addr, netmask, gateway)
+            interfaces.set_staticip(self.ifname, addr, netmask, gateway)
         else:
-            Interfaces().set_staticip(self.ifname, addr, netmask)
+            interfaces.set_staticip(self.ifname, addr, netmask)
 
     def get_dhcp(self):
         executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
-        Interfaces().set_dhcp(self.ifname)
+        interfaces = conffiles.Interfaces()
+        interfaces.set_dhcp(self.ifname)
 
     @staticmethod
     def get_gateway():
@@ -209,7 +211,7 @@ def is_ipaddr(ip):
     return True
 
 def get_ifmethod(ifname):
-    conf = Interfaces().conf
+    conf = conffiles.Interfaces().conf
     if not conf.has_key(ifname):
         return None
 
@@ -234,10 +236,14 @@ def get_ifnames():
 def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     net = Netconf(ifname)
     try:
-        net.set_staticip(addr, netmask, gateway)
         if nameserver:
             net.set_nameserver(nameserver)
+        net.set_staticip(addr, netmask, gateway)
     except Error, e:
+        return str(e)
+    except executil.ExecError, e:
+        return str(e)
+    except conffiles.Error, e:
         return str(e)
 
 def get_ipconf(ifname):
@@ -248,9 +254,11 @@ def get_dhcp(ifname):
     net = Netconf(ifname)
     try:
         net.get_dhcp()
+    except Error, e:
+        return str(e)
     except executil.ExecError, e:
         return str(e)
-    except Error, e:
+    except conffiles.Error, e:
         return str(e)
 
 def get_hostname():
