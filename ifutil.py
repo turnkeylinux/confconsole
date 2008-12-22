@@ -126,7 +126,7 @@ class Netconf(NIC):
         raise Error("Unable to configure gateway: %s" % gateway)
 
     def get_nameserver(self):
-        conf = '/var/run/resolvconf/interface/%s' % self.ifname
+        conf = '/var/run/resolvconf/interface/%s.udhcpc' % self.ifname
         if os.path.exists(conf):
             for line in _readfile(conf):
                 if line.startswith('nameserver'):
@@ -144,7 +144,8 @@ class Netconf(NIC):
         if not is_ipaddr(nameserver):
             raise Error("Invalid IP Address: %s" % nameserver)
 
-        cmd = "echo nameserver %s | resolvconf -a %s" % (nameserver, self.ifname)
+        cmd = "echo nameserver %s | resolvconf -a %s.udhcpc" % (nameserver,
+                                                                self.ifname)
         executil.system(cmd)
 
     def __getattr__(self, attrname):
