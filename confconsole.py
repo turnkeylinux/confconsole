@@ -220,16 +220,16 @@ class TurnkeyConsole:
         method()
 
     def dialog_net(self):
-        retcode, choice = self.console.menu("Networking configuration", 
-                                            "Choose interface to configure", 
+        text = "Choose interface to configured\n"
+        text += "[*] Default NIC displayed in Usage"
+
+        retcode, choice = self.console.menu("Networking configuration", text,
                                             self._get_netmenu())
 
         if retcode is not 0:
             return
 
         self.dialog_ifconf(choice)
-
-    _adv_networking = dialog_net
 
     def dialog_ifconf(self, ifname):
         while 1:
@@ -297,6 +297,8 @@ class TurnkeyConsole:
 
     def _adv_quit(self):
         self.running = False
+
+    _adv_networking = dialog_net
 
     def loop(self):
         self.running = True
