@@ -82,46 +82,48 @@ class Netconf(NIC):
     def set_staticip(self, addr, netmask, gateway):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
+        self.set_gateway(gateway)
+
         interfaces = conffiles.Interfaces()
-        if gateway:
-            self.set_gateway(gateway)
-            interfaces.set_staticip(self.ifname, addr, netmask, gateway)
-        else:
-            interfaces.set_staticip(self.ifname, addr, netmask)
+        interfaces.set_staticip(self.ifname, addr, netmask, gateway)
 
     def get_dhcp(self):
         executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
         interfaces = conffiles.Interfaces()
         interfaces.set_dhcp(self.ifname)
 
-    @staticmethod
-    def get_gateway():
+    def get_gateway(self):
         try:
             output = executil.getoutput("route -n")
         except executil.ExecError:
             return None
 
-        m = re.search('^0.0.0.0\s+(.*?)\s', output, re.M)
-        if m:
-            return m.group(1)
+        for line in output.splitlines():
+            m = re.search('^0.0.0.0\s+(.*?)\s+(.*)\s+%s' % self.ifname, line, re.M)
+            if m:
+                return m.group(1)
+
         return None
 
     def set_gateway(self, gateway):
-        if gateway == self.gateway:
-            return
-
-        if not is_ipaddr(gateway):
-            raise Error("Invalid gateway: %s" % gateway)
-
-        if self.gateway:
-            executil.system("route del default gw %s" % self.gateway)
-
         def _set_gateway(gateway):
             try:
                 executil.system("route add default gw %s" % gateway)
             except executil.ExecError:
                 return False
             return True
+
+        if gateway == self.gateway:
+            return
+
+        if gateway and not is_ipaddr(gateway):
+            raise Error("Invalid gateway: %s" % gateway)
+
+        if self.gateway:
+            executil.system("route del default gw %s" % self.gateway)
+        
+        if not gateway:
+            return
 
         for i in range(3):
             if _set_gateway(gateway):
