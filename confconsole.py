@@ -245,25 +245,30 @@ class TurnkeyConsole:
             method(ifname)
 
     def _ifconf_staticip(self, ifname):
-        ipaddr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
+        input = ifutil.get_ipconf(ifname)
         field_width = 30
         field_limit = 15
-        fields = [
-            ("IP Address", ipaddr, field_width, field_limit),
-            ("Netmask", netmask, field_width, field_limit),
-            ("Default Gateway", gateway, field_width, field_limit),
-            ("Name Server", nameserver, field_width, field_limit)
-        ]
 
-        retcode, input = self.console.form("Network settings",
-                                           "Static IP configuration (%s)" % ifname,
-                                           fields)
-        if retcode is not 0:
-            return
+        while 1:
+            fields = [
+                ("IP Address", input[0], field_width, field_limit),
+                ("Netmask", input[1], field_width, field_limit),
+                ("Default Gateway", input[2], field_width, field_limit),
+                ("Name Server", input[3], field_width, field_limit)
+            ]
 
-        err = ifutil.set_ipconf(ifname, *input)
-        if err:
+            text = "Static IP configuration (%s)" % ifname
+            retcode, input = self.console.form("Network settings", text, fields)
+
+            if retcode is not 0:
+                return
+
+            err = ifutil.set_ipconf(ifname, *input)
+            if not err:
+                return
+
             self.console.msgbox("Error", err)
+
 
     def _ifconf_dhcp(self, ifname):
         self.console.infobox("Requesting DHCP for %s..." % ifname)
