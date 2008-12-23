@@ -173,7 +173,7 @@ class TurnkeyConsole:
             text += "Interface configuration method: %s\n" % ifmethod
 
         if ifname == self._get_default_nic():
-            text += "Set as default NIC displayed in Usage\n"
+            text += "Is this the default NIC displayed in Usage: yes\n"
 
         return text
 
