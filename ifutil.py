@@ -50,6 +50,9 @@ class NIC:
         if addr == self.addr:
             return
 
+        if not addr:
+            raise Error("No IP address provided")
+
         if not is_ipaddr(addr):
             raise Error("Invalid IP address: %s" % addr)
 
@@ -58,6 +61,9 @@ class NIC:
     def set_netmask(self, netmask):
         if netmask == self.netmask:
             return
+
+        if not netmask:
+            raise Error("No netmask provided")
 
         if not is_ipaddr(netmask):
             raise Error("Invalid netmask: %s" % netmask)
