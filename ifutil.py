@@ -148,6 +148,10 @@ class Netconf(NIC):
                         pass
         return None
 
+    def del_nameserver(self):
+        if self.nameserver:
+            executil.system("resolvconf -d %s.udhcpc" % self.ifname)
+
     def set_nameserver(self, nameserver):
         if self.nameserver == nameserver:
             return
@@ -155,9 +159,8 @@ class Netconf(NIC):
         if not is_ipaddr(nameserver):
             raise Error("Invalid nameserver: %s" % nameserver)
 
-        cmd = "echo nameserver %s | resolvconf -a %s.udhcpc" % (nameserver,
-                                                                self.ifname)
-        executil.system(cmd)
+        executil.system("echo nameserver %s | \
+                        resolvconf -a %s.udhcpc" % (nameserver, self.ifname))
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
@@ -250,6 +253,9 @@ def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     try:
         if nameserver:
             net.set_nameserver(nameserver)
+        else:
+            net.del_nameserver()
+
         net.set_staticip(addr, netmask, gateway)
     except Error, e:
         return str(e)
