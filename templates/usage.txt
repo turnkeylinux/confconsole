@@ -3,7 +3,7 @@ over the network using the following methods:
 
 Web:    http://$ipaddr
         https://$ipaddr
-Webmin: https://$ipaddr:10000
+Webmin: https://$ipaddr:12321
 SSH:    ssh root@$ipaddr
 
 
