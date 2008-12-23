@@ -222,6 +222,8 @@ class TurnkeyConsole:
 
         else:
             ifname = self._get_default_nic()
+            if not ifname:
+                return
 
         self.dialog_ifconf(ifname)
 
