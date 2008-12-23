@@ -51,7 +51,7 @@ class NIC:
             return
 
         if not is_ipaddr(addr):
-            raise Error("Invalid IP Address: %s" % addr)
+            raise Error("Invalid IP address: %s" % addr)
 
         executil.system("ifconfig %s %s up" % (self.ifname, addr))
 
@@ -60,7 +60,7 @@ class NIC:
             return
 
         if not is_ipaddr(netmask):
-            raise Error("Invalid IP Address: %s" % netmask)
+            raise Error("Invalid netmask: %s" % netmask)
 
         executil.system("ifconfig %s netmask %s" % (self.ifname, netmask))
 
@@ -105,7 +105,7 @@ class Netconf(NIC):
             return
 
         if not is_ipaddr(gateway):
-            raise Error("Invalid IP Address: %s" % gateway)
+            raise Error("Invalid gateway: %s" % gateway)
 
         if self.gateway:
             executil.system("route del default gw %s" % self.gateway)
@@ -142,7 +142,7 @@ class Netconf(NIC):
             return
 
         if not is_ipaddr(nameserver):
-            raise Error("Invalid IP Address: %s" % nameserver)
+            raise Error("Invalid nameserver: %s" % nameserver)
 
         cmd = "echo nameserver %s | resolvconf -a %s.udhcpc" % (nameserver,
                                                                 self.ifname)
