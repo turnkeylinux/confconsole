@@ -184,10 +184,7 @@ class TurnkeyConsole:
         ifname = self._get_default_nic()
         if not ifname or ifutil.get_ipconf(ifname)[0].startswith('169'):
             self.console.msgbox("Error", "No interfaces are configured")
-            if len(self._get_filtered_ifnames()) > 1:
-                self.dialog_net()
-            else:
-                self.dialog_ifconf(ifname)
+            self.dialog_net()
             return 0
 
         t = file(self._get_template_path("usage.txt"), 'r').read()
@@ -212,16 +209,20 @@ class TurnkeyConsole:
         method()
 
     def dialog_net(self):
-        text = "Choose interface to configured\n"
-        text += "[*] Default NIC displayed in Usage"
+        if len(self._get_filtered_ifnames()) > 1:
+            text = "Choose interface to configure\n"
+            text += "[*] Default NIC displayed in Usage"
 
-        retcode, choice = self.console.menu("Networking configuration", text,
-                                            self._get_netmenu())
+            retcode, ifname = self.console.menu("Networking configuration", text,
+                                                self._get_netmenu())
 
-        if retcode is not 0:
-            return
+            if retcode is not 0:
+                return
 
-        self.dialog_ifconf(choice)
+        else:
+            ifname = self._get_default_nic()
+
+        self.dialog_ifconf(ifname)
 
     def dialog_ifconf(self, ifname):
         while 1:
