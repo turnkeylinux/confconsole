@@ -82,7 +82,10 @@ class Netconf(NIC):
     def set_staticip(self, addr, netmask, gateway):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
-        self.set_gateway(gateway)
+        if gateway:
+            self.set_gateway(gateway)
+        else:
+            self.del_gateway()
 
         interfaces = conffiles.Interfaces()
         interfaces.set_staticip(self.ifname, addr, netmask, gateway)
@@ -105,6 +108,10 @@ class Netconf(NIC):
 
         return None
 
+    def del_gateway(self):
+        if self.gateway:
+            executil.system("route del default gw %s" % self.gateway)
+
     def set_gateway(self, gateway):
         def _set_gateway(gateway):
             try:
@@ -116,15 +123,11 @@ class Netconf(NIC):
         if gateway == self.gateway:
             return
 
-        if gateway and not is_ipaddr(gateway):
+        if is_ipaddr(gateway):
             raise Error("Invalid gateway: %s" % gateway)
 
-        if self.gateway:
-            executil.system("route del default gw %s" % self.gateway)
+        self.del_gateway()
         
-        if not gateway:
-            return
-
         for i in range(3):
             if _set_gateway(gateway):
                 return
