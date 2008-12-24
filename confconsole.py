@@ -164,7 +164,8 @@ class TurnkeyConsole:
         menu.append(("StaticIP", "Configure this NIC manually"))
 
         if not ifname == self._get_default_nic() and \
-           len(self._get_filtered_ifnames()) > 1:
+           len(self._get_filtered_ifnames()) > 1 and \
+           ifutil.get_ipconf(ifname)[0] is not None:
             menu.append(("Default", "Set as default NIC displayed in Usage"))
 
         return menu
