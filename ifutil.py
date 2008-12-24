@@ -215,7 +215,8 @@ class Connection:
 
 
 def is_ipaddr(ip):
-    if ip.count('.') is not 3: # workaround for inet_aton bug
+    ipv4 = '^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$'
+    if not re.match(ipv4, ip):
         return False
 
     try:
