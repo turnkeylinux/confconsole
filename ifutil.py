@@ -123,7 +123,7 @@ class Netconf(NIC):
         if gateway == self.gateway:
             return
 
-        if is_ipaddr(gateway):
+        if not is_ipaddr(gateway):
             raise Error("Invalid gateway: %s" % gateway)
 
         self.del_gateway()
@@ -251,12 +251,11 @@ def get_ifnames():
 def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     net = Netconf(ifname)
     try:
+        net.set_staticip(addr, netmask, gateway)
         if nameserver:
             net.set_nameserver(nameserver)
         else:
             net.del_nameserver()
-
-        net.set_staticip(addr, netmask, gateway)
     except Error, e:
         return str(e)
     except executil.ExecError, e:
