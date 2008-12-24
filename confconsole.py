@@ -73,6 +73,10 @@ class Installer:
         executil.system(self.path)
 
 class TurnkeyConsole:
+    OK = 0
+    CANCEL = 1
+    ESC = 2
+
     def __init__(self):
         title = "TurnKey Linux Configuration Console"
         self.width = 60
@@ -105,12 +109,18 @@ class TurnkeyConsole:
 
     @classmethod
     def _get_default_nic(cls):
+        def _validip(ifname):
+            ip = ifutil.get_ipconf(ifname)[0]
+            if ip and not ip.startswith('169'):
+                return True
+            return False
+
         ifname = ConsoleConf().default_nic
-        if ifname and ifutil.get_ipconf(ifname)[0]:
+        if ifname and _validip(ifname):
             return ifname
 
         for ifname in cls._get_filtered_ifnames():
-            if ifutil.get_ipconf(ifname)[0]:
+            if _validip(ifname):
                 return ifname
 
         return None
@@ -153,7 +163,8 @@ class TurnkeyConsole:
         menu.append(("DHCP", "Configure this NIC automatically"))
         menu.append(("StaticIP", "Configure this NIC manually"))
 
-        if not ifname == self._get_default_nic():
+        if not ifname == self._get_default_nic() and \
+           len(self._get_filtered_ifnames()) > 1:
             menu.append(("Default", "Set as default NIC displayed in Usage"))
 
         return menu
@@ -178,74 +189,86 @@ class TurnkeyConsole:
 
         return text
 
-    def dialog_usage(self):
-        """display usage unless no interfaces are configured, in which
-           case display an error and go directly to network configuration
-        """
-        ifname = self._get_default_nic()
-        if not ifname or ifutil.get_ipconf(ifname)[0].startswith('169'):
-            self.console.msgbox("Error", "No interfaces are configured")
-            self.dialog_net()
-            return 0
+    def usage(self):
+        #if no interfaces at all - display error and go to advanced
+        if len(self._get_filtered_ifnames()) == 0:
+            self.console.msgbox("Error", "No interfaces are available")
+            return "advanced"
 
+        #if interfaces but no default - display error and go to networking
+        ifname = self._get_default_nic()
+        if not ifname:
+            self.console.msgbox("Error", "No interfaces are configured")
+            return "networking"
+
+        #display usage
         t = file(self._get_template_path("usage.txt"), 'r').read()
         text = Template(t).substitute(appname=self.appname,
                                       ipaddr=ifutil.get_ipconf(ifname)[0])
 
-        return self.console.msgbox("Usage", text, button_label="Advanced Menu")
+        retcode = self.console.msgbox("Usage", text, button_label="Advanced Menu")
+        if retcode is not self.OK:
+            self.running = False
 
-    def dialog_adv(self):
+        return "advanced"
+
+    def advanced(self):
         retcode, choice = self.console.menu("Advanced Menu",
                                             self.appname + " Advanced Menu\n",
                                             self._get_advmenu())
-        if retcode is not 0:
-            return
-        
-        try:
-            choice = choice.lower()
-            method = getattr(self, "_adv_" + choice)
-        except AttributeError:
-            raise Error("advanced choice not supported: " + choice)
 
-        method()
+        if retcode is not self.OK:
+            # when no interfaces at all, advanced is considered home screen
+            # exit if cancel is chosen
+            if len(self._get_filtered_ifnames()) == 0:
+                self.running = False
 
-    def dialog_net(self):
-        if len(self._get_filtered_ifnames()) > 1:
-            text = "Choose interface to configure\n"
+            return "usage"
+
+        return "_adv_" + choice.lower()
+
+    def networking(self):
+        ifnames = self._get_filtered_ifnames()
+
+        #if no interfaces at all - display error and go to advanced
+        if len(ifnames) == 0:
+            self.console.msgbox("Error", "No interfaces are available")
+            return "advanced"
+
+        # if only 1 interface, dont display menu - just configure it
+        if len(ifnames) == 1:
+            self.ifname = ifnames[0]
+            return "ifconf"
+
+        # display networking
+        text = "Choose interface to configure\n"
+        if self._get_default_nic():
             text += "[*] Default NIC displayed in Usage"
 
-            retcode, ifname = self.console.menu("Networking configuration", text,
-                                                self._get_netmenu())
+        retcode, self.ifname = self.console.menu("Networking configuration",
+                                                 text, self._get_netmenu())
 
-            if retcode is not 0:
-                return
+        if retcode is not self.OK:
+            return "advanced"
 
-        else:
-            ifname = self._get_default_nic()
-            if not ifname:
-                return
+        return "ifconf"
 
-        self.dialog_ifconf(ifname)
+    def ifconf(self):
+        retcode, choice = self.console.menu("%s configuration" % self.ifname,
+                                            self._get_ifconftext(self.ifname),
+                                            self._get_ifconfmenu(self.ifname))
 
-    def dialog_ifconf(self, ifname):
-        while 1:
-            retcode, choice = self.console.menu("%s configuration" % ifname,
-                                                self._get_ifconftext(ifname),
-                                                self._get_ifconfmenu(ifname))
+        if retcode is not self.OK:
+            # if multiple interfaces go back to networking
+            if len(self._get_filtered_ifnames()) > 1:
+                return "networking"
 
-            if retcode is not 0:
-                break
+            return "advanced"
 
-            try:
-                choice = choice.lower()
-                method = getattr(self, "_ifconf_" + choice)
-            except AttributeError:
-                raise Error("ifconf choice not supported: " + choice)
+        return "_ifconf_" + choice.lower()
 
-            method(ifname)
-
-    def _ifconf_staticip(self, ifname):
-        input = ifutil.get_ipconf(ifname)
+    def _ifconf_staticip(self):
+        input = ifutil.get_ipconf(self.ifname)
         field_width = 30
         field_limit = 15
 
@@ -257,27 +280,35 @@ class TurnkeyConsole:
                 ("Name Server", input[3], field_width, field_limit)
             ]
 
-            text = "Static IP configuration (%s)" % ifname
+            text = "Static IP configuration (%s)" % self.ifname
             retcode, input = self.console.form("Network settings", text, fields)
 
-            if retcode is not 0:
-                return
+            if retcode is not self.OK:
+                break
 
-            err = ifutil.set_ipconf(ifname, *input)
+            # remove any whitespaces the user might of included
+            for i in range(len(input)):
+                input[i] = input[i].strip()
+            
+            err = ifutil.set_ipconf(self.ifname, *input)
             if not err:
-                return
+                break
 
             self.console.msgbox("Error", err)
 
+        return "ifconf"
 
-    def _ifconf_dhcp(self, ifname):
-        self.console.infobox("Requesting DHCP for %s..." % ifname)
-        err = ifutil.get_dhcp(ifname)
+    def _ifconf_dhcp(self):
+        self.console.infobox("Requesting DHCP for %s..." % self.ifname)
+        err = ifutil.get_dhcp(self.ifname)
         if err:
             self.console.msgbox("Error", err)
 
-    def _ifconf_default(self, ifname):
-        ConsoleConf().set_default_nic(ifname)
+        return "ifconf"
+
+    def _ifconf_default(self):
+        ConsoleConf().set_default_nic(self.ifname)
+        return "ifconf"
 
     def _adv_install(self):
         text = "Please note that any changes you may have made to the\n"
@@ -285,6 +316,7 @@ class TurnkeyConsole:
         self.console.msgbox("Installer", text)
 
         self.installer.execute()
+        return "advanced"
 
     def _adv_reboot(self):
         if self.console.yesno("Reboot the appliance?") == 0:
@@ -299,15 +331,17 @@ class TurnkeyConsole:
     def _adv_quit(self):
         self.running = False
 
-    _adv_networking = dialog_net
+    _adv_networking = networking
 
-    def loop(self):
+    def loop(self, dialog="usage"):
         self.running = True
-        while self.running:
-            if self.dialog_usage() is not 0:
-                break
+        while dialog and self.running:
+            try:
+                method = getattr(self, dialog)
+            except AttributeError:
+                raise Error("dialog not supported: " + dialog)
 
-            self.dialog_adv()
+            dialog = method()
 
 def main():
     TurnkeyConsole().loop()
