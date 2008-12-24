@@ -268,6 +268,26 @@ class TurnkeyConsole:
         return "_ifconf_" + choice.lower()
 
     def _ifconf_staticip(self):
+        def _validate(addr, netmask, gateway, nameserver):
+            err = []
+            if not addr:
+                err.append("No IP address provided")
+            elif not ifutil.is_ipaddr(addr):
+                err.append("Invalid IP address: %s" % addr)
+
+            if not netmask:
+                err.append("No netmask provided")
+            elif not ifutil.is_ipaddr(addr):
+                err.append("Invalid netmask: %s" % netmask)
+
+            if gateway and not ifutil.is_ipaddr(gateway):
+                err.append("Invalid gateway: %s" % gateway)
+
+            if nameserver and not ifutil.is_ipaddr(nameserver):
+                err.append("Invalid nameserver: %s" % nameserver)
+
+            return err
+
         input = ifutil.get_ipconf(self.ifname)
         field_width = 30
         field_limit = 15
@@ -290,9 +310,13 @@ class TurnkeyConsole:
             for i in range(len(input)):
                 input[i] = input[i].strip()
             
-            err = ifutil.set_ipconf(self.ifname, *input)
-            if not err:
-                break
+            err = _validate(*input)
+            if err:
+                err = "\n".join(err)
+            else:
+                err = ifutil.set_ipconf(self.ifname, *input)
+                if not err:
+                    break
 
             self.console.msgbox("Error", err)
 
