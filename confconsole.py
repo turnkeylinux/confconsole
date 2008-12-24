@@ -278,7 +278,7 @@ class TurnkeyConsole:
 
             if not netmask:
                 err.append("No netmask provided")
-            elif not ifutil.is_ipaddr(addr):
+            elif not ifutil.is_ipaddr(netmask):
                 err.append("Invalid netmask: %s" % netmask)
 
             if gateway and not ifutil.is_ipaddr(gateway):
