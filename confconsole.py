@@ -20,6 +20,8 @@ class Console:
 
         self.console = dialog.Dialog(dialog="dialog")
         self.console.add_persistent_args(["--no-collapse"])
+        self.console.add_persistent_args(["--ok-label", "Select"])
+        self.console.add_persistent_args(["--cancel-label", "Back"])
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 
@@ -64,10 +66,11 @@ class Console:
                              menu_height=len(choices)+1,
                              title=title, choices=choices)
 
-    def form(self, title, text, fields):
+    def form(self, title, text, fields, ok_label="Submit", cancel_label="Cancel"):
         return self._wrapper("form", text, self.height, self.width,
                              form_height=len(fields)+1,
-                             title=title, fields=fields)
+                             title=title, fields=fields,
+                             ok_label=ok_label, cancel_label=cancel_label)
 
 class Installer:
     def __init__(self, path):
