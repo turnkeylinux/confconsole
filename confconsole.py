@@ -208,9 +208,12 @@ class TurnkeyConsole:
         if ifmethod:
             text += "Interface configuration method: %s\n" % ifmethod
 
-        if ifname == self._get_default_nic() and \
-           len(self._get_filtered_ifnames()) > 1:
-            text += "Is this the default NIC displayed in Usage: yes\n"
+        if len(self._get_filtered_ifnames()) > 1:
+            text += "Is this the default NIC displayed in Usage: "
+            if ifname == self._get_default_nic():
+                text += "yes\n"
+            else:
+                text += "no\n"
 
         return text
 
