@@ -2,6 +2,7 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import os
+import sys
 import dialog
 from string import Template
 
@@ -22,30 +23,51 @@ class Console:
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 
+    def _handle_exitcode(self, retcode):
+        if retcode == 2: # ESC, ALT+?
+            text = "Exit signal intercepted\nDo you want to quit?"
+            if self.console.yesno(text) == 0:
+                sys.exit(0)
+            return False
+        return True
+
+    def _wrapper(self, dialog, text, *args, **kws):
+        try:
+            method = getattr(self.console, dialog)
+        except AttibuteError:
+            raise Error("dialog not supported: " + dialog)
+
+        while 1:
+            ret = method("\n" + text, *args, **kws)
+            if type(ret) is int:
+                retcode = ret
+            else:
+                retcode = ret[0]
+
+            if self._handle_exitcode(retcode):
+                break
+
+        return ret
+
     def infobox(self, text):
-        text = "\n" + text
-        return self.console.infobox(text)
+        return self._wrapper("infobox", text)
 
     def yesno(self, text):
-        text = "\n" + text
-        return self.console.yesno(text)
+        return self._wrapper("yesno", text)
 
     def msgbox(self, title, text, button_label="ok"):
-        text = "\n" + text
-        return self.console.msgbox(text, self.height, self.width,
-                                   title=title, ok_label=button_label)
+        return self._wrapper("msgbox", text, self.height, self.width,
+                             title=title, ok_label=button_label)
 
     def menu(self, title, text, choices):
-        text = "\n" + text
-        return self.console.menu(text, self.height, self.width,
-                                 menu_height=len(choices)+1,
-                                 title=title, choices=choices)
+        return self._wrapper("menu", text, self.height, self.width,
+                             menu_height=len(choices)+1,
+                             title=title, choices=choices)
 
     def form(self, title, text, fields):
-        text = "\n" + text
-        return self.console.form(text, self.height, self.width,
-                                 form_height=len(fields)+1,
-                                 title=title, fields=fields)
+        return self._wrapper("form", text, self.height, self.width,
+                             form_height=len(fields)+1,
+                             title=title, fields=fields)
 
 class Installer:
     def __init__(self, path):
@@ -75,7 +97,6 @@ class Installer:
 class TurnkeyConsole:
     OK = 0
     CANCEL = 1
-    ESC = 2
 
     def __init__(self):
         title = "TurnKey Linux Configuration Console"
