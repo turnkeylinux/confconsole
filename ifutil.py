@@ -249,6 +249,22 @@ def get_ifnames():
 
     return ifnames
 
+def unconfigure_if(ifname):
+    net = Netconf(ifname)
+    try:
+        net.set_ipaddr('0.0.0.0')
+        net.del_gateway()
+        net.del_nameserver()
+
+        interfaces = conffiles.Interfaces()
+        interfaces.set_manual(ifname)
+    except Error, e:
+        return str(e)
+    except executil.ExecError, e:
+        return str(e)
+    except conffiles.Error, e:
+        return str(e)
+
 def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     net = Netconf(ifname)
     try:

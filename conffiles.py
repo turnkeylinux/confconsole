@@ -75,6 +75,12 @@ class Interfaces:
 
         self.write_conf(ifname, ifconf)
 
+    def set_manual(self, ifname):
+        ifconf = ["auto %s" % ifname,
+                  "iface %s inet manual" % ifname]
+
+        self.write_conf(ifname, ifconf)
+
     def set_staticip(self, ifname, addr, netmask, gateway=None):
         ifconf = ["auto %s" % ifname,
                   "iface %s inet static" % ifname,

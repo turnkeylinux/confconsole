@@ -334,7 +334,12 @@ class TurnkeyConsole:
             # remove any whitespaces the user might of included
             for i in range(len(input)):
                 input[i] = input[i].strip()
-            
+
+            # unconfigure the nic if all entries are empty
+            if not input[0] and not input[1] and not input[2] and not input[3]:
+                ifutil.unconfigure_if(self.ifname)
+                break
+
             err = _validate(*input)
             if err:
                 err = "\n".join(err)
