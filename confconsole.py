@@ -61,10 +61,10 @@ class Console:
         return self._wrapper("msgbox", text, self.height, self.width,
                              title=title, ok_label=button_label)
 
-    def menu(self, title, text, choices):
+    def menu(self, title, text, choices, no_cancel=False):
         return self._wrapper("menu", text, self.height, self.width,
                              menu_height=len(choices)+1,
-                             title=title, choices=choices)
+                             title=title, choices=choices, no_cancel=no_cancel)
 
     def form(self, title, text, fields, ok_label="Submit", cancel_label="Cancel"):
         return self._wrapper("form", text, self.height, self.width,
@@ -238,16 +238,16 @@ class TurnkeyConsole:
         return "advanced"
 
     def advanced(self):
+        #dont display cancel button when no interfaces at all
+        no_cancel = False
+        if len(self._get_filtered_ifnames()) == 0:
+            no_cancel = True
         retcode, choice = self.console.menu("Advanced Menu",
                                             self.appname + " Advanced Menu\n",
-                                            self._get_advmenu())
+                                            self._get_advmenu(),
+                                            no_cancel=no_cancel)
 
         if retcode is not self.OK:
-            # when no interfaces at all, advanced is considered home screen
-            # exit if cancel is chosen
-            if len(self._get_filtered_ifnames()) == 0:
-                self.running = False
-
             return "usage"
 
         return "_adv_" + choice.lower()
