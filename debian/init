@@ -60,7 +60,7 @@ case "$1" in
 
   *)
     N=/etc/init.d/$NAME
-    echo "Usage: $N {start}" >&2
+    echo "Usage: $N {start|stop}" >&2
     exit 1
     ;;
 esac
