@@ -27,7 +27,7 @@ class Console:
 
     def _handle_exitcode(self, retcode):
         if retcode == 2: # ESC, ALT+?
-            text = "Exit signal intercepted\nDo you want to quit?"
+            text = "Do you really want to quit?"
             if self.console.yesno(text) == 0:
                 sys.exit(0)
             return False
