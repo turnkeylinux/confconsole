@@ -66,7 +66,7 @@ class Console:
                              menu_height=len(choices)+1,
                              title=title, choices=choices, no_cancel=no_cancel)
 
-    def form(self, title, text, fields, ok_label="Submit", cancel_label="Cancel"):
+    def form(self, title, text, fields, ok_label="Apply", cancel_label="Cancel"):
         return self._wrapper("form", text, self.height, self.width,
                              form_height=len(fields)+1,
                              title=title, fields=fields,
