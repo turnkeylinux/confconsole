@@ -231,7 +231,8 @@ class TurnkeyConsole:
 
         #display usage
         t = file(self._get_template_path("usage.txt"), 'r').read()
-        text = Template(t).substitute(appname=self.appname,
+        text = Template(t).substitute(hostname=ifutil.get_hostname().capitalize(),
+                                      appname=self.appname,
                                       ipaddr=ifutil.get_ipconf(ifname)[0])
 
         retcode = self.console.msgbox("Usage", text, button_label="Advanced Menu")

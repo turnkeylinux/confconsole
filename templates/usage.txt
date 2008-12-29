@@ -1,5 +1,5 @@
-You may access this $appname appliance
-over the network using the following methods:
+You may access this $hostname appliance over the
+network using the following methods:
 
 Web:    http://$ipaddr
         https://$ipaddr
