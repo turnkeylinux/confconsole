@@ -377,14 +377,16 @@ class TurnkeyConsole:
         return "advanced"
 
     def _adv_reboot(self):
-        if self.console.yesno("Reboot the appliance?") == 0:
+        if self.console.yesno("Reboot the appliance?") == self.OK:
             self.running = False
             executil.system("shutdown -r now")
+        return "advanced"
 
     def _adv_shutdown(self):
-        if self.console.yesno("Shutdown the appliance?") == 0:
+        if self.console.yesno("Shutdown the appliance?") == self.OK:
             self.running = False
             executil.system("shutdown -h now")
+        return "advanced"
 
     def _adv_quit(self):
         self.running = False
