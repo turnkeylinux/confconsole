@@ -389,7 +389,9 @@ class TurnkeyConsole:
         return "advanced"
 
     def _adv_quit(self):
-        self.running = False
+        if self.console.yesno("Do you really want to quit?") == self.OK:
+            self.running = False
+        return "advanced"
 
     _adv_networking = networking
 
