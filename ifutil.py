@@ -96,6 +96,7 @@ class Netconf(NIC):
         interfaces.set_staticip(self.ifname, addr, netmask, gateway, nameserver)
 
     def get_dhcp(self):
+        self.del_nameserver()
         executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
         interfaces = conffiles.Interfaces()
         interfaces.set_dhcp(self.ifname)
@@ -142,20 +143,23 @@ class Netconf(NIC):
         raise Error("Unable to configure gateway: %s" % gateway)
 
     def get_nameserver(self):
-        conf = '/var/run/resolvconf/interface/%s.udhcpc' % self.ifname
-        if os.path.exists(conf):
-            for line in _readfile(conf):
-                if line.startswith('nameserver'):
-                    try:
-                        junk, nameserver = line.strip().split()
-                        return nameserver
-                    except:
-                        pass
+        suffix = 'inet'
+        if get_ifmethod(self.ifname) == 'dhcp':
+            suffix = 'udhcpc'
+
+        path = '/var/run/resolvconf/interface/%s.%s' % (self.ifname, suffix)
+        if not os.path.exists(path):
+            return None
+
+        for line in file(path).readlines():
+            if line.startswith('nameserver'):
+                return line.strip().split()[1]
+
         return None
 
     def del_nameserver(self):
-        if self.nameserver:
-            executil.system("resolvconf -d %s.udhcpc" % self.ifname)
+        for suffix in ('inet', 'udhcpc'):
+            executil.system("resolvconf -d %s.%s" % (self.ifname, suffix))
 
     def set_nameserver(self, nameserver):
         if self.nameserver == nameserver:
@@ -164,8 +168,9 @@ class Netconf(NIC):
         if not is_ipaddr(nameserver):
             raise Error("Invalid nameserver: %s" % nameserver)
 
+        self.del_nameserver()
         executil.system("echo nameserver %s | \
-                        resolvconf -a %s.udhcpc" % (nameserver, self.ifname))
+                        resolvconf -a %s.inet" % (nameserver, self.ifname))
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
