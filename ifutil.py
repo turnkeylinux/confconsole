@@ -79,7 +79,7 @@ class Netconf(NIC):
     not directly related to the interface itself
     """
 
-    def set_staticip(self, addr, netmask, gateway):
+    def set_staticip(self, addr, netmask, gateway, nameserver):
         self.set_ipaddr(addr)
         self.set_netmask(netmask)
         if gateway:
@@ -87,8 +87,13 @@ class Netconf(NIC):
         else:
             self.del_gateway()
 
+        if nameserver:
+            self.set_nameserver(nameserver)
+        else:
+            self.del_nameserver()
+
         interfaces = conffiles.Interfaces()
-        interfaces.set_staticip(self.ifname, addr, netmask, gateway)
+        interfaces.set_staticip(self.ifname, addr, netmask, gateway, nameserver)
 
     def get_dhcp(self):
         executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
@@ -268,11 +273,7 @@ def unconfigure_if(ifname):
 def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     net = Netconf(ifname)
     try:
-        net.set_staticip(addr, netmask, gateway)
-        if nameserver:
-            net.set_nameserver(nameserver)
-        else:
-            net.del_nameserver()
+        net.set_staticip(addr, netmask, gateway, nameserver)
     except Error, e:
         return str(e)
     except executil.ExecError, e:
