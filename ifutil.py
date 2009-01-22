@@ -14,12 +14,6 @@ SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
 SIOCGIFBRDADDR = 0x8919
 
-def _readfile(path):
-    fh = file(path)
-    lines = fh.readlines()
-    fh.close()
-    return lines
-
 class Error(Exception):
     pass
 
@@ -250,7 +244,7 @@ def get_ifmethod(ifname):
 def get_ifnames():
     """ returns list of interface names (up and down) """
     ifnames = []
-    for line in _readfile('/proc/net/dev'):
+    for line in file('/proc/net/dev').readlines():
         try:
             ifname, junk = line.strip().split(":")
             ifnames.append(ifname)
@@ -307,8 +301,7 @@ def get_hostname():
 def get_connections():
     connections = []
     for proto in ('tcp', 'tcp6', 'udp'):
-        lines = _readfile('/proc/net/' + proto)
-        for line in lines[1:]:
+        for line in file('/proc/net/' + proto).readlines()[1:]:
             conn = Connection(proto, line.split())
             connections.append(conn)
 
