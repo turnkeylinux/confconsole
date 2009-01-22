@@ -262,22 +262,14 @@ def unconfigure_if(ifname):
 
         interfaces = conffiles.Interfaces()
         interfaces.set_manual(ifname)
-    except Error, e:
-        return str(e)
-    except executil.ExecError, e:
-        return str(e)
-    except conffiles.Error, e:
+    except Exception, e:
         return str(e)
 
 def set_ipconf(ifname, addr, netmask, gateway, nameserver):
     net = Netconf(ifname)
     try:
         net.set_staticip(addr, netmask, gateway, nameserver)
-    except Error, e:
-        return str(e)
-    except executil.ExecError, e:
-        return str(e)
-    except conffiles.Error, e:
+    except Exception, e:
         return str(e)
 
 def get_ipconf(ifname):
@@ -288,11 +280,7 @@ def get_dhcp(ifname):
     net = Netconf(ifname)
     try:
         net.get_dhcp()
-    except Error, e:
-        return str(e)
-    except executil.ExecError, e:
-        return str(e)
-    except conffiles.Error, e:
+    except Exception, e:
         return str(e)
 
 def get_hostname():
