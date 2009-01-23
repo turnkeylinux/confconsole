@@ -381,10 +381,6 @@ class TurnkeyConsole:
             self.running = False
             executil.system("shutdown %s now" % opt)
 
-            #cosmetic workaround (let shutdown initiate before confconsole exits)
-            import time
-            time.sleep(2)
-
         return "advanced"
         
     def _adv_reboot(self):
