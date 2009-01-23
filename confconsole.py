@@ -376,17 +376,22 @@ class TurnkeyConsole:
         self.installer.execute()
         return "advanced"
 
-    def _adv_reboot(self):
-        if self.console.yesno("Reboot the appliance?") == self.OK:
+    def _shutdown(self, text, opt):
+        if self.console.yesno(text) == self.OK:
             self.running = False
-            executil.system("shutdown -r now")
+            executil.system("shutdown %s now" % opt)
+
+            #cosmetic workaround (let shutdown initiate before confconsole exits)
+            import time
+            time.sleep(2)
+
         return "advanced"
+        
+    def _adv_reboot(self):
+        return self._shutdown("Reboot the appliance?", "-r")
 
     def _adv_shutdown(self):
-        if self.console.yesno("Shutdown the appliance?") == self.OK:
-            self.running = False
-            executil.system("shutdown -h now")
-        return "advanced"
+        return self._shutdown("Shutdown the appliance?", "-h")
 
     def _adv_quit(self):
         if self.console.yesno("Do you really want to quit?") == self.OK:
