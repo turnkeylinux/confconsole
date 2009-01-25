@@ -379,7 +379,11 @@ class TurnkeyConsole:
     def _shutdown(self, text, opt):
         if self.console.yesno(text) == self.OK:
             self.running = False
-            executil.system("shutdown %s now" % opt)
+            cmd = "shutdown %s now" % opt
+            fgvt = os.environ.get("CONFCONSOLE_FGVT")
+            if fgvt:
+                cmd = "chvt %s; " % fgvt + cmd
+            executil.system(cmd)
 
         return "advanced"
         

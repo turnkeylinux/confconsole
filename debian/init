@@ -40,7 +40,7 @@ case "$1" in
                --startas $DAEMON"
 
     if $START --quiet --test; then
-        openvt -s -w -- $START &
+        CONFCONSOLE_FGVT=$(fgconsole) openvt -s -w -- $START &
     fi
     log_action_end_msg $?
     ;;
