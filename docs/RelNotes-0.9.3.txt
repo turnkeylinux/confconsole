@@ -1,0 +1,42 @@
+====================
+v0.9.3 Release Notes
+====================
+
+* new configuration variable: CONFCONSOLE_FGVT
+
+    - when executing shutdown, change to vt CONFCONSOLE_FGVT if set
+    - fixes "unable to deallocate vt" error, and displays shutdown output
+
+* handle use cases as expected (user experience)
+
+    - only display list of nics when more than 1 are available
+    - dont display "this is default nic" if only 1 nic
+    - if no nics are configured at all display error and go to advanced
+    - dont display cancel button on advanced menu when no nics at all
+    - provide user with more descriptive error (no ip or mask provided)
+    - dont display 'set as default nic' if interface is not configured yet
+    - allow user to remedy mistakes in the staticip configuration screen
+    - allow user to delete/unconfigure nameserver/gateway
+    - unconfigure the nic if all fields are empty when setting static ip
+
+* updated default button labels to make more sense
+
+    - Globally:        OK -> Select , Cancel -> Back
+    - Form (StaticIP): OK -> Apply  , Cancel -> Cancel (due to global)
+
+    - Back button now acts like a back button (rewrote the dialog
+      looping code)
+
+* fixed static nameserver configuration to persist across reboots
+
+* intercept exit signal and verify whether to quit (ESC, ALT+?)
+
+* validate all input prior to attempting to apply them (with better ip
+  validation)
+
+* template changes
+
+    - added $hostname variable for usage substitution
+    - updated webmin default port to 12321
+
+
