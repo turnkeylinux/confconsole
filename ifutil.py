@@ -141,7 +141,7 @@ class Netconf(NIC):
         if get_ifmethod(self.ifname) == 'dhcp':
             suffix = 'udhcpc'
 
-        path = '/var/run/resolvconf/interface/%s.%s' % (self.ifname, suffix)
+        path = '/etc/resolvconf/run/interface/%s.%s' % (self.ifname, suffix)
         if not os.path.exists(path):
             return None
 
