@@ -54,17 +54,34 @@ class Netconf():
         return None
 
     def get_nameserver(self):
-        suffix = 'inet'
-        if get_ifmethod(self.ifname) == 'dhcp':
-            suffix = 'udhcpc'
-
-        path = '/etc/resolvconf/run/interface/%s.%s' % (self.ifname, suffix)
-        if not os.path.exists(path):
+        def _parse_resolv(path):
+            for line in file(path).readlines():
+                if line.startswith('nameserver'):
+                    return line.strip().split()[1]
             return None
 
-        for line in file(path).readlines():
-            if line.startswith('nameserver'):
-                return line.strip().split()[1]
+        #/etc/network/interfaces (static)
+        interfaces = conffiles.Interfaces()
+        for line in interfaces.conf[self.ifname].splitlines():
+            line = line.strip()
+            if line.startswith('dns-nameservers'):
+                return line.split()[1]
+
+        #resolvconf (dhcp)
+        path = '/etc/resolvconf/run/interface'
+        if os.path.exists(path):
+            for f in os.listdir(path):
+                if not f.startswith(self.ifname) or f.endswith('.inet'):
+                    continue
+
+                nameserver = _parse_resolv(os.path.join(path, f))
+                if nameserver:
+                    return nameserver
+
+        #/etc/resolv.conf (fallback)
+        nameserver = _parse_resolv('/etc/resolv.conf')
+        if nameserver:
+            return nameserver
 
         return None
 
