@@ -81,7 +81,7 @@ class Interfaces:
 
         self.write_conf(ifname, ifconf)
 
-    def set_staticip(self, ifname, addr, netmask, gateway=None, nameserver=None):
+    def set_static(self, ifname, addr, netmask, gateway=None, nameserver=None):
         ifconf = ["auto %s" % ifname,
                   "iface %s inet static" % ifname,
                   "    address %s" % addr,

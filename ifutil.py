@@ -17,8 +17,8 @@ SIOCGIFBRDADDR = 0x8919
 class Error(Exception):
     pass
 
-class NIC:
-    """class to control a network interface cards configuration"""
+class Netconf():
+    """enumerate network related configurations"""
 
     class ATTRIBS:
         ADDRS = {
@@ -40,61 +40,6 @@ class NIC:
 
         return socket.inet_ntoa(result[20:24])
 
-    def set_ipaddr(self, addr):
-        if addr == self.addr:
-            return
-
-        if not addr:
-            raise Error("No IP address provided")
-
-        if not is_ipaddr(addr):
-            raise Error("Invalid IP address: %s" % addr)
-
-        executil.system("ifconfig %s %s up" % (self.ifname, addr))
-
-    def set_netmask(self, netmask):
-        if netmask == self.netmask:
-            return
-
-        if not netmask:
-            raise Error("No netmask provided")
-
-        if not is_ipaddr(netmask):
-            raise Error("Invalid netmask: %s" % netmask)
-
-        executil.system("ifconfig %s netmask %s" % (self.ifname, netmask))
-
-    def __getattr__(self, attrname):
-        if attrname in self.ATTRIBS.ADDRS:
-            return self._get_addr(self.ATTRIBS.ADDRS[attrname])
-
-class Netconf(NIC):
-    """class to extend the NIC class with network related configurations
-    not directly related to the interface itself
-    """
-
-    def set_staticip(self, addr, netmask, gateway, nameserver):
-        self.set_ipaddr(addr)
-        self.set_netmask(netmask)
-        if gateway:
-            self.set_gateway(gateway)
-        else:
-            self.del_gateway()
-
-        if nameserver:
-            self.set_nameserver(nameserver)
-        else:
-            self.del_nameserver()
-
-        interfaces = conffiles.Interfaces()
-        interfaces.set_staticip(self.ifname, addr, netmask, gateway, nameserver)
-
-    def get_dhcp(self):
-        self.del_nameserver()
-        executil.getoutput("udhcpc --now --quit --interface %s" % self.ifname)
-        interfaces = conffiles.Interfaces()
-        interfaces.set_dhcp(self.ifname)
-
     def get_gateway(self):
         try:
             output = executil.getoutput("route -n")
@@ -107,34 +52,6 @@ class Netconf(NIC):
                 return m.group(1)
 
         return None
-
-    def del_gateway(self):
-        if self.gateway:
-            executil.system("route del default gw %s" % self.gateway)
-
-    def set_gateway(self, gateway):
-        def _set_gateway(gateway):
-            try:
-                executil.system("route add default gw %s" % gateway)
-            except executil.ExecError:
-                return False
-            return True
-
-        if gateway == self.gateway:
-            return
-
-        if not is_ipaddr(gateway):
-            raise Error("Invalid gateway: %s" % gateway)
-
-        self.del_gateway()
-        
-        for i in range(3):
-            if _set_gateway(gateway):
-                return
-
-            time.sleep(1)
-
-        raise Error("Unable to configure gateway: %s" % gateway)
 
     def get_nameserver(self):
         suffix = 'inet'
@@ -150,21 +67,6 @@ class Netconf(NIC):
                 return line.strip().split()[1]
 
         return None
-
-    def del_nameserver(self):
-        for suffix in ('inet', 'udhcpc'):
-            executil.system("resolvconf -d %s.%s" % (self.ifname, suffix))
-
-    def set_nameserver(self, nameserver):
-        if self.nameserver == nameserver:
-            return
-
-        if not is_ipaddr(nameserver):
-            raise Error("Invalid nameserver: %s" % nameserver)
-
-        self.del_nameserver()
-        executil.system("echo nameserver %s | \
-                        resolvconf -a %s.inet" % (nameserver, self.ifname))
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
@@ -230,6 +132,49 @@ def is_ipaddr(ip):
 
     return True
 
+def ifup(ifname):
+    return executil.getoutput("ifup", ifname)
+
+def ifdown(ifname):
+    return executil.getoutput("ifdown", ifname)
+
+def unconfigure_if(ifname):
+    try:
+        ifdown(ifname)
+        interfaces = conffiles.Interfaces()
+        interfaces.set_manual(ifname)
+        executil.system("ifconfig %s 0.0.0.0" % ifname)
+        ifup(ifname)
+    except Exception, e:
+        return str(e)
+
+def set_static(ifname, addr, netmask, gateway, nameserver):
+    try:
+        ifdown(ifname)
+        interfaces = conffiles.Interfaces()
+        interfaces.set_static(ifname, addr, netmask, gateway, nameserver)
+        ifup(ifname)
+    except Exception, e:
+        return str(e)
+
+def set_dhcp(ifname):
+    try:
+        ifdown(ifname)
+        interfaces = conffiles.Interfaces()
+        interfaces.set_dhcp(ifname)
+        output = ifup(ifname)
+
+        net = Netconf(ifname)
+        if not net.addr:
+            raise Error('Error obtaining IP address\n\n%s' % output)
+
+    except Exception, e:
+        return str(e)
+
+def get_ipconf(ifname):
+    net = Netconf(ifname)
+    return net.addr, net.netmask, net.gateway, net.nameserver
+
 def get_ifmethod(ifname):
     conf = conffiles.Interfaces().conf
     if not conf.has_key(ifname):
@@ -252,36 +197,6 @@ def get_ifnames():
             pass
 
     return ifnames
-
-def unconfigure_if(ifname):
-    net = Netconf(ifname)
-    try:
-        net.set_ipaddr('0.0.0.0')
-        net.del_gateway()
-        net.del_nameserver()
-
-        interfaces = conffiles.Interfaces()
-        interfaces.set_manual(ifname)
-    except Exception, e:
-        return str(e)
-
-def set_ipconf(ifname, addr, netmask, gateway, nameserver):
-    net = Netconf(ifname)
-    try:
-        net.set_staticip(addr, netmask, gateway, nameserver)
-    except Exception, e:
-        return str(e)
-
-def get_ipconf(ifname):
-    net = Netconf(ifname)
-    return net.addr, net.netmask, net.gateway, net.nameserver
-
-def get_dhcp(ifname):
-    net = Netconf(ifname)
-    try:
-        net.get_dhcp()
-    except Exception, e:
-        return str(e)
 
 def get_hostname():
     return socket.gethostname()

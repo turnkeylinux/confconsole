@@ -348,7 +348,7 @@ class TurnkeyConsole:
             if err:
                 err = "\n".join(err)
             else:
-                err = ifutil.set_ipconf(self.ifname, *input)
+                err = ifutil.set_static(self.ifname, *input)
                 if not err:
                     break
 
@@ -358,7 +358,7 @@ class TurnkeyConsole:
 
     def _ifconf_dhcp(self):
         self.console.infobox("Requesting DHCP for %s..." % self.ifname)
-        err = ifutil.get_dhcp(self.ifname)
+        err = ifutil.set_dhcp(self.ifname)
         if err:
             self.console.msgbox("Error", err)
 
