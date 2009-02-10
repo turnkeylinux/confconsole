@@ -170,7 +170,12 @@ def set_static(ifname, addr, netmask, gateway, nameserver):
         ifdown(ifname)
         interfaces = conffiles.Interfaces()
         interfaces.set_static(ifname, addr, netmask, gateway, nameserver)
-        ifup(ifname)
+        output = ifup(ifname)
+
+        net = Netconf(ifname)
+        if not net.addr:
+            raise Error('Error obtaining IP address\n\n%s' % output)
+
     except Exception, e:
         return str(e)
 
