@@ -17,6 +17,45 @@ SIOCGIFBRDADDR = 0x8919
 class Error(Exception):
     pass
 
+class Interface:
+    """enumerate interface information from /etc/network/interfaces"""
+
+    def __init__(self, ifname):
+        self.ifname = ifname
+        self.interfaces = conffiles.Interfaces()
+
+    def _parse_attr(self, attr):
+        if not self.interfaces.conf.has_key(self.ifname):
+            return []
+
+        for line in self.interfaces.conf[self.ifname].splitlines():
+            line = line.strip()
+            if line.startswith(attr):
+                return line.split()
+
+        return []
+
+    def __getattr__(self, attrname):
+        #attributes with multiple values will be returned in an array
+        #exception: dns-nameservers always returns in array (expected)
+
+        attrname = attrname.replace('_', '-')
+        try:
+            if attrname == "method":
+                return self._parse_attr('iface')[3]
+
+            if attrname == "dns-nameservers":
+                return self._parse_attr(attrname)[1:]
+
+            values = self._parse_attr(attrname)
+            if len(values) > 2:
+                return values[1:]
+
+            return values[1]
+
+        except IndexError:
+            return None
+
 class Netconf():
     """enumerate network related configurations"""
 
@@ -61,11 +100,9 @@ class Netconf():
             return None
 
         #/etc/network/interfaces (static)
-        interfaces = conffiles.Interfaces()
-        for line in interfaces.conf[self.ifname].splitlines():
-            line = line.strip()
-            if line.startswith('dns-nameservers'):
-                return line.split()[1]
+        interface = Interface(self.ifname)
+        if interface.dns_nameservers:
+            return interface.dns_nameservers[0]
 
         #resolvconf (dhcp)
         path = '/etc/resolvconf/run/interface'
@@ -193,15 +230,8 @@ def get_ipconf(ifname):
     return net.addr, net.netmask, net.gateway, net.nameserver
 
 def get_ifmethod(ifname):
-    conf = conffiles.Interfaces().conf
-    if not conf.has_key(ifname):
-        return None
-
-    m = re.match(".*\niface %s inet (.*)" % ifname, conf[ifname])
-    if m:
-        return m.group(1)
-
-    return None
+    interface = Interface(ifname)
+    return interface.method
 
 def get_ifnames():
     """ returns list of interface names (up and down) """

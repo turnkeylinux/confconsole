@@ -16,7 +16,20 @@ class Interfaces:
 
     CONF_FILE='/etc/network/interfaces'
 
-    def _load_conf(self):
+    def __init__(self):
+        self.read_conf()
+
+    @staticmethod
+    def _header():
+        return "\n".join(["# UNCONFIGURED INTERFACES",
+                          "# remove the above line if you edit this file"])
+
+    @staticmethod
+    def _loopback():
+        return "\n".join(["auto lo",
+                          "iface lo inet loopback"])
+
+    def read_conf(self):
         self.conf = {}
         self.unconfigured = False
 
@@ -37,21 +50,8 @@ class Interfaces:
             else:
                 self.conf[ifname] = self.conf[ifname] + line + "\n"
 
-    def __init__(self):
-        self._load_conf()
-
-    @staticmethod
-    def _header():
-        return "\n".join(["# UNCONFIGURED INTERFACES",
-                          "# remove the above line if you edit this file"])
-
-    @staticmethod
-    def _loopback():
-        return "\n".join(["auto lo",
-                          "iface lo inet loopback"])
-
     def write_conf(self, ifname, ifconf):
-        self._load_conf()
+        self.read_conf()
         if not self.unconfigured:
             raise Error("not writing to %s\nheader not found: %s" %
                         (self.CONF_FILE, self._header().splitlines()[0]))
