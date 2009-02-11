@@ -310,9 +310,13 @@ class TurnkeyConsole:
             elif not ipaddr.is_legal_ip(netmask):
                 err.append("Invalid netmask: %s" % netmask)
 
-            if gateway and (not ipaddr.is_legal_ip(gateway) or  
-                            not gateway in ipaddr.IPRange(addr, netmask)):
+            if gateway and not ipaddr.is_legal_ip(gateway):
                 err.append("Invalid gateway: %s" % gateway)
+            else:
+                iprange = ipaddr.IPRange(addr, netmask)
+                if gateway not in iprange:
+                    err.append("Gateway (%s) not in IP range (%s)" % (gateway,
+                                                                      iprange))
 
             if nameserver and not ipaddr.is_legal_ip(nameserver):
                 err.append("Invalid nameserver: %s" % nameserver)
