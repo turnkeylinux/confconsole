@@ -4,7 +4,6 @@ import os
 import re
 import time
 import fcntl
-import struct
 import socket
 
 import executil
@@ -136,21 +135,6 @@ class Connection:
         except KeyError:
             return 'UNKNOWN'
 
-
-def is_ipaddr(ip):
-    try:
-        if len([ octet for octet in ip.split(".") 
-                if 255 >= int(octet) >= 0 ]) != 4:
-            return False
-    except ValueError:
-        return False
-
-    try:
-        packed = socket.inet_aton(ip)
-    except socket.error:
-        return False
-
-    return True
 
 def ifup(ifname):
     return executil.getoutput("ifup", ifname)
