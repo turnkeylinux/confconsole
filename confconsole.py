@@ -4,6 +4,7 @@
 import os
 import sys
 import dialog
+import ipaddr
 from string import Template
 
 import ifutil
@@ -301,18 +302,23 @@ class TurnkeyConsole:
             err = []
             if not addr:
                 err.append("No IP address provided")
-            elif not ifutil.is_ipaddr(addr):
+            elif not ipaddr.is_legal_ip(addr):
                 err.append("Invalid IP address: %s" % addr)
 
             if not netmask:
                 err.append("No netmask provided")
-            elif not ifutil.is_ipaddr(netmask):
+            elif not ipaddr.is_legal_ip(netmask):
                 err.append("Invalid netmask: %s" % netmask)
 
-            if gateway and not ifutil.is_ipaddr(gateway):
+            if gateway and not ipaddr.is_legal_ip(gateway):
                 err.append("Invalid gateway: %s" % gateway)
+            else:
+                iprange = ipaddr.IPRange(addr, netmask)
+                if gateway not in iprange:
+                    err.append("Gateway (%s) not in IP range (%s)" % (gateway,
+                                                                      iprange))
 
-            if nameserver and not ifutil.is_ipaddr(nameserver):
+            if nameserver and not ipaddr.is_legal_ip(nameserver):
                 err.append("Invalid nameserver: %s" % nameserver)
 
             return err

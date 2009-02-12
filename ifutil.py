@@ -4,7 +4,6 @@ import os
 import re
 import time
 import fcntl
-import struct
 import socket
 
 import executil
@@ -174,18 +173,6 @@ class Connection:
             return 'UNKNOWN'
 
 
-def is_ipaddr(ip):
-    ipv4 = '^(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}$'
-    if not re.match(ipv4, ip):
-        return False
-
-    try:
-        packed = socket.inet_aton(ip)
-    except socket.error:
-        return False
-
-    return True
-
 def ifup(ifname):
     return executil.getoutput("ifup", ifname)
 
@@ -207,7 +194,12 @@ def set_static(ifname, addr, netmask, gateway, nameserver):
         ifdown(ifname)
         interfaces = conffiles.Interfaces()
         interfaces.set_static(ifname, addr, netmask, gateway, nameserver)
-        ifup(ifname)
+        output = ifup(ifname)
+
+        net = Netconf(ifname)
+        if not net.addr:
+            raise Error('Error obtaining IP address\n\n%s' % output)
+
     except Exception, e:
         return str(e)
 
