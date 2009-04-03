@@ -11,6 +11,9 @@ import ifutil
 import executil
 from conffiles import ConsoleConf
 
+from StringIO import StringIO
+import traceback
+
 class Error(Exception):
     pass
 
@@ -414,13 +417,25 @@ class TurnkeyConsole:
 
     def loop(self, dialog="usage"):
         self.running = True
+        prev_dialog = dialog
+
         while dialog and self.running:
             try:
-                method = getattr(self, dialog)
-            except AttributeError:
-                raise Error("dialog not supported: " + dialog)
+                try:
+                    method = getattr(self, dialog)
+                except AttributeError:
+                    raise Error("dialog not supported: " + dialog)
 
-            dialog = method()
+                new_dialog = method()
+                prev_dialog = dialog
+                dialog = new_dialog
+
+            except Exception, e:
+                sio = StringIO()
+                traceback.print_exc(file=sio)
+
+                self.console.msgbox("Caught exception", sio.getvalue())
+                dialog = prev_dialog
 
 def fatal(e):
     print >> sys.stderr, "error: " + str(e)
