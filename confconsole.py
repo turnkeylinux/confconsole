@@ -299,29 +299,35 @@ class TurnkeyConsole:
 
     def _ifconf_staticip(self):
         def _validate(addr, netmask, gateway, nameserver):
-            err = []
+            """Validate Static IP form parameters. Returns an empty array on
+               success, an array of strings describing errors otherwise"""
+
+            errors = []
             if not addr:
-                err.append("No IP address provided")
+                errors.append("No IP address provided")
             elif not ipaddr.is_legal_ip(addr):
-                err.append("Invalid IP address: %s" % addr)
+                errors.append("Invalid IP address: %s" % addr)
 
             if not netmask:
-                err.append("No netmask provided")
+                errors.append("No netmask provided")
             elif not ipaddr.is_legal_ip(netmask):
-                err.append("Invalid netmask: %s" % netmask)
-
-            if gateway and not ipaddr.is_legal_ip(gateway):
-                err.append("Invalid gateway: %s" % gateway)
-            else:
-                iprange = ipaddr.IPRange(addr, netmask)
-                if gateway not in iprange:
-                    err.append("Gateway (%s) not in IP range (%s)" % (gateway,
-                                                                      iprange))
+                errors.append("Invalid netmask: %s" % netmask)
 
             if nameserver and not ipaddr.is_legal_ip(nameserver):
-                err.append("Invalid nameserver: %s" % nameserver)
+                errors.append("Invalid nameserver: %s" % nameserver)
 
-            return err
+            if errors:
+                return errors
+
+            if gateway:
+                if not ipaddr.is_legal_ip(gateway):
+                    return [ "Invalid gateway: %s" % gateway ]
+                else:
+                    iprange = ipaddr.IPRange(addr, netmask)
+                    if gateway not in iprange:
+                        return [ "Gateway (%s) not in IP range (%s)" % (gateway,
+                                                                        iprange) ]
+            return []
 
         input = ifutil.get_ipconf(self.ifname)
         field_width = 30
