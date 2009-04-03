@@ -422,9 +422,15 @@ class TurnkeyConsole:
 
             dialog = method()
 
-def main():
-    TurnkeyConsole().loop()
+def fatal(e):
+    print >> sys.stderr, "error: " + str(e)
+    sys.exit(1)
 
+def main():
+    if os.geteuid() != 0:
+        fatal("confconsole needs root privileges to run")
+
+    TurnkeyConsole().loop()
 
 if __name__ == "__main__":
     main()
