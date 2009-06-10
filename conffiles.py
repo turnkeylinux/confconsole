@@ -56,6 +56,13 @@ class Interfaces:
             raise Error("not writing to %s\nheader not found: %s" %
                         (self.CONF_FILE, self._header().splitlines()[0]))
 
+        #append legal iface options already defined
+        iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
+        for line in self.conf[ifname].splitlines():
+            line = line.strip()
+            if line.split()[0] in iface_opts:
+                ifconf.append("    " + line)
+
         fh = file(self.CONF_FILE, "w")
         print >> fh, self._header() + "\n"
         print >> fh, self._loopback() + "\n"
