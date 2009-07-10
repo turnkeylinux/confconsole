@@ -18,7 +18,7 @@ class Error(Exception):
     pass
 
 class Console:
-    def __init__(self, title=None, width=60, height=18):
+    def __init__(self, title=None, width=60, height=20):
         self.width = width
         self.height = height
 
@@ -108,7 +108,7 @@ class TurnkeyConsole:
     def __init__(self):
         title = "TurnKey Linux Configuration Console"
         self.width = 60
-        self.height = 18
+        self.height = 20
 
         self.console = Console(title, self.width, self.height)
         self.appname = "TurnKey Linux %s" % ifutil.get_hostname().capitalize()
