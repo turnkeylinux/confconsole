@@ -199,14 +199,14 @@ class TurnkeyConsole:
         return menu
 
     def _get_ifconftext(self, ifname):
-        addr, netmask, gateway, nameserver = ifutil.get_ipconf(ifname)
+        addr, netmask, gateway, nameservers = ifutil.get_ipconf(ifname)
         if addr is None:
             return "Interface is not configured\n"
         
         text =  "IP Address:      %s\n" % addr
         text += "Netmask:         %s\n" % netmask
         text += "Default Gateway: %s\n" % gateway
-        text += "Name Server:     %s\n\n" % nameserver
+        text += "Name Server(s):  %s\n\n" % " ".join(nameservers)
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
@@ -301,7 +301,7 @@ class TurnkeyConsole:
         return "_ifconf_" + choice.lower()
 
     def _ifconf_staticip(self):
-        def _validate(addr, netmask, gateway, nameserver):
+        def _validate(addr, netmask, gateway, nameservers):
             """Validate Static IP form parameters. Returns an empty array on
                success, an array of strings describing errors otherwise"""
 
@@ -316,8 +316,12 @@ class TurnkeyConsole:
             elif not ipaddr.is_legal_ip(netmask):
                 errors.append("Invalid netmask: %s" % netmask)
 
-            if nameserver and not ipaddr.is_legal_ip(nameserver):
-                errors.append("Invalid nameserver: %s" % nameserver)
+            for nameserver in nameservers:
+                if nameserver and not ipaddr.is_legal_ip(nameserver):
+                    errors.append("Invalid nameserver: %s" % nameserver)
+
+            if len(nameservers) != len(set(nameservers)):
+                errors.append("Duplicate nameservers specified")
 
             if errors:
                 return errors
@@ -332,7 +336,17 @@ class TurnkeyConsole:
                                                                         iprange) ]
             return []
 
-        input = ifutil.get_ipconf(self.ifname)
+        addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname)
+        input = [addr, netmask, gateway]
+        input.extend(nameservers)
+
+        # include minimum 2 nameserver fields and 1 blank one
+        if len(input) < 4:
+            input.append('')
+
+        if input[-1]:
+            input.append('')
+
         field_width = 30
         field_limit = 15
 
@@ -341,8 +355,10 @@ class TurnkeyConsole:
                 ("IP Address", input[0], field_width, field_limit),
                 ("Netmask", input[1], field_width, field_limit),
                 ("Default Gateway", input[2], field_width, field_limit),
-                ("Name Server", input[3], field_width, field_limit)
             ]
+
+            for i in range(len(input[3:])):
+                fields.append(("Name Server", input[3+i], field_width, field_limit))
 
             text = "Static IP configuration (%s)" % self.ifname
             retcode, input = self.console.form("Network settings", text, fields)
@@ -359,11 +375,17 @@ class TurnkeyConsole:
                 ifutil.unconfigure_if(self.ifname)
                 break
 
-            err = _validate(*input)
+            addr, netmask, gateway = input[:3]
+            nameservers = input[3:]
+            for i in range(nameservers.count('')):
+                nameservers.remove('')
+
+            err = _validate(addr, netmask, gateway, nameservers)
             if err:
                 err = "\n".join(err)
             else:
-                err = ifutil.set_static(self.ifname, *input)
+                err = ifutil.set_static(self.ifname, addr, netmask,
+                                        gateway, nameservers)
                 if not err:
                     break
 

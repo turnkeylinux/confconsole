@@ -88,7 +88,7 @@ class Interfaces:
 
         self.write_conf(ifname, ifconf)
 
-    def set_static(self, ifname, addr, netmask, gateway=None, nameserver=None):
+    def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
         ifconf = ["auto %s" % ifname,
                   "iface %s inet static" % ifname,
                   "    address %s" % addr,
@@ -97,8 +97,8 @@ class Interfaces:
         if gateway:
             ifconf.append("    gateway %s" % gateway)
 
-        if nameserver:
-            ifconf.append("    dns-nameservers %s" % nameserver)
+        if nameservers:
+            ifconf.append("    dns-nameservers %s" % " ".join(nameservers))
 
         self.write_conf(ifname, ifconf)
 

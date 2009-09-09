@@ -91,17 +91,18 @@ class Netconf():
 
         return None
 
-    def get_nameserver(self):
+    def get_nameservers(self):
         def _parse_resolv(path):
+            nameservers = []
             for line in file(path).readlines():
                 if line.startswith('nameserver'):
-                    return line.strip().split()[1]
-            return None
+                    nameservers.append(line.strip().split()[1])
+            return nameservers
 
         #/etc/network/interfaces (static)
         interface = Interface(self.ifname)
         if interface.dns_nameservers:
-            return interface.dns_nameservers[0]
+            return interface.dns_nameservers
 
         #resolvconf (dhcp)
         path = '/etc/resolvconf/run/interface'
@@ -110,16 +111,16 @@ class Netconf():
                 if not f.startswith(self.ifname) or f.endswith('.inet'):
                     continue
 
-                nameserver = _parse_resolv(os.path.join(path, f))
-                if nameserver:
-                    return nameserver
+                nameservers = _parse_resolv(os.path.join(path, f))
+                if nameservers:
+                    return nameservers
 
         #/etc/resolv.conf (fallback)
-        nameserver = _parse_resolv('/etc/resolv.conf')
-        if nameserver:
-            return nameserver
+        nameservers = _parse_resolv('/etc/resolv.conf')
+        if nameservers:
+            return nameservers
 
-        return None
+        return []
 
     def __getattr__(self, attrname):
         if attrname in self.ATTRIBS.ADDRS:
@@ -128,8 +129,8 @@ class Netconf():
         if attrname == "gateway":
             return self.get_gateway()
 
-        if attrname == "nameserver":
-            return self.get_nameserver()
+        if attrname == "nameservers":
+            return self.get_nameservers()
 
 class Connection:
     """class for holding a network connections configuration"""
@@ -189,11 +190,11 @@ def unconfigure_if(ifname):
     except Exception, e:
         return str(e)
 
-def set_static(ifname, addr, netmask, gateway, nameserver):
+def set_static(ifname, addr, netmask, gateway, nameservers):
     try:
         ifdown(ifname)
         interfaces = conffiles.Interfaces()
-        interfaces.set_static(ifname, addr, netmask, gateway, nameserver)
+        interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
         output = ifup(ifname)
 
         net = Netconf(ifname)
@@ -219,7 +220,7 @@ def set_dhcp(ifname):
 
 def get_ipconf(ifname):
     net = Netconf(ifname)
-    return net.addr, net.netmask, net.gateway, net.nameserver
+    return net.addr, net.netmask, net.gateway, net.nameservers
 
 def get_ifmethod(ifname):
     interface = Interface(ifname)
