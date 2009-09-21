@@ -1,0 +1,6 @@
+#!/bin/sh
+# configuration and template paths have changed
+
+[ -e /tmp/confconsole.conf ] && mv /tmp/confconsole.conf /etc/confconsole
+[ -e /tmp/usage.txt ] && mv /tmp/usage.txt /etc/confconsole
+

@@ -14,16 +14,13 @@ install:
 	dh_testroot
 	dh_clean -k
 	mkdir -p $(buildroot)/usr/bin
-	mkdir -p $(buildroot)/usr/lib/$(progname)
-	cp *.py $(buildroot)/usr/lib/$(progname)/
 	dh_link usr/lib/$(progname)/confconsole.py usr/bin/confconsole
-	mkdir -p $(buildroot)/usr/share/$(progname)
-	cp -a templates $(buildroot)/usr/share/$(progname)/
-	dh_link usr/share/$(progname)/templates usr/lib/$(progname)/templates
+	dh_link etc/$(progname) usr/lib/$(progname)/conf
 
 binary-indep: install
 	dh_testdir
 	dh_testroot
+	dh_install
 	dh_installinit -r --no-start -- start 99 2 .
 	dh_installdocs docs/
 	dh_installdeb

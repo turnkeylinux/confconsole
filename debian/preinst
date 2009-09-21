@@ -1,0 +1,7 @@
+#!/bin/sh
+# configuration and template paths have changed
+
+for f in /etc/confconsole.conf /usr/share/confconsole/templates/usage.txt; do
+    [ -e $f ] && mv $f /tmp/
+done
+

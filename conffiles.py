@@ -6,6 +6,14 @@ import os
 class Error(Exception):
     pass
 
+def get_configuration_path(filename):
+    for dir in ("conf", "/etc/confconsole"):
+        path = os.path.join(dir, filename)
+        if os.path.exists(path):
+            return path
+
+    raise Error('could not find configuration file: %s' % path)
+
 class Interfaces:
     """class for controlling /etc/network/interfaces
 
@@ -103,13 +111,11 @@ class Interfaces:
         self.write_conf(ifname, ifconf)
 
 class ConsoleConf:
-    CONF_FILE="/etc/confconsole.conf"
-
     def _load_conf(self):
-        if not os.path.exists(self.CONF_FILE):
+        if not os.path.exists(self.conf_file):
             return
 
-        for line in file(self.CONF_FILE).readlines():
+        for line in file(self.conf_file).readlines():
             line = line.strip()
 
             if not line or line.startswith("#"):
@@ -123,12 +129,13 @@ class ConsoleConf:
 
     def __init__(self):
         self.default_nic = None
+        self.conf_file = get_configuration_path("confconsole.conf")
         self._load_conf()
 
     def set_default_nic(self, ifname):
         self.default_nic = ifname
 
-        fh = file(self.CONF_FILE, "w")
+        fh = file(self.conf_file, "w")
         print >> fh, "default_nic %s" % ifname
         fh.close()
 

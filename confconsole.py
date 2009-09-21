@@ -9,7 +9,7 @@ from string import Template
 
 import ifutil
 import executil
-from conffiles import ConsoleConf
+from conffiles import ConsoleConf, get_configuration_path
 
 from StringIO import StringIO
 import traceback
@@ -114,15 +114,6 @@ class TurnkeyConsole:
         self.appname = "TurnKey Linux %s" % ifutil.get_hostname().capitalize()
 
         self.installer = Installer(path='/usr/bin/di-live')
-
-    @staticmethod
-    def _get_template_path(filename):
-        for dir in ("templates", "/usr/share/confconsole/templates"):
-            template_path = os.path.join(dir, filename)
-            if os.path.exists(template_path):
-                return template_path
-
-        raise Error('could not find template: %s' % filename)
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -234,7 +225,7 @@ class TurnkeyConsole:
             return "networking"
 
         #display usage
-        t = file(self._get_template_path("usage.txt"), 'r').read()
+        t = file(get_configuration_path("usage.txt"), 'r').read()
         text = Template(t).substitute(hostname=ifutil.get_hostname().capitalize(),
                                       appname=self.appname,
                                       ipaddr=ifutil.get_ipconf(ifname)[0])
