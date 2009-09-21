@@ -1,6 +1,12 @@
 #!/bin/sh
 # configuration and template paths have changed
 
-[ -e /tmp/confconsole.conf ] && mv /tmp/confconsole.conf /etc/confconsole
-[ -e /tmp/usage.txt ] && mv /tmp/usage.txt /etc/confconsole
+TEMPLATE=/tmp/usage.txt
+[ -e $TEMPLATE ] && mv $TEMPLATE /etc/confconsole/
 
+CONFFILE=/tmp/confconsole.conf
+[ -e $CONFFILE ] && mv $CONFFILE /etc/confconsole/
+
+#DEBHELPER#
+
+exit 0

@@ -1,7 +1,12 @@
 #!/bin/sh
 # configuration and template paths have changed
 
-for f in /etc/confconsole.conf /usr/share/confconsole/templates/usage.txt; do
-    [ -e $f ] && mv $f /tmp/
-done
+TEMPLATE=/usr/share/confconsole/templates/usage.txt
+[ -e $TEMPLATE ] && cp $TEMPLATE /tmp/
 
+CONFFILE=/etc/confconsole.conf
+[ -e $CONFFILE ] && cp $CONFFILE /tmp/
+
+#DEBHELPER#
+
+exit 0
