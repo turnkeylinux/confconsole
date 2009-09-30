@@ -1,0 +1,99 @@
+====================
+v0.9.4 Release Notes
+====================
+
+* leverage debian networking tools (ifup/ifdown)
+
+    - instead of reinventing (poorly) manipulation of network interface,
+      the correct way (and seperation of concerns) is to manipulate
+      various configuration files and rely on ifup/ifdown to configure
+      the interface.
+
+    - not to mention the hooks that are relied on:
+      if-down.d  if-post-down.d  if-pre-up.d  if-up.d
+
+* removed udhcpc dependency and demoted resolvconf to recommends
+
+    - we now rely on ifup to start/stop whatever dhcp client happens to
+      be installed.
+
+    - the confconsole works fine without resolvconf, but it is
+      recommended when using multiple nics.
+      
+    - none-the-less, when displaying an interface's nameserver:
+
+        - check if one is set in /etc/network/interfaces (static)
+        - check if resolvconf via any dhcp client
+        - if not, fallback to /etc/resolv.conf
+
+* handle exceptions in a user friendly way (fault tolerant)
+
+    - errors/bugs are inevitable, we should attempt to minimize their
+      impact as much as possible.
+
+    - raising an exception terminates confconsole, and this is
+      unfriendly to new users (confconsole suddently crashes).
+
+    - instead, we intercept the exception and provide a useful traceback
+      that can be submitted (so we an squash the bug), and finally
+      return the user to the previous dialog.
+
+* retain iface options which are already defined when updating
+  interfaces configuration
+
+    - provides support for pre/post up and down configurations (flexibility)
+
+    - bugfix: iface options were lost when updating configuration
+
+        - this was originally by design as the user was prompted to
+          remove the header if manual changes were made.
+
+        - but we need this functionality to allow other applications to
+          update the configuration (e.g., webmin firewall activate on
+          boot).
+
+* added support for multiple nameservers. noticable UI changes:
+
+    - minimum of 2 nameserver fields
+    - atleast 1 blank nameserver field (which means an infinate amount of
+      nameservers can be added)
+
+* moved template to /etc/confconsole/usage.txt and set as conffile
+
+    - it is a configuration file, and can be customized.
+    - it should not be automatically replaced when upgrading.
+
+* template changes
+
+    - added web shell with port 12320
+    - updated SSH line to display SFTP as well
+
+    - generic dialog changes: increased default height (18 -> 20)
+
+* bugfixes
+
+    - fixed severely broken static IP configuration screen (configuring
+      a static IP without a gateway would raise an exception).
+
+    - refuse to run confconsole without root privileges.
+
+    - changed resolvconf interface path
+
+        - ubuntu implemented a workaround to store "run" info in /var/run
+        - its better to look in the path it is meant to be (ubuntu
+          created a symlink to /var/run)
+
+    - install docs/
+
+* misc
+
+    - added sanity check to set_static.
+
+    - refactored away indecipherable regexp from is_ipaddr.
+
+    - use clean upaddr module to determine if dateway is in IP range,
+      and include a more helpful error message if not.
+
+    - standardized enumeration of /etc/network/interfaces information
+
+
