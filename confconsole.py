@@ -179,20 +179,20 @@ class TurnkeyConsole:
 
     def _get_ifconfmenu(self, ifname):
         menu = []
-        menu.append(("DHCP", "Configure this NIC automatically"))
-        menu.append(("StaticIP", "Configure this NIC manually"))
+        menu.append(("DHCP", "Configure networking automatically"))
+        menu.append(("StaticIP", "Configure networking manually"))
 
         if not ifname == self._get_default_nic() and \
            len(self._get_filtered_ifnames()) > 1 and \
            ifutil.get_ipconf(ifname)[0] is not None:
-            menu.append(("Default", "Set as default NIC displayed in Usage"))
+            menu.append(("Default", "Show this adapter's IP address in Usage"))
 
         return menu
 
     def _get_ifconftext(self, ifname):
         addr, netmask, gateway, nameservers = ifutil.get_ipconf(ifname)
         if addr is None:
-            return "Interface is not configured\n"
+            return "Network adapter is not configured\n"
         
         text =  "IP Address:      %s\n" % addr
         text += "Netmask:         %s\n" % netmask
@@ -201,10 +201,10 @@ class TurnkeyConsole:
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
-            text += "Interface configuration method: %s\n" % ifmethod
+            text += "Networking configuration method: %s\n" % ifmethod
 
         if len(self._get_filtered_ifnames()) > 1:
-            text += "Is this the default NIC displayed in Usage: "
+            text += "Is this adapter's IP address displayed in Usage: "
             if ifname == self._get_default_nic():
                 text += "yes\n"
             else:
@@ -215,13 +215,13 @@ class TurnkeyConsole:
     def usage(self):
         #if no interfaces at all - display error and go to advanced
         if len(self._get_filtered_ifnames()) == 0:
-            self.console.msgbox("Error", "No interfaces are available")
+            self.console.msgbox("Error", "No network adapters detected")
             return "advanced"
 
         #if interfaces but no default - display error and go to networking
         ifname = self._get_default_nic()
         if not ifname:
-            self.console.msgbox("Error", "No interfaces are configured")
+            self.console.msgbox("Error", "Networking is not yet configured")
             return "networking"
 
         #display usage
@@ -256,7 +256,7 @@ class TurnkeyConsole:
 
         #if no interfaces at all - display error and go to advanced
         if len(ifnames) == 0:
-            self.console.msgbox("Error", "No interfaces are available")
+            self.console.msgbox("Error", "No network adapters detected")
             return "advanced"
 
         # if only 1 interface, dont display menu - just configure it
@@ -265,9 +265,9 @@ class TurnkeyConsole:
             return "ifconf"
 
         # display networking
-        text = "Choose interface to configure\n"
+        text = "Choose network adapter to configure\n"
         if self._get_default_nic():
-            text += "[*] Default NIC displayed in Usage"
+            text += "[*] This adapter's IP address is displayed in Usage"
 
         retcode, self.ifname = self.console.menu("Networking configuration",
                                                  text, self._get_netmenu())
