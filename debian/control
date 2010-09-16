@@ -7,7 +7,7 @@ Standards-Version: 3.6.1
 
 Package: confconsole
 Architecture: all
-Depends: python (>= 2.4), python-dialog (>= 2.7-1turnkey+4)
+Depends: python (>= 2.4), python-dialog (>= 2.7-1turnkey+4), turnkey-pylib
 Recommends: kbd, di-live, resolvconf
 Section: misc
 Description: TurnKey Linux Configuration Console
