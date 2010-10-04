@@ -13,7 +13,6 @@ class Error(Exception):
 
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
-SIOCGIFBRDADDR = 0x8919
 
 class EtcNetworkInterfaces:
     """class for controlling /etc/network/interfaces
@@ -182,10 +181,6 @@ class NetInfo:
     @property
     def netmask(self):
         return self._get_ioctl_addr(SIOCGIFNETMASK)
-
-    @property
-    def brdaddr(self):
-        return self._get_ioctl_addr(SIOCGIFBRDADDR)
 
     @property
     def gateway(self):
