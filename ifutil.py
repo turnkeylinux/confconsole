@@ -2,17 +2,12 @@
 
 import os
 import re
-import time
-import fcntl
-import socket
 
 import executil
+from netinfo import NetInfo
 
 class Error(Exception):
     pass
-
-SIOCGIFADDR = 0x8915
-SIOCGIFNETMASK = 0x891b
 
 class EtcNetworkInterfaces:
     """class for controlling /etc/network/interfaces
@@ -158,44 +153,6 @@ class EtcNetworkInterface:
 
         return
 
-class NetInfo:
-    """enumerate network related configurations"""
-
-    def __init__(self, ifname):
-        self.ifname = ifname
-        self.ifreq = (self.ifname + '\0'*32)[:32]
-
-    def _get_ioctl_addr(self, attrname):
-        try:
-            sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            result = fcntl.ioctl(sockfd.fileno(), attrname, self.ifreq)
-        except IOError:
-            return None
-
-        return socket.inet_ntoa(result[20:24])
-
-    @property
-    def addr(self):
-        return self._get_ioctl_addr(SIOCGIFADDR)
-
-    @property
-    def netmask(self):
-        return self._get_ioctl_addr(SIOCGIFNETMASK)
-
-    @property
-    def gateway(self):
-        try:
-            output = executil.getoutput("route -n")
-        except executil.ExecError:
-            return None
-
-        for line in output.splitlines():
-            m = re.search('^0.0.0.0\s+(.*?)\s+(.*)\s+%s' % self.ifname, line, re.M)
-            if m:
-                return m.group(1)
-
-        return None
-
 def get_nameservers(ifname):
     #/etc/network/interfaces (static)
     interface = EtcNetworkInterface(ifname)
@@ -226,47 +183,6 @@ def get_nameservers(ifname):
         return nameservers
 
     return []
-
-class Connection:
-    """class for holding a network connections configuration"""
-
-    def __init__(self, proto, attribs, debug=False):
-        """
-        proto is one of tcp, tcp6, udp
-        attribs is a line from /proc/net/$proto (split into an array) 
-        """
-        self.proto = proto
-        self.lhost, self.lport = self._map_hostport(attribs[1])
-        self.rhost, self.rport = self._map_hostport(attribs[2])
-
-        self.status = self._map_status(attribs[3])
-
-        if debug:
-            print "%s\t%s:%s\t\t%s:%s\t\t%s" % (self.proto, self.lhost, self.lport,
-                                                self.rhost, self.rport, self.status)
-
-    @staticmethod
-    def _int2host(host):
-        return ".".join(map(str, ((host >> 0) & 0xff, (host >> 8) & 0xff,
-                                  (host >> 16) & 0xff, (host >> 24) & 0xff)))
-
-    @classmethod
-    def _map_hostport(cls, attrib):
-        host, port = attrib.split(":", 1)
-        host = cls._int2host(int(host, 16))
-        port = int(port, 16)
-
-        return host, port
-
-    @staticmethod
-    def _map_status(attrib):
-        status = {'01': 'ESTABLISHED',
-                  '0A': 'LISTENING',
-                  '10': 'WAITING'}
-        try:
-            return status[attrib]
-        except KeyError:
-            return 'UNKNOWN'
 
 
 def ifup(ifname):
@@ -320,29 +236,4 @@ def get_ipconf(ifname):
 def get_ifmethod(ifname):
     interface = EtcNetworkInterface(ifname)
     return interface.method
-
-def get_ifnames():
-    """ returns list of interface names (up and down) """
-    ifnames = []
-    for line in file('/proc/net/dev').readlines():
-        try:
-            ifname, junk = line.strip().split(":")
-            ifnames.append(ifname)
-        except ValueError:
-            pass
-
-    return ifnames
-
-def get_hostname():
-    return socket.gethostname()
-
-def get_connections():
-    connections = []
-    for proto in ('tcp', 'tcp6', 'udp'):
-        for line in file('/proc/net/' + proto).readlines()[1:]:
-            conn = Connection(proto, line.split())
-            connections.append(conn)
-
-    return connections
-
 

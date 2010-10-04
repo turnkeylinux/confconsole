@@ -8,6 +8,7 @@ import ipaddr
 from string import Template
 
 import ifutil
+import netinfo
 import executil
 
 import conf
@@ -112,14 +113,14 @@ class TurnkeyConsole:
         self.height = 20
 
         self.console = Console(title, self.width, self.height)
-        self.appname = "TurnKey Linux %s" % ifutil.get_hostname().capitalize()
+        self.appname = "TurnKey Linux %s" % netinfo.get_hostname().capitalize()
 
         self.installer = Installer(path='/usr/bin/di-live')
 
     @staticmethod
     def _get_filtered_ifnames():
         ifnames = []
-        for ifname in ifutil.get_ifnames():
+        for ifname in netinfo.get_ifnames():
             if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
                 continue
             ifnames.append(ifname)
@@ -227,7 +228,7 @@ class TurnkeyConsole:
 
         #display usage
         t = file(conf.path("usage.txt"), 'r').read()
-        text = Template(t).substitute(hostname=ifutil.get_hostname().capitalize(),
+        text = Template(t).substitute(hostname=netinfo.get_hostname().capitalize(),
                                       appname=self.appname,
                                       ipaddr=ifutil.get_ipconf(ifname)[0])
 
