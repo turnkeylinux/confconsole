@@ -196,37 +196,36 @@ class NetInfo:
 
         return None
 
-    @property
-    def nameservers(self):
-        def _parse_resolv(path):
-            nameservers = []
-            for line in file(path).readlines():
-                if line.startswith('nameserver'):
-                    nameservers.append(line.strip().split()[1])
-            return nameservers
+def get_nameservers(ifname):
+    #/etc/network/interfaces (static)
+    interface = EtcNetworkInterface(ifname)
+    if interface.dns_nameservers:
+        return interface.dns_nameservers
 
-        #/etc/network/interfaces (static)
-        interface = EtcNetworkInterface(self.ifname)
-        if interface.dns_nameservers:
-            return interface.dns_nameservers
+    def parse_resolv(path):
+        nameservers = []
+        for line in file(path).readlines():
+            if line.startswith('nameserver'):
+                nameservers.append(line.strip().split()[1])
+        return nameservers
 
-        #resolvconf (dhcp)
-        path = '/etc/resolvconf/run/interface'
-        if os.path.exists(path):
-            for f in os.listdir(path):
-                if not f.startswith(self.ifname) or f.endswith('.inet'):
-                    continue
+    #resolvconf (dhcp)
+    path = '/etc/resolvconf/run/interface'
+    if os.path.exists(path):
+        for f in os.listdir(path):
+            if not f.startswith(ifname) or f.endswith('.inet'):
+                continue
 
-                nameservers = _parse_resolv(os.path.join(path, f))
-                if nameservers:
-                    return nameservers
+            nameservers = parse_resolv(os.path.join(path, f))
+            if nameservers:
+                return nameservers
 
-        #/etc/resolv.conf (fallback)
-        nameservers = _parse_resolv('/etc/resolv.conf')
-        if nameservers:
-            return nameservers
+    #/etc/resolv.conf (fallback)
+    nameservers = parse_resolv('/etc/resolv.conf')
+    if nameservers:
+        return nameservers
 
-        return []
+    return []
 
 class Connection:
     """class for holding a network connections configuration"""
@@ -316,7 +315,7 @@ def set_dhcp(ifname):
 
 def get_ipconf(ifname):
     net = NetInfo(ifname)
-    return net.addr, net.netmask, net.gateway, net.nameservers
+    return net.addr, net.netmask, net.gateway, get_nameservers(ifname)
 
 def get_ifmethod(ifname):
     interface = EtcNetworkInterface(ifname)
