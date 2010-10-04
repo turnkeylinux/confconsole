@@ -4,7 +4,7 @@ import os
 import re
 
 import executil
-from netinfo import NetInfo
+from netinfo import InterfaceInfo
 
 class Error(Exception):
     pass
@@ -208,7 +208,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
         interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
         output = ifup(ifname)
 
-        net = NetInfo(ifname)
+        net = InterfaceInfo(ifname)
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
@@ -222,7 +222,7 @@ def set_dhcp(ifname):
         interfaces.set_dhcp(ifname)
         output = ifup(ifname)
 
-        net = NetInfo(ifname)
+        net = InterfaceInfo(ifname)
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
@@ -230,7 +230,7 @@ def set_dhcp(ifname):
         return str(e)
 
 def get_ipconf(ifname):
-    net = NetInfo(ifname)
+    net = InterfaceInfo(ifname)
     return net.addr, net.netmask, net.gateway, get_nameservers(ifname)
 
 def get_ifmethod(ifname):
