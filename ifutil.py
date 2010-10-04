@@ -7,7 +7,6 @@ import fcntl
 import socket
 
 import executil
-import conffiles
 
 class Error(Exception):
     pass
@@ -16,12 +15,108 @@ SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
 SIOCGIFBRDADDR = 0x8919
 
+class Interfaces:
+    """class for controlling /etc/network/interfaces
+
+    An error will be raised if the interfaces file does not include the
+    header: # UNCONFIGURED INTERFACES (in other words, we will not override
+    any customizations)
+    """
+
+    CONF_FILE='/etc/network/interfaces'
+
+    def __init__(self):
+        self.read_conf()
+
+    @staticmethod
+    def _header():
+        return "\n".join(["# UNCONFIGURED INTERFACES",
+                          "# remove the above line if you edit this file"])
+
+    @staticmethod
+    def _loopback():
+        return "\n".join(["auto lo",
+                          "iface lo inet loopback"])
+
+    def read_conf(self):
+        self.conf = {}
+        self.unconfigured = False
+
+        for line in file(self.CONF_FILE).readlines():
+            line = line.rstrip()
+
+            if line == self._header().splitlines()[0]:
+                self.unconfigured = True
+
+            if not line or line.startswith("#"):
+                continue
+
+            if line.startswith("auto") or line.startswith("ifname"):
+                ifname = line.split()[1]
+
+            if not self.conf.has_key(ifname):
+                self.conf[ifname] = line + "\n"
+            else:
+                self.conf[ifname] = self.conf[ifname] + line + "\n"
+
+    def write_conf(self, ifname, ifconf):
+        self.read_conf()
+        if not self.unconfigured:
+            raise Error("not writing to %s\nheader not found: %s" %
+                        (self.CONF_FILE, self._header().splitlines()[0]))
+
+        #append legal iface options already defined
+        iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
+        for line in self.conf[ifname].splitlines():
+            line = line.strip()
+            if line.split()[0] in iface_opts:
+                ifconf.append("    " + line)
+
+        fh = file(self.CONF_FILE, "w")
+        print >> fh, self._header() + "\n"
+        print >> fh, self._loopback() + "\n"
+        print >> fh, "\n".join(ifconf) + "\n"
+
+        for c in self.conf:
+            if c in ('lo', ifname):
+                continue
+
+            print >> fh, self.conf[c]
+
+        fh.close()
+
+    def set_dhcp(self, ifname):
+        ifconf = ["auto %s" % ifname,
+                  "iface %s inet dhcp" % ifname]
+
+        self.write_conf(ifname, ifconf)
+
+    def set_manual(self, ifname):
+        ifconf = ["auto %s" % ifname,
+                  "iface %s inet manual" % ifname]
+
+        self.write_conf(ifname, ifconf)
+
+    def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
+        ifconf = ["auto %s" % ifname,
+                  "iface %s inet static" % ifname,
+                  "    address %s" % addr,
+                  "    netmask %s" % netmask]
+
+        if gateway:
+            ifconf.append("    gateway %s" % gateway)
+
+        if nameservers:
+            ifconf.append("    dns-nameservers %s" % " ".join(nameservers))
+
+        self.write_conf(ifname, ifconf)
+
 class Interface:
     """enumerate interface information from /etc/network/interfaces"""
 
     def __init__(self, ifname):
         self.ifname = ifname
-        self.interfaces = conffiles.Interfaces()
+        self.interfaces = Interfaces()
 
     def _parse_attr(self, attr):
         if not self.interfaces.conf.has_key(self.ifname):
@@ -55,7 +150,7 @@ class Interface:
         except IndexError:
             return None
 
-class Netconf:
+class NetInfo:
     """enumerate network related configurations"""
 
     def __init__(self, ifname):
@@ -180,7 +275,7 @@ def ifdown(ifname):
 def unconfigure_if(ifname):
     try:
         ifdown(ifname)
-        interfaces = conffiles.Interfaces()
+        interfaces = Interfaces()
         interfaces.set_manual(ifname)
         executil.system("ifconfig %s 0.0.0.0" % ifname)
         ifup(ifname)
@@ -190,11 +285,11 @@ def unconfigure_if(ifname):
 def set_static(ifname, addr, netmask, gateway, nameservers):
     try:
         ifdown(ifname)
-        interfaces = conffiles.Interfaces()
+        interfaces = Interfaces()
         interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
         output = ifup(ifname)
 
-        net = Netconf(ifname)
+        net = NetInfo(ifname)
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
@@ -204,11 +299,11 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
 def set_dhcp(ifname):
     try:
         ifdown(ifname)
-        interfaces = conffiles.Interfaces()
+        interfaces = Interfaces()
         interfaces.set_dhcp(ifname)
         output = ifup(ifname)
 
-        net = Netconf(ifname)
+        net = NetInfo(ifname)
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
@@ -216,7 +311,7 @@ def set_dhcp(ifname):
         return str(e)
 
 def get_ipconf(ifname):
-    net = Netconf(ifname)
+    net = NetInfo(ifname)
     return net.addr, net.netmask, net.gateway, net.nameservers
 
 def get_ifmethod(ifname):
