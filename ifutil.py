@@ -9,12 +9,12 @@ import socket
 import executil
 import conffiles
 
+class Error(Exception):
+    pass
+
 SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
 SIOCGIFBRDADDR = 0x8919
-
-class Error(Exception):
-    pass
 
 class Interface:
     """enumerate interface information from /etc/network/interfaces"""
@@ -55,21 +55,14 @@ class Interface:
         except IndexError:
             return None
 
-class Netconf():
+class Netconf:
     """enumerate network related configurations"""
-
-    class ATTRIBS:
-        ADDRS = {
-            'addr':         SIOCGIFADDR,
-            'netmask':      SIOCGIFNETMASK,
-            'brdaddr':      SIOCGIFBRDADDR,
-        }
 
     def __init__(self, ifname):
         self.ifname = ifname
         self.ifreq = (self.ifname + '\0'*32)[:32]
 
-    def _get_addr(self, attrname):
+    def _get_ioctl_addr(self, attrname):
         try:
             sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             result = fcntl.ioctl(sockfd.fileno(), attrname, self.ifreq)
@@ -78,7 +71,20 @@ class Netconf():
 
         return socket.inet_ntoa(result[20:24])
 
-    def get_gateway(self):
+    @property
+    def addr(self):
+        return self._get_ioctl_addr(SIOCGIFADDR)
+
+    @property
+    def netmask(self):
+        return self._get_ioctl_addr(SIOCGIFNETMASK)
+
+    @property
+    def brdaddr(self):
+        return self._get_ioctl_addr(SIOCGIFBRDADDR)
+
+    @property
+    def gateway(self):
         try:
             output = executil.getoutput("route -n")
         except executil.ExecError:
@@ -91,7 +97,8 @@ class Netconf():
 
         return None
 
-    def get_nameservers(self):
+    @property
+    def nameservers(self):
         def _parse_resolv(path):
             nameservers = []
             for line in file(path).readlines():
@@ -121,16 +128,6 @@ class Netconf():
             return nameservers
 
         return []
-
-    def __getattr__(self, attrname):
-        if attrname in self.ATTRIBS.ADDRS:
-            return self._get_addr(self.ATTRIBS.ADDRS[attrname])
-
-        if attrname == "gateway":
-            return self.get_gateway()
-
-        if attrname == "nameservers":
-            return self.get_nameservers()
 
 class Connection:
     """class for holding a network connections configuration"""
