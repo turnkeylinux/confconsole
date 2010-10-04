@@ -116,16 +116,22 @@ class EtcNetworkInterface:
 
     def __init__(self, ifname):
         self.ifname = ifname
-        self.interfaces = EtcNetworkInterfaces()
+
+        interfaces = EtcNetworkInterfaces()
+
+        self.conflines = []
+        if ifname in interfaces.conf:
+            self.conflines = interfaces.conf[ifname].splitlines()
 
     def _parse_attr(self, attr):
-        if not self.interfaces.conf.has_key(self.ifname):
-            return []
+        for line in self.conflines:
 
-        for line in self.interfaces.conf[self.ifname].splitlines():
-            line = line.strip()
-            if line.startswith(attr):
-                return line.split()
+            vals = line.strip().split()
+            if not vals:
+                continue
+
+            if vals[0] == attr:
+                return vals
 
         return []
 
