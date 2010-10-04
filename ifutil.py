@@ -15,7 +15,7 @@ SIOCGIFADDR = 0x8915
 SIOCGIFNETMASK = 0x891b
 SIOCGIFBRDADDR = 0x8919
 
-class Interfaces:
+class EtcNetworkInterfaces:
     """class for controlling /etc/network/interfaces
 
     An error will be raised if the interfaces file does not include the
@@ -111,12 +111,12 @@ class Interfaces:
 
         self.write_conf(ifname, ifconf)
 
-class Interface:
+class EtcNetworkInterface:
     """enumerate interface information from /etc/network/interfaces"""
 
     def __init__(self, ifname):
         self.ifname = ifname
-        self.interfaces = Interfaces()
+        self.interfaces = EtcNetworkInterfaces()
 
     def _parse_attr(self, attr):
         if not self.interfaces.conf.has_key(self.ifname):
@@ -129,26 +129,29 @@ class Interface:
 
         return []
 
+    @property
+    def method(self):
+        try:
+            return self._parse_attr('iface')[3]
+        except IndexError:
+            return
+
+    @property
+    def dns_nameservers(self):
+        return self._parse_attr('dns-nameservers')[1:]
+
     def __getattr__(self, attrname):
         #attributes with multiple values will be returned in an array
         #exception: dns-nameservers always returns in array (expected)
 
         attrname = attrname.replace('_', '-')
-        try:
-            if attrname == "method":
-                return self._parse_attr('iface')[3]
-
-            if attrname == "dns-nameservers":
-                return self._parse_attr(attrname)[1:]
-
-            values = self._parse_attr(attrname)
-            if len(values) > 2:
-                return values[1:]
-
+        values = self._parse_attr(attrname)
+        if len(values) > 2:
+            return values[1:]
+        elif len(values) > 1:
             return values[1]
 
-        except IndexError:
-            return None
+        return
 
 class NetInfo:
     """enumerate network related configurations"""
@@ -202,7 +205,7 @@ class NetInfo:
             return nameservers
 
         #/etc/network/interfaces (static)
-        interface = Interface(self.ifname)
+        interface = EtcNetworkInterface(self.ifname)
         if interface.dns_nameservers:
             return interface.dns_nameservers
 
@@ -275,7 +278,7 @@ def ifdown(ifname):
 def unconfigure_if(ifname):
     try:
         ifdown(ifname)
-        interfaces = Interfaces()
+        interfaces = EtcNetworkInterfaces()
         interfaces.set_manual(ifname)
         executil.system("ifconfig %s 0.0.0.0" % ifname)
         ifup(ifname)
@@ -285,7 +288,7 @@ def unconfigure_if(ifname):
 def set_static(ifname, addr, netmask, gateway, nameservers):
     try:
         ifdown(ifname)
-        interfaces = Interfaces()
+        interfaces = EtcNetworkInterfaces()
         interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
         output = ifup(ifname)
 
@@ -299,7 +302,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
 def set_dhcp(ifname):
     try:
         ifdown(ifname)
-        interfaces = Interfaces()
+        interfaces = EtcNetworkInterfaces()
         interfaces.set_dhcp(ifname)
         output = ifup(ifname)
 
@@ -315,7 +318,7 @@ def get_ipconf(ifname):
     return net.addr, net.netmask, net.gateway, net.nameservers
 
 def get_ifmethod(ifname):
-    interface = Interface(ifname)
+    interface = EtcNetworkInterface(ifname)
     return interface.method
 
 def get_ifnames():
