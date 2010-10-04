@@ -9,7 +9,8 @@ from string import Template
 
 import ifutil
 import executil
-from conffiles import ConsoleConf, get_configuration_path
+
+import conf
 
 from StringIO import StringIO
 import traceback
@@ -134,7 +135,7 @@ class TurnkeyConsole:
                 return True
             return False
 
-        ifname = ConsoleConf().default_nic
+        ifname = conf.Conf().default_nic
         if ifname and _validip(ifname):
             return ifname
 
@@ -225,7 +226,7 @@ class TurnkeyConsole:
             return "networking"
 
         #display usage
-        t = file(get_configuration_path("usage.txt"), 'r').read()
+        t = file(conf.path("usage.txt"), 'r').read()
         text = Template(t).substitute(hostname=ifutil.get_hostname().capitalize(),
                                       appname=self.appname,
                                       ipaddr=ifutil.get_ipconf(ifname)[0])
@@ -393,7 +394,7 @@ class TurnkeyConsole:
         return "ifconf"
 
     def _ifconf_default(self):
-        ConsoleConf().set_default_nic(self.ifname)
+        conf.Conf().set_default_nic(self.ifname)
         return "ifconf"
 
     def _adv_install(self):

@@ -6,7 +6,7 @@ import os
 class Error(Exception):
     pass
 
-def get_configuration_path(filename):
+def path(filename):
     for dir in ("conf", "/etc/confconsole"):
         path = os.path.join(dir, filename)
         if os.path.exists(path):
@@ -14,7 +14,7 @@ def get_configuration_path(filename):
 
     raise Error('could not find configuration file: %s' % path)
 
-class ConsoleConf:
+class Conf:
     def _load_conf(self):
         if not os.path.exists(self.conf_file):
             return
@@ -33,7 +33,7 @@ class ConsoleConf:
 
     def __init__(self):
         self.default_nic = None
-        self.conf_file = get_configuration_path("confconsole.conf")
+        self.conf_file = path("confconsole.conf")
         self._load_conf()
 
     def set_default_nic(self, ifname):
