@@ -28,6 +28,7 @@ class Console:
         self.console.add_persistent_args(["--no-collapse"])
         self.console.add_persistent_args(["--ok-label", "Select"])
         self.console.add_persistent_args(["--cancel-label", "Back"])
+        self.console.add_persistent_args(["--colors"])
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 
@@ -113,7 +114,7 @@ class TurnkeyConsole:
         self.height = 20
 
         self.console = Console(title, self.width, self.height)
-        self.appname = "TurnKey Linux %s" % netinfo.get_hostname().capitalize()
+        self.appname = "TurnKey Linux %s" % netinfo.get_hostname().upper()
 
         self.installer = Installer(path='/usr/bin/di-live')
 
@@ -226,13 +227,35 @@ class TurnkeyConsole:
             self.console.msgbox("Error", "Networking is not yet configured")
             return "networking"
 
-        #display usage
-        t = file(conf.path("usage.txt"), 'r').read()
-        text = Template(t).substitute(hostname=netinfo.get_hostname().capitalize(),
-                                      appname=self.appname,
-                                      ipaddr=ifutil.get_ipconf(ifname)[0])
+        #tklbam integration
+        try:
+            tklbam_status = executil.getoutput("tklbam-status --short")
+        except executil.ExecError:
+            tklbam_status = ''
 
-        retcode = self.console.msgbox("Usage", text, button_label="Advanced Menu")
+        #display usage
+        ipaddr = ifutil.get_ipconf(ifname)[0]
+        hostname = netinfo.get_hostname().upper()
+
+        try:
+            #backwards compatible - use usage.txt if it exists
+            t = file(conf.path("usage.txt"), 'r').read()
+            text = Template(t).substitute(hostname=hostname, ipaddr=ipaddr)
+
+            retcode = self.console.msgbox("Usage", text,
+                                          button_label="Advanced Menu")
+        except conf.Error:
+            t = file(conf.path("services.txt"), 'r').read().rstrip()
+            text = Template(t).substitute(ipaddr=ipaddr)
+
+            text += "\n\n%s\n\n" % tklbam_status
+            text += "\n" * (self.height - len(text.splitlines()) - 7)
+            text += "          TurnKey Backups and Cloud Deployment\n"
+            text += "              https://hub.turnkeylinux.org"
+
+            retcode = self.console.msgbox("%s appliance services" % hostname,
+                                          text, button_label="Advanced Menu")
+
         if retcode is not self.OK:
             self.running = False
 
