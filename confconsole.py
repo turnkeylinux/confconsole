@@ -250,8 +250,8 @@ class TurnkeyConsole:
 
             text += "\n\n%s\n\n" % tklbam_status
             text += "\n" * (self.height - len(text.splitlines()) - 7)
-            text += "          TurnKey Backups and Cloud Deployment\n"
-            text += "              https://hub.turnkeylinux.org"
+            text += "         TurnKey Backups and Cloud Deployment\n"
+            text += "             https://hub.turnkeylinux.org"
 
             retcode = self.console.msgbox("%s appliance services" % hostname,
                                           text, button_label="Advanced Menu")
