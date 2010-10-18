@@ -230,8 +230,11 @@ class TurnkeyConsole:
         #tklbam integration
         try:
             tklbam_status = executil.getoutput("tklbam-status --short")
-        except executil.ExecError:
-            tklbam_status = ''
+        except executil.ExecError, e:
+            if e.exitcode in (10, 11): #not initialized, no backups
+                tklbam_status = e.output
+            else:
+                tklbam_status = ''
 
         #display usage
         ipaddr = ifutil.get_ipconf(ifname)[0]
