@@ -18,8 +18,7 @@ class EtcNetworkInterfaces:
     """
 
     CONF_FILE='/etc/network/interfaces'
-    HEADER_UNCONFIGURED = "# UNCONFIGURED INTERFACES\n" + \
-                          "# remove the above line if you edit this file"
+    HEADER_UNCONFIGURED = "# UNCONFIGURED INTERFACES"
 
     def __init__(self):
         self.read_conf()
@@ -33,10 +32,11 @@ class EtcNetworkInterfaces:
         self.conf = {}
         self.unconfigured = False
 
+        ifname = None
         for line in file(self.CONF_FILE).readlines():
             line = line.rstrip()
 
-            if line == self.HEADER_UNCONFIGURED.splitlines()[0]:
+            if line == self.HEADER_UNCONFIGURED:
                 self.unconfigured = True
 
             if not line or line.startswith("#"):
@@ -45,16 +45,19 @@ class EtcNetworkInterfaces:
             if line.startswith("auto") or line.startswith("ifname"):
                 ifname = line.split()[1]
 
-            if not self.conf.has_key(ifname):
-                self.conf[ifname] = line + "\n"
-            else:
-                self.conf[ifname] = self.conf[ifname] + line + "\n"
+            if not ifname:
+                continue
+
+            if not (ifname in self.conf):
+                self.conf[ifname] = ""
+
+            self.conf[ifname] += line + "\n"
 
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
             raise Error("not writing to %s\nheader not found: %s" %
-                        (self.CONF_FILE, self.HEADER_UNCONFIGURED.splitlines()[0]))
+                        (self.CONF_FILE, self.HEADER_UNCONFIGURED))
 
         #append legal iface options already defined
         iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
@@ -64,7 +67,9 @@ class EtcNetworkInterfaces:
                 ifconf.append("    " + line)
 
         fh = file(self.CONF_FILE, "w")
-        print >> fh, self.HEADER_UNCONFIGURED + "\n"
+        print >> fh, self.HEADER_UNCONFIGURED
+        print >> fh, "# remove the above line if you edit this file"
+        print >> fh
         print >> fh, self._loopback() + "\n"
         print >> fh, "\n".join(ifconf) + "\n"
 
