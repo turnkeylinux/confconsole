@@ -44,14 +44,9 @@ class EtcNetworkInterfaces:
 
             if line.startswith("auto") or line.startswith("ifname"):
                 ifname = line.split()[1]
-
-            if not ifname:
-                continue
-
-            if not (ifname in self.conf):
-                self.conf[ifname] = ""
-
-            self.conf[ifname] += line + "\n"
+                self.conf[ifname] = line + "\n"
+            elif ifname:
+                self.conf[ifname] += line + "\n"
 
     def write_conf(self, ifname, ifconf):
         self.read_conf()
