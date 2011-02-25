@@ -18,14 +18,11 @@ class EtcNetworkInterfaces:
     """
 
     CONF_FILE='/etc/network/interfaces'
+    HEADER_UNCONFIGURED = "# UNCONFIGURED INTERFACES\n" + \
+                          "# remove the above line if you edit this file"
 
     def __init__(self):
         self.read_conf()
-
-    @staticmethod
-    def _header():
-        return "\n".join(["# UNCONFIGURED INTERFACES",
-                          "# remove the above line if you edit this file"])
 
     @staticmethod
     def _loopback():
@@ -39,7 +36,7 @@ class EtcNetworkInterfaces:
         for line in file(self.CONF_FILE).readlines():
             line = line.rstrip()
 
-            if line == self._header().splitlines()[0]:
+            if line == self.HEADER_UNCONFIGURED.splitlines()[0]:
                 self.unconfigured = True
 
             if not line or line.startswith("#"):
@@ -57,7 +54,7 @@ class EtcNetworkInterfaces:
         self.read_conf()
         if not self.unconfigured:
             raise Error("not writing to %s\nheader not found: %s" %
-                        (self.CONF_FILE, self._header().splitlines()[0]))
+                        (self.CONF_FILE, self.HEADER_UNCONFIGURED.splitlines()[0]))
 
         #append legal iface options already defined
         iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
@@ -67,7 +64,7 @@ class EtcNetworkInterfaces:
                 ifconf.append("    " + line)
 
         fh = file(self.CONF_FILE, "w")
-        print >> fh, self._header() + "\n"
+        print >> fh, self.HEADER_UNCONFIGURED + "\n"
         print >> fh, self._loopback() + "\n"
         print >> fh, "\n".join(ifconf) + "\n"
 
