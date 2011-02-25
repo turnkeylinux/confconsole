@@ -23,11 +23,6 @@ class EtcNetworkInterfaces:
     def __init__(self):
         self.read_conf()
 
-    @staticmethod
-    def _loopback():
-        return "\n".join(["auto lo",
-                          "iface lo inet loopback"])
-
     def read_conf(self):
         self.conf = {}
         self.unconfigured = False
@@ -51,7 +46,7 @@ class EtcNetworkInterfaces:
     def _get_iface_opts(self, ifname):
         iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
         if ifname not in self.conf:
-            return
+            return []
 
         ifconf = self.conf[ifname]
         return [ line.strip()
@@ -72,8 +67,11 @@ class EtcNetworkInterfaces:
         print >> fh, self.HEADER_UNCONFIGURED
         print >> fh, "# remove the above line if you edit this file"
         print >> fh
-        print >> fh, self._loopback() + "\n"
-        print >> fh, "\n".join(ifconf) + "\n"
+        print >> fh, "auto lo"
+        print >> fh, "iface lo inet loopback"
+        print >> fh
+
+        print >> fh, ifconf + "\n"
 
         for c in self.conf:
             if c in ('lo', ifname):
@@ -84,15 +82,11 @@ class EtcNetworkInterfaces:
         fh.close()
 
     def set_dhcp(self, ifname):
-        ifconf = ("auto %s" +
-                  "iface %s inet dhcp" % (ifname, ifname))
-
+        ifconf = "auto %s\niface %s inet dhcp" % (ifname, ifname)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
-        ifconf = ("auto %s" +
-                  "iface %s inet manual" % (ifname, ifname))
-
+        ifconf = "auto %s\niface %s inet manual" % (ifname, ifname)
         self.write_conf(ifname, ifconf)
 
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
@@ -107,6 +101,7 @@ class EtcNetworkInterfaces:
         if nameservers:
             ifconf.append("    dns-nameservers %s" % " ".join(nameservers))
 
+        ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
 class EtcNetworkInterface:
