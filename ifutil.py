@@ -48,18 +48,25 @@ class EtcNetworkInterfaces:
             elif ifname:
                 self.conf[ifname] += line + "\n"
 
+    def _get_iface_opts(self, ifname):
+        iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
+        if ifname not in self.conf:
+            return
+
+        ifconf = self.conf[ifname]
+        return [ line.strip()
+                 for line in ifconf.splitlines() 
+                 if line.strip().split()[0] in iface_opts ]
+
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
-            raise Error("not writing to %s\nheader not found: %s" %
+            raise Error("refusing to write to %s\nheader not found: %s" %
                         (self.CONF_FILE, self.HEADER_UNCONFIGURED))
 
-        #append legal iface options already defined
-        iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
-        for line in self.conf[ifname].splitlines():
-            line = line.strip()
-            if line.split()[0] in iface_opts:
-                ifconf.append("    " + line)
+        # carry over previously defined interface options
+        ifconf += "\n".join([ "    " + opt 
+                              for opt in self._get_iface_opts(ifname) ])
 
         fh = file(self.CONF_FILE, "w")
         print >> fh, self.HEADER_UNCONFIGURED
@@ -77,14 +84,14 @@ class EtcNetworkInterfaces:
         fh.close()
 
     def set_dhcp(self, ifname):
-        ifconf = ["auto %s" % ifname,
-                  "iface %s inet dhcp" % ifname]
+        ifconf = ("auto %s" +
+                  "iface %s inet dhcp" % (ifname, ifname))
 
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
-        ifconf = ["auto %s" % ifname,
-                  "iface %s inet manual" % ifname]
+        ifconf = ("auto %s" +
+                  "iface %s inet manual" % (ifname, ifname))
 
         self.write_conf(ifname, ifconf)
 
