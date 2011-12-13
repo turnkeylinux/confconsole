@@ -60,8 +60,8 @@ class EtcNetworkInterfaces:
                         (self.CONF_FILE, self.HEADER_UNCONFIGURED))
 
         # carry over previously defined interface options
-        ifconf += "\n".join([ "    " + opt 
-                              for opt in self._get_iface_opts(ifname) ])
+        ifconf += "\n" + "\n".join([ "    " + opt 
+                                   for opt in self._get_iface_opts(ifname) ])
 
         fh = file(self.CONF_FILE, "w")
         print >> fh, self.HEADER_UNCONFIGURED
