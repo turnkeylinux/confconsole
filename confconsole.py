@@ -43,7 +43,7 @@ class Console:
     def _wrapper(self, dialog, text, *args, **kws):
         try:
             method = getattr(self.console, dialog)
-        except AttibuteError:
+        except AttributeError:
             raise Error("dialog not supported: " + dialog)
 
         while 1:
