@@ -1,5 +1,11 @@
 #!/usr/bin/python
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+"""TurnKey Configuration Console
+
+Options:
+    --usage         Display usage screen without Advanced Menu
+
+"""
 
 import os
 import sys
@@ -18,6 +24,18 @@ import traceback
 
 class Error(Exception):
     pass
+
+def fatal(e):
+    print >> sys.stderr, "error: " + str(e)
+    sys.exit(1)
+
+def usage(e=None):
+    if e:
+        print >> sys.stderr, "error: " + str(e)
+
+    print >> sys.stderr, "Syntax: %s" % (sys.argv[0])
+    print >> sys.stderr, __doc__.strip()
+    sys.exit(1)
 
 class Console:
     def __init__(self, title=None, width=60, height=20):
@@ -108,7 +126,7 @@ class TurnkeyConsole:
     OK = 0
     CANCEL = 1
 
-    def __init__(self):
+    def __init__(self, advanced_enabled=True):
         title = "TurnKey Linux Configuration Console"
         self.width = 60
         self.height = 20
@@ -117,6 +135,8 @@ class TurnkeyConsole:
         self.appname = "TurnKey Linux %s" % netinfo.get_hostname().upper()
 
         self.installer = Installer(path='/usr/bin/di-live')
+
+        self.advanced_enabled = advanced_enabled
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -196,7 +216,7 @@ class TurnkeyConsole:
         addr, netmask, gateway, nameservers = ifutil.get_ipconf(ifname)
         if addr is None:
             return "Network adapter is not configured\n"
-        
+
         text =  "IP Address:      %s\n" % addr
         text += "Netmask:         %s\n" % netmask
         text += "Default Gateway: %s\n" % gateway
@@ -216,15 +236,30 @@ class TurnkeyConsole:
         return text
 
     def usage(self):
+        if self.advanced_enabled:
+            default_button_label = "Advanced Menu"
+            default_return_value = "advanced"
+        else:
+            default_button_label = "Quit"
+            default_return_value = "quit"
+
         #if no interfaces at all - display error and go to advanced
         if len(self._get_filtered_ifnames()) == 0:
-            self.console.msgbox("Error", "No network adapters detected")
+            error = "No network adapters detected"
+            if not self.advanced_enabled:
+                fatal(error)
+
+            self.console.msgbox("Error", error)
             return "advanced"
 
         #if interfaces but no default - display error and go to networking
         ifname = self._get_default_nic()
         if not ifname:
-            self.console.msgbox("Error", "Networking is not yet configured")
+            error = "Networking is not yet configured"
+            if not self.advanced_enabled:
+                fatal(error)
+
+            self.console.msgbox("Error", error)
             return "networking"
 
         #tklbam integration
@@ -246,7 +281,7 @@ class TurnkeyConsole:
             text = Template(t).substitute(hostname=hostname, ipaddr=ipaddr)
 
             retcode = self.console.msgbox("Usage", text,
-                                          button_label="Advanced Menu")
+                                          button_label=default_button_label)
         except conf.Error:
             t = file(conf.path("services.txt"), 'r').read().rstrip()
             text = Template(t).substitute(ipaddr=ipaddr)
@@ -257,12 +292,12 @@ class TurnkeyConsole:
             text += "             https://hub.turnkeylinux.org"
 
             retcode = self.console.msgbox("%s appliance services" % hostname,
-                                          text, button_label="Advanced Menu")
+                                          text, button_label=default_button_label)
 
         if retcode is not self.OK:
             self.running = False
 
-        return "advanced"
+        return default_return_value
 
     def advanced(self):
         #dont display cancel button when no interfaces at all
@@ -442,7 +477,7 @@ class TurnkeyConsole:
             executil.system(cmd)
 
         return "advanced"
-        
+
     def _adv_reboot(self):
         return self._shutdown("Reboot the appliance?", "-r")
 
@@ -450,11 +485,15 @@ class TurnkeyConsole:
         return self._shutdown("Shutdown the appliance?", "-h")
 
     def _adv_quit(self):
+        default_return_value = "advanced" if self.advanced_enabled else "usage"
+
         if self.console.yesno("Do you really want to quit?") == self.OK:
             self.running = False
-        return "advanced"
+
+        return default_return_value
 
     _adv_networking = networking
+    quit = _adv_quit
 
     def loop(self, dialog="usage"):
         self.running = True
@@ -478,15 +517,21 @@ class TurnkeyConsole:
                 self.console.msgbox("Caught exception", sio.getvalue())
                 dialog = prev_dialog
 
-def fatal(e):
-    print >> sys.stderr, "error: " + str(e)
-    sys.exit(1)
-
 def main():
+    advanced_enabled = True
+
+    args = sys.argv[1:]
+    if args:
+        if args[0] == '--usage':
+            advanced_enabled = False
+        else:
+            usage()
+
     if os.geteuid() != 0:
         fatal("confconsole needs root privileges to run")
 
-    TurnkeyConsole().loop()
+    tc = TurnkeyConsole(advanced_enabled)
+    tc.loop()
 
 if __name__ == "__main__":
     main()
