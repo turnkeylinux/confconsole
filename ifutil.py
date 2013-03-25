@@ -1,7 +1,6 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import os
-import re
 
 import executil
 from netinfo import InterfaceInfo
@@ -37,7 +36,7 @@ class EtcNetworkInterfaces:
             if not line or line.startswith("#"):
                 continue
 
-            if line.startswith("auto") or line.startswith("iface"):
+            if line.startswith("auto"):
                 ifname = line.split()[1]
                 self.conf[ifname] = line + "\n"
             elif ifname:
@@ -50,7 +49,7 @@ class EtcNetworkInterfaces:
 
         ifconf = self.conf[ifname]
         return [ line.strip()
-                 for line in ifconf.splitlines() 
+                 for line in ifconf.splitlines()
                  if line.strip().split()[0] in iface_opts ]
 
     def write_conf(self, ifname, ifconf):
@@ -60,7 +59,7 @@ class EtcNetworkInterfaces:
                         (self.CONF_FILE, self.HEADER_UNCONFIGURED))
 
         # carry over previously defined interface options
-        ifconf += "\n" + "\n".join([ "    " + opt 
+        ifconf += "\n" + "\n".join([ "    " + opt
                                    for opt in self._get_iface_opts(ifname) ])
 
         fh = file(self.CONF_FILE, "w")
@@ -71,7 +70,7 @@ class EtcNetworkInterfaces:
         print >> fh, "iface lo inet loopback"
         print >> fh
 
-        print >> fh, ifconf + "\n"
+        print >> fh, ifconf
 
         for c in self.conf:
             if c in ('lo', ifname):
@@ -182,7 +181,6 @@ def get_nameservers(ifname):
         return nameservers
 
     return []
-
 
 def ifup(ifname):
     return executil.getoutput("ifup", ifname)
