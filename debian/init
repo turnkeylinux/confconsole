@@ -26,8 +26,9 @@ for x in $(cat /proc/cmdline); do
     fi
 done
 
-# Exit if openvt is not available
+# Exit if openvt is not available, set extra opts depending on version
 which openvt >/dev/null || exit 0
+dpkg -s console-tools >/dev/null 2>&1 && OPENVT_EXTRA_OPTS="-b"
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -46,7 +47,7 @@ case "$1" in
 
     if $START --quiet --test; then
         chvt 1
-        FGVT=$(fgconsole) openvt -c 8 -s -w -b -- $START &
+        FGVT=$(fgconsole) openvt -c 8 -s -w $OPENVT_EXTRA_OPTS -- $START &
     fi
     log_action_end_msg $?
     ;;
