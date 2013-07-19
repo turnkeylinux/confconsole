@@ -132,8 +132,15 @@ class TurnkeyConsole:
         self.height = 20
 
         self.console = Console(title, self.width, self.height)
-        self.appname = "TurnKey Linux %s" % netinfo.get_hostname().upper()
-
+        
+        # sometimes it would be nice to have the appname be something other
+        # than the hostname. Allow developers to create  file containing the appname
+        # in /etc/appname
+        try:
+            self.appname = file("/etc/appname", 'r').read().rstrip()
+        except IOError as e:
+            self.appname = "TurnKey Linux %s" % netinfo.get_hostname().upper()
+            
         self.installer = Installer(path='/usr/bin/di-live')
 
         self.advanced_enabled = advanced_enabled
@@ -278,13 +285,13 @@ class TurnkeyConsole:
         try:
             #backwards compatible - use usage.txt if it exists
             t = file(conf.path("usage.txt"), 'r').read()
-            text = Template(t).substitute(hostname=hostname, ipaddr=ipaddr)
+            text = Template(t).substitute(appname=self.appname, hostname=hostname, ipaddr=ipaddr)
 
             retcode = self.console.msgbox("Usage", text,
                                           button_label=default_button_label)
         except conf.Error:
             t = file(conf.path("services.txt"), 'r').read().rstrip()
-            text = Template(t).substitute(ipaddr=ipaddr)
+            text = Template(t).substitute(appname=self.appname, hostname=hostname, ipaddr=ipaddr)
 
             text += "\n\n%s\n\n" % tklbam_status
             text += "\n" * (self.height - len(text.splitlines()) - 7)
