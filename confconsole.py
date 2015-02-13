@@ -127,12 +127,12 @@ class TurnkeyConsole:
     CANCEL = 1
 
     def __init__(self, advanced_enabled=True):
-        title = "TurnKey Linux Configuration Console"
+        title = "TurnKey GNU/Linux Configuration Console"
         self.width = 60
         self.height = 20
 
         self.console = Console(title, self.width, self.height)
-        self.appname = "TurnKey Linux %s" % netinfo.get_hostname().upper()
+        self.appname = "TurnKey GNU/Linux %s" % netinfo.get_hostname().upper()
 
         self.installer = Installer(path='/usr/bin/di-live')
 
