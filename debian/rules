@@ -21,6 +21,7 @@ binary-indep: install
 	dh_testdir
 	dh_testroot
 	dh_install
+	dh_systemd_enable
 	dh_installinit -r --no-start -- start 99 2 3 4 5 . stop 01 0 1 6 .
 	dh_installdocs docs/
 	dh_installdeb
