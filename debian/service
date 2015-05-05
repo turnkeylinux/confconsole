@@ -4,13 +4,12 @@ After=inithooks.service
 ConditionKernelCommandLine=!noconfconsole
 
 [Service]
-Type=forking
+Type=idle
 StandardInput=tty-force
 TTYPath=/dev/tty8
 TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
-PIDFile=/var/run/confconsole.pid
 ExecStart=/bin/sh -c '\
     FGCONSOLE=$(fgconsole); \
     FGVT=$FGCONSOLE openvt -f -c 8 -s -w -- start-stop-daemon --start --pidfile /var/run/confconsole.pid --make-pidfile --startas /usr/bin/confconsole; \
