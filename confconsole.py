@@ -485,12 +485,14 @@ class TurnkeyConsole:
         return self._shutdown("Shutdown the appliance?", "-h")
 
     def _adv_quit(self):
-        default_return_value = "advanced" if self.advanced_enabled else "usage"
+        if not self.advanced_enabled:
+            self.running = False
+            return "usage"
 
         if self.console.yesno("Do you really want to quit?") == self.OK:
             self.running = False
 
-        return default_return_value
+        return "advanced"
 
     _adv_networking = networking
     quit = _adv_quit
