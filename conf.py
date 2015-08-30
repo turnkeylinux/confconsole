@@ -28,11 +28,14 @@ class Conf:
             op, val = re.split(r'\s+', line, 1)
             if op == 'default_nic':
                 self.default_nic = val
+            elif op == 'publicip_cmd':
+                self.publicip_cmd = val
             else:
                 raise Error("illegal configuration line: " + line)
 
     def __init__(self):
         self.default_nic = None
+        self.publicip_cmd = None
         self.conf_file = path("confconsole.conf")
         self._load_conf()
 

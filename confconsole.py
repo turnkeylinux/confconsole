@@ -167,6 +167,17 @@ class TurnkeyConsole:
 
         return None
 
+    @classmethod
+    def _get_public_ipaddr(cls):
+        publicip_cmd = conf.Conf().publicip_cmd
+        if publicip_cmd:
+            try:
+                return executil.getoutput(publicip_cmd)
+            except executil.ExecError, e:
+                pass
+
+        return None
+
     def _get_advmenu(self):
         items = []
         items.append(("Networking", "Configure appliance networking"))
@@ -272,7 +283,10 @@ class TurnkeyConsole:
                 tklbam_status = ''
 
         #display usage
-        ip_addr = ifutil.get_ipconf(ifname)[0]
+        ip_addr = self._get_public_ipaddr()
+        if not ip_addr:
+            ip_addr = ifutil.get_ipconf(ifname)[0]
+
         hostname = netinfo.get_hostname().upper()
 
         try:
