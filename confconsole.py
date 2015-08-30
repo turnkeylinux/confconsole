@@ -272,19 +272,19 @@ class TurnkeyConsole:
                 tklbam_status = ''
 
         #display usage
-        ipaddr = ifutil.get_ipconf(ifname)[0]
+        ip_addr = ifutil.get_ipconf(ifname)[0]
         hostname = netinfo.get_hostname().upper()
 
         try:
             #backwards compatible - use usage.txt if it exists
             t = file(conf.path("usage.txt"), 'r').read()
-            text = Template(t).substitute(hostname=hostname, ipaddr=ipaddr)
+            text = Template(t).substitute(hostname=hostname, ipaddr=ip_addr)
 
             retcode = self.console.msgbox("Usage", text,
                                           button_label=default_button_label)
         except conf.Error:
             t = file(conf.path("services.txt"), 'r').read().rstrip()
-            text = Template(t).substitute(ipaddr=ipaddr)
+            text = Template(t).substitute(ipaddr=ip_addr)
 
             text += "\n\n%s\n\n" % tklbam_status
             text += "\n" * (self.height - len(text.splitlines()) - 7)
