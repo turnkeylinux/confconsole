@@ -1,6 +1,7 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 
 import os
+from time import sleep
 
 import executil
 from netinfo import InterfaceInfo
@@ -203,6 +204,9 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
         ifdown(ifname)
         interfaces = EtcNetworkInterfaces()
         interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
+
+        #FIXME when issue in ifupdown/virtio-net becomes apparent
+        sleep(0.5)
 
         output = ifup(ifname)
 
