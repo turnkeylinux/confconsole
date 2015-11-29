@@ -157,9 +157,9 @@ class TurnkeyConsole:
                 return True
             return False
 
-        ifname = conf.Conf().default_nic
-        if ifname and _validip(ifname):
-            return ifname
+        defifname = conf.Conf().default_nic
+        if defifname and _validip(defifname):
+            return defifname
 
         for ifname in cls._get_filtered_ifnames():
             if _validip(ifname):
