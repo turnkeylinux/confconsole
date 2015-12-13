@@ -142,7 +142,7 @@ class TurnkeyConsole:
     def _get_filtered_ifnames():
         ifnames = []
         for ifname in netinfo.get_ifnames():
-            if ifname.startswith(('lo', 'tap', 'br', 'natbr', 'tun', 'vmnet', 'wmaster')):
+            if ifname.startswith(('lo', 'tap', 'br', 'natbr', 'tun', 'vmnet', 'veth', 'wmaster')):
                 continue
             ifnames.append(ifname)
 
