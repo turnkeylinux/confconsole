@@ -142,9 +142,16 @@ class TurnkeyConsole:
     def _get_filtered_ifnames():
         ifnames = []
         for ifname in netinfo.get_ifnames():
-            if ifname.startswith(('lo', 'tap', 'br', 'tun', 'vmnet', 'wmaster')):
+            if ifname.startswith(('lo', 'tap', 'br', 'natbr', 'tun', 'vmnet', 'veth', 'wmaster')):
                 continue
             ifnames.append(ifname)
+
+        # handle bridged LXC where br0 is the default outward-facing interface
+        defifname = conf.Conf().default_nic
+        if defifname and defifname.startswith('br'):
+                ifnames.append(defifname)
+                bridgedif = executil.getoutput('brctl', 'show', defifname).split('\n')[1].split('\t')[-1]
+                ifnames.remove(bridgedif)
 
         ifnames.sort()
         return ifnames
@@ -157,9 +164,9 @@ class TurnkeyConsole:
                 return True
             return False
 
-        ifname = conf.Conf().default_nic
-        if ifname and _validip(ifname):
-            return ifname
+        defifname = conf.Conf().default_nic
+        if defifname and _validip(defifname):
+            return defifname
 
         for ifname in cls._get_filtered_ifnames():
             if _validip(ifname):
