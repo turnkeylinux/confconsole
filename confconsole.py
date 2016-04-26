@@ -295,6 +295,11 @@ class TurnkeyConsole:
             ip_addr = ifutil.get_ipconf(ifname)[0]
 
         hostname = netinfo.get_hostname().upper()
+        fqdn = netinfo.get_fqdn()
+
+        cache_dir = os.environ.get('INITHOOKS_CACHE', '/var/lib/inithooks/cache')
+        if os.path.isfile(os.path.join(cache_dir, 'APP_DOMAIN')):
+            ip_addr = fqdn
 
         try:
             #backwards compatible - use usage.txt if it exists
