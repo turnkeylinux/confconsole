@@ -99,6 +99,13 @@ class PluginDir(object):
 
         self.plugins = []
 
+
+        if os.path.isfile(os.path.join(path, 'description')):
+            with open(os.path.join(path, 'description'), 'r') as fob:
+                self.description = fob.read()
+        else:
+            self.description = ''
+
         assert 'console' in self.module_globals, 'console not passed to PluginDir in module_globals'
 
     def run(self):
@@ -109,7 +116,7 @@ class PluginDir(object):
                 items.append((plugin.module_name.capitalize(), str(plugin.module.__doc__)))
                 plugin_map[plugin.module_name.capitalize()] = plugin
             elif isinstance(plugin, PluginDir):
-                items.append((plugin.module_name.capitalize(), ''))
+                items.append((plugin.module_name.capitalize(), self.description))
                 plugin_map[plugin.module_name.capitalize()] = plugin
 
         items.append(('Back', ''))

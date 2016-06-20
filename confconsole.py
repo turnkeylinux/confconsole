@@ -205,7 +205,7 @@ class TurnkeyConsole:
                 if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
                     items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
                 elif isinstance(plug, plugin.PluginDir):
-                    items.append((plug.module_name.capitalize(), ''))
+                    items.append((plug.module_name.capitalize(), plug.description))
                 plugin_map[plug.module_name.capitalize()] = plug
 
 
