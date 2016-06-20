@@ -78,7 +78,13 @@ class Plugin(object):
             setattr(self.module, name, val)
 
     def run(self):
-        return self.module.run()
+        ret = self.module.run()
+        # default behaviour is to go to previous
+        # menu after exiting if not otherwise specified
+        if hasattr(self, 'parent'):
+            return ret or self.parent
+        else:
+            return ret or 'advanced'
 
 class PluginDir(object):
     ''' Object that mimics behaviour of a plugin but acts only as a menu node '''
@@ -90,12 +96,38 @@ class PluginDir(object):
 
         self.module_name = self.name
         self.module_globals = module_globals
+
         self.plugins = []
 
         assert 'console' in self.module_globals, 'console not passed to PluginDir in module_globals'
 
     def run(self):
-        pass
+        items = []
+        plugin_map = {}
+        for plugin in self.plugins:
+            if isinstance(plugin, Plugin) and hasattr(plugin.module, 'run'):
+                items.append((plugin.module_name.capitalize(), str(plugin.module.__doc__)))
+                plugin_map[plugin.module_name.capitalize()] = plugin
+            elif isinstance(plugin, PluginDir):
+                items.append((plugin.module_name.capitalize(), ''))
+                plugin_map[plugin.module_name.capitalize()] = plugin
+
+        items.append(('Back', ''))
+
+        retcode, choice = self.module_globals['console'].menu(self.module_name.capitalize(), self.module_name.capitalize()+'\n', items, no_cancel = False)
+
+        if retcode is not 0: # confconsole.TurnkeyConsole.OK
+            return 'usage'
+
+        if choice == 'Back':
+            if not hasattr(self, 'parent'):
+                return 'advanced'
+            else:
+                return self.parent
+        if choice in plugin_map:
+            return plugin_map[choice].path
+        else:
+            return '_adv_' + choice.lower()
 
 class PluginManager(object):
     ''' Object that holds various information about multiple `plugins` '''
@@ -110,27 +142,19 @@ class PluginManager(object):
             raise PluginError('Plugin directory "{}" does not exist!'.format(path))
 
         for root, dirs, files in os.walk(path):
-            print 'once'
             for file_name in files:
                 file_path = os.path.join(root, file_name)
-                print file_name
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0111 == 0:
                         current_plugin = Plugin(file_path, plugin_globals)
                         self.path_map[file_path] = current_plugin
 
-                        for plugin in self.plugins:
-                            print 'a'
-                            if root == plugin.path:
-                                plugin.plugins.append(current_plugin)
-                            else:
-                                self.plugins.append(current_plugin)
 
             for dir_name in dirs:
                 dir_path = os.path.join(root, dir_name)
                 
                 if os.path.isdir(dir_path):
-                    current_plugin = PluginDir(file_path, plugin_globals)
+                    current_plugin = PluginDir(dir_path, plugin_globals)
                     self.path_map[dir_path] = current_plugin
 
                     self.plugins.append(current_plugin)
@@ -140,10 +164,14 @@ class PluginManager(object):
 
         for plugin in self.plugins:
             if isinstance(plugin, Plugin) and hasattr(plugin.module, 'doOnce'):
+                # Run plugin init
                 plugin.module.doOnce()
+            elif isinstance(plugin, PluginDir):
+                for path in self.path_map:
+                    if os.path.dirname(path) == plugin.path:
+                        plugin.plugins.append(self.path_map[path])
+                        self.path_map[path].parent = plugin.path
 
-        print self.path_map
-        exit(1)
 
     def getByName(self, name):
         return filter(lambda x:x.module_name == name, self.plugins)

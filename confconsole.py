@@ -22,6 +22,8 @@ import conf
 from StringIO import StringIO
 import traceback
 
+import plugin
+
 class Error(Exception):
     pass
 
@@ -138,6 +140,9 @@ class TurnkeyConsole:
 
         self.advanced_enabled = advanced_enabled
 
+        self.eventManager = plugin.EventManager()
+        self.pluginManager = plugin.PluginManager('plugins.d', {'eventManager':self.eventManager, 'console':self.console})
+
     @staticmethod
     def _get_filtered_ifnames():
         ifnames = []
@@ -191,12 +196,24 @@ class TurnkeyConsole:
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
+        
+        plugin_map = {}
+
+        for path in self.pluginManager.path_map:
+            plug = self.pluginManager.path_map[path]
+            if os.path.dirname(path) == 'plugins.d': 
+                if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
+                    items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
+                elif isinstance(plug, plugin.PluginDir):
+                    items.append((plug.module_name.capitalize(), ''))
+                plugin_map[plug.module_name.capitalize()] = plug
+
 
         items.append(("Reboot", "Reboot the appliance"))
         items.append(("Shutdown", "Shutdown the appliance"))
         items.append(("Quit", "Quit the configuration console"))
 
-        return items
+        return items, plugin_map
 
     def _get_netmenu(self):
         menu = []
@@ -325,13 +342,19 @@ class TurnkeyConsole:
         no_cancel = False
         if len(self._get_filtered_ifnames()) == 0:
             no_cancel = True
+
+        items, plugin_map = self._get_advmenu()
+
         retcode, choice = self.console.menu("Advanced Menu",
                                             self.appname + " Advanced Menu\n",
-                                            self._get_advmenu(),
+                                            items,
                                             no_cancel=no_cancel)
 
         if retcode is not self.OK:
             return "usage"
+        
+        if choice in plugin_map:
+            return plugin_map[choice].path
 
         return "_adv_" + choice.lower()
 
@@ -524,10 +547,16 @@ class TurnkeyConsole:
 
         while dialog and self.running:
             try:
-                try:
-                    method = getattr(self, dialog)
-                except AttributeError:
-                    raise Error("dialog not supported: " + dialog)
+                if not dialog.startswith('plugin'):
+                    try:
+                        method = getattr(self, dialog)
+                    except AttributeError:
+                        raise Error("dialog not supported: " + dialog)
+                else:
+                    try:
+                        method = self.pluginManager.path_map[dialog].run
+                    except KeyError:
+                        raise Error("could not find plugin dialog: " + dialog)
 
                 new_dialog = method()
                 prev_dialog = dialog
