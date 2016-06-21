@@ -24,6 +24,7 @@ import traceback
 
 import plugin
 
+
 class Error(Exception):
     pass
 
@@ -141,7 +142,7 @@ class TurnkeyConsole:
         self.advanced_enabled = advanced_enabled
 
         self.eventManager = plugin.EventManager()
-        self.pluginManager = plugin.PluginManager('plugins.d', {'eventManager':self.eventManager, 'console':self.console})
+        self.pluginManager = plugin.PluginManager('plugins.d', {'eventManager': self.eventManager, 'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -537,6 +538,8 @@ class TurnkeyConsole:
             self.running = False
 
         return "advanced"
+
+
 
     _adv_networking = networking
     quit = _adv_quit

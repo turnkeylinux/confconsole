@@ -56,7 +56,7 @@ class EventManager(object):
 class Plugin(object):
     ''' Object that holds various information about a `plugin` '''
 
-    def __init__(self, path, module_globals = {}):
+    def __init__(self, path, module_globals):
         self.path = path
         self.real_name = os.path.basename(path) # for weighted ordering
         self.name = re.sub('^[\d]*', '', self.real_name) # for menu entry
@@ -72,10 +72,8 @@ class Plugin(object):
         finally:
             module_fob.close()
 
-        # set given globals, dialog and event_manager for example
-        for name in module_globals:
-            val = module_globals[name]
-            setattr(self.module, name, val)
+        for k in module_globals:
+            setattr(self.module, k, module_globals[k])
 
     def run(self):
         ret = self.module.run()
@@ -89,16 +87,16 @@ class Plugin(object):
 class PluginDir(object):
     ''' Object that mimics behaviour of a plugin but acts only as a menu node '''
 
-    def __init__(self, path, module_globals = {}):
+    def __init__(self, path, module_globals):
         self.path = path
         self.real_name = os.path.basename(path)
         self.name = re.sub('^[\d]*', '', self.real_name)
 
         self.module_name = self.name
-        self.module_globals = module_globals
 
         self.plugins = []
 
+        self.module_globals = module_globals
 
         if os.path.isfile(os.path.join(path, 'description')):
             with open(os.path.join(path, 'description'), 'r') as fob:
@@ -106,7 +104,6 @@ class PluginDir(object):
         else:
             self.description = ''
 
-        assert 'console' in self.module_globals, 'console not passed to PluginDir in module_globals'
 
     def run(self):
         items = []
@@ -139,7 +136,7 @@ class PluginDir(object):
 class PluginManager(object):
     ''' Object that holds various information about multiple `plugins` '''
 
-    def __init__(self, path, plugin_globals = {}):
+    def __init__(self, path, module_globals):
         self.plugins = []
         self.names = set()
 
@@ -153,15 +150,15 @@ class PluginManager(object):
                 file_path = os.path.join(root, file_name)
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0111 == 0:
-                        current_plugin = Plugin(file_path, plugin_globals)
+                        current_plugin = Plugin(file_path, module_globals)
                         self.path_map[file_path] = current_plugin
-
+                        self.plugins.append(current_plugin)
 
             for dir_name in dirs:
                 dir_path = os.path.join(root, dir_name)
                 
                 if os.path.isdir(dir_path):
-                    current_plugin = PluginDir(dir_path, plugin_globals)
+                    current_plugin = PluginDir(dir_path, module_globals)
                     self.path_map[dir_path] = current_plugin
 
                     self.plugins.append(current_plugin)
