@@ -5,7 +5,6 @@ import sys
 import imp
 from traceback import format_exc
 
-
 class PluginError(Exception):
     pass
 
@@ -113,7 +112,7 @@ class PluginDir(object):
                 items.append((plugin.module_name.capitalize(), str(plugin.module.__doc__)))
                 plugin_map[plugin.module_name.capitalize()] = plugin
             elif isinstance(plugin, PluginDir):
-                items.append((plugin.module_name.capitalize(), self.description))
+                items.append((plugin.module_name.capitalize(), plugin.description))
                 plugin_map[plugin.module_name.capitalize()] = plugin
 
         items.append(('Back', ''))
@@ -175,8 +174,7 @@ class PluginManager(object):
                     if os.path.dirname(path) == plugin.path:
                         plugin.plugins.append(self.path_map[path])
                         self.path_map[path].parent = plugin.path
-
-
+    
     def getByName(self, name):
         return filter(lambda x:x.module_name == name, self.plugins)
 
