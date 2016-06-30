@@ -146,6 +146,9 @@ class PluginManager(object):
 
         for root, dirs, files in os.walk(path):
             for file_name in files:
+                if not file_name.endswith('.py'):
+                    continue
+
                 file_path = os.path.join(root, file_name)
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0111 == 0:
