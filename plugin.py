@@ -4,6 +4,7 @@ import os
 import sys
 import imp
 from traceback import format_exc
+from collections import OrderedDict
 
 class PluginError(Exception):
     pass
@@ -93,8 +94,6 @@ class PluginDir(object):
 
         self.module_name = self.name
 
-        self.plugins = []
-
         self.module_globals = module_globals
 
         if os.path.isfile(os.path.join(path, 'description')):
@@ -107,7 +106,7 @@ class PluginDir(object):
     def run(self):
         items = []
         plugin_map = {}
-        for plugin in self.plugins:
+        for plugin in PluginManager.getByDir(self.path):
             if isinstance(plugin, Plugin) and hasattr(plugin.module, 'run'):
                 items.append((plugin.module_name.capitalize(), str(plugin.module.__doc__)))
                 plugin_map[plugin.module_name.capitalize()] = plugin
@@ -127,6 +126,7 @@ class PluginDir(object):
                 return 'advanced'
             else:
                 return self.parent
+
         if choice in plugin_map:
             return plugin_map[choice].path
         else:
@@ -135,11 +135,10 @@ class PluginDir(object):
 class PluginManager(object):
     ''' Object that holds various information about multiple `plugins` '''
 
-    def __init__(self, path, module_globals):
-        self.plugins = []
-        self.names = set()
+    path_map = OrderedDict()
 
-        self.path_map = {}
+    def __init__(self, path, module_globals):
+        path_map = {}
 
         if not os.path.isdir(path):
             raise PluginError('Plugin directory "{}" does not exist!'.format(path))
@@ -150,33 +149,35 @@ class PluginManager(object):
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0111 == 0:
                         current_plugin = Plugin(file_path, module_globals)
-                        self.path_map[file_path] = current_plugin
-                        self.plugins.append(current_plugin)
+                        path_map[file_path] = current_plugin
 
             for dir_name in dirs:
                 dir_path = os.path.join(root, dir_name)
                 
                 if os.path.isdir(dir_path):
                     current_plugin = PluginDir(dir_path, module_globals)
-                    self.path_map[dir_path] = current_plugin
+                    path_map[dir_path] = current_plugin
 
-                    self.plugins.append(current_plugin)
-
-        # This should sort paths correctly
-        self.plugins = sorted(self.plugins, key=lambda x:x.path.lstrip(path).split('/'))
-
-        for plugin in self.plugins:
+        for key in self.path_map:
+            plugin = self.path_map[key]
             if isinstance(plugin, Plugin) and hasattr(plugin.module, 'doOnce'):
                 # Run plugin init
                 plugin.module.doOnce()
-            elif isinstance(plugin, PluginDir):
-                for path in self.path_map:
-                    if os.path.dirname(path) == plugin.path:
-                        plugin.plugins.append(self.path_map[path])
-                        self.path_map[path].parent = plugin.path
-    
-    def getByName(self, name):
-        return filter(lambda x:x.module_name == name, self.plugins)
+        
+        PluginManager.path_map = OrderedDict(sorted(path_map.items(), key = lambda x: x[0]))
+ 
+    @classmethod
+    def getByName(cls, name):
+        return filter(lambda x:x.module_name == name, cls.path_map.values())
+
+    @classmethod
+    def getByDir(cls, path):
+        plugins = []
+        for path_key in cls.path_map:
+            if os.path.dirname(path_key) == path:
+                plugins.append(cls.path_map[path_key])
+        return plugins
+
 
 #em = EventManager()
 #pm = PluginManager('plugins.d', {'eventManager': em})
