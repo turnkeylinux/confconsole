@@ -140,6 +140,12 @@ class PluginManager(object):
     def __init__(self, path, module_globals):
         path_map = {}
 
+        module_globals.update({
+            'impByName': PluginManager.getByName,
+            'impByDir': PluginManager.getByDir,
+            'impByPath': PluginManager.getByPath,
+        })
+
         if not os.path.isdir(path):
             raise PluginError('Plugin directory "{}" does not exist!'.format(path))
 
@@ -166,18 +172,40 @@ class PluginManager(object):
         
         PluginManager.path_map = OrderedDict(sorted(path_map.items(), key = lambda x: x[0]))
  
-    @classmethod
-    def getByName(cls, name):
-        return filter(lambda x:x.module_name == name, cls.path_map.values())
+    @staticmethod
+    def getByName(name):
+        ''' Return list of plugin objects matching given name '''
+        return filter(lambda x:x.module_name == name, PluginManager.path_map.values())
 
-    @classmethod
-    def getByDir(cls, path):
+    @staticmethod
+    def getByDir(path):
+        ''' Return a list of plugin objects in given directory '''
         plugins = []
-        for path_key in cls.path_map:
+        for path_key in PluginManager.path_map:
             if os.path.dirname(path_key) == path:
-                plugins.append(cls.path_map[path_key])
+                plugins.append(PluginManager.path_map[path_key])
         return plugins
 
+    @staticmethod
+    def getByPath(path):
+        ''' Return plugin object with exact given path or None'''
+        return PluginManager.path_map.get(path)
+
+    #-- Used by plugins
+    @staticmethod
+    def impByName(name):
+        ''' Return a list of python modules (from plugins excluding PluginDirs) matching given name '''
+        return filter(map(lambda x:x.module if hasattr(x, 'module') else None, PluginManager.getByName(name)))
+
+    @staticmethod
+    def impByDir(path):
+        ''' Return a list of python modules (from plugins excluding PluginDirs) in given directory '''
+        return filter(map(lambda x:x.module if hasattr(x, 'module') else None, PluginManager.getByDir(path)))
+
+    @staticmethod
+    def impByPath(path):
+        ''' Return a python module from plugin at given path or None '''
+        return PluginManager.getByPath(path).module
 
 #em = EventManager()
 #pm = PluginManager('plugins.d', {'eventManager': em})
