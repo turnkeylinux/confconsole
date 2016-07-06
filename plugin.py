@@ -62,7 +62,7 @@ class Plugin(object):
         self.name = re.sub('^[\d]*', '', self.real_name) # for menu entry
 
         # used for imp.find_module
-        self.module_name = self.real_name.rstrip('.py')
+        self.module_name = os.path.splitext(self.real_name)[0]
 
         # find the module
         module_fob, module_pathname, module_description = imp.find_module(self.module_name, [os.path.dirname(self.path)])
@@ -151,6 +151,9 @@ class PluginManager(object):
 
         for root, dirs, files in os.walk(path):
             for file_name in files:
+                if not file_name.endswith('.py'):
+                    continue
+
                 file_path = os.path.join(root, file_name)
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0111 == 0:
