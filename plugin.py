@@ -138,6 +138,7 @@ class PluginManager(object):
     path_map = OrderedDict()
 
     def __init__(self, path, module_globals):
+        path = os.path.realpath(path) # Just in case
         path_map = {}
 
         module_globals.update({
@@ -172,7 +173,6 @@ class PluginManager(object):
             if isinstance(plugin, Plugin) and hasattr(plugin.module, 'doOnce'):
                 # Run plugin init
                 plugin.module.doOnce()
-        
         PluginManager.path_map = OrderedDict(sorted(path_map.items(), key = lambda x: x[0]))
  
     @staticmethod

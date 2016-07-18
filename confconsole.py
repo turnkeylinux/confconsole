@@ -24,6 +24,7 @@ import traceback
 
 import plugin
 
+PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins.d')
 
 class Error(Exception):
     pass
@@ -142,7 +143,7 @@ class TurnkeyConsole:
         self.advanced_enabled = advanced_enabled
 
         self.eventManager = plugin.EventManager()
-        self.pluginManager = plugin.PluginManager('plugins.d', {'eventManager': self.eventManager, 'console': self.console})
+        self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -202,7 +203,7 @@ class TurnkeyConsole:
 
         for path in self.pluginManager.path_map:
             plug = self.pluginManager.path_map[path]
-            if os.path.dirname(path) == 'plugins.d': 
+            if os.path.dirname(path) == PLUGIN_PATH: 
                 if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
                     items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
                 elif isinstance(plug, plugin.PluginDir):
@@ -550,7 +551,7 @@ class TurnkeyConsole:
 
         while dialog and self.running:
             try:
-                if not dialog.startswith('plugin'):
+                if not dialog.startswith(PLUGIN_PATH):
                     try:
                         method = getattr(self, dialog)
                     except AttributeError:
