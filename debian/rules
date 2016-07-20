@@ -2,6 +2,7 @@
 
 progname=$(shell awk '/^Source/ {print $$2}' debian/control)
 buildroot=debian/$(progname)
+confconsole_dir=$(buildroot)/usr/lib/$(progname)
 
 clean:
 	dh_clean
@@ -14,6 +15,8 @@ install:
 	dh_testroot
 	dh_clean -k
 	mkdir -p $(buildroot)/usr/bin
+	mkdir -p $(confconsole_dir)/plugins.d
+	touch $(confconsole_dir)/plugins.d/.anchor
 	dh_link usr/lib/$(progname)/confconsole.py usr/bin/confconsole
 	dh_link etc/$(progname) usr/lib/$(progname)/conf
 

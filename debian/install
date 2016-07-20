@@ -1,2 +1,3 @@
-*.py    /usr/lib/confconsole/
-conf/*  /etc/confconsole/
+plugins.d/  /usr/lib/confconsole/
+*.py        /usr/lib/confconsole/
+conf/*      /etc/confconsole/
