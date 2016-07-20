@@ -59,7 +59,7 @@ class Plugin(object):
     def __init__(self, path, module_globals):
         self.path = path
         self.real_name = os.path.basename(path) # for weighted ordering
-        self.name = re.sub('^[\d]*', '', self.real_name) # for menu entry
+        self.name = re.sub('^[\d]*', '', self.real_name).replace('_', ' ') # for menu entry
 
         # used for imp.find_module
         self.module_name = os.path.splitext(self.real_name)[0]
@@ -90,7 +90,7 @@ class PluginDir(object):
     def __init__(self, path, module_globals):
         self.path = path
         self.real_name = os.path.basename(path)
-        self.name = re.sub('^[\d]*', '', self.real_name)
+        self.name = re.sub('^[\d]*', '', self.real_name).replace('_', ' ')
 
         self.module_name = self.name
 
