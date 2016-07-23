@@ -90,6 +90,12 @@ class Console:
         return self._wrapper("msgbox", text, self.height, self.width,
                              title=title, ok_label=button_label)
 
+    def inputbox(self, title, text, init='', ok_label="OK", cancel_label="Cancel"):
+        no_cancel = True if cancel_label == "" else False
+        return self._wrapper("inputbox", text, self.height, self.width, title=title,
+                            init=init, ok_label=ok_label, cancel_label=cancel_label,
+                            no_cancel=no_cancel)
+
     def menu(self, title, text, choices, no_cancel=False):
         return self._wrapper("menu", text, self.height, self.width,
                              menu_height=len(choices)+1,
