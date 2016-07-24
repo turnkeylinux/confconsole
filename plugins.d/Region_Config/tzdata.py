@@ -2,4 +2,14 @@
 import os
 
 def run():
-    os.system('dpkg-reconfigure tzdata 2> /dev/null')
+    flag = ''
+    if not interactive:
+        tz = os.getenv('TZ')
+
+        if tz:
+            with open('/etc/timezone', 'w') as f:
+                f.write(tz)
+
+        flag = '-f noninteractive'
+
+    os.system('dpkg-reconfigure %s tzdata 2> /dev/null' % flag)

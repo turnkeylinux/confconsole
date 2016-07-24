@@ -174,6 +174,9 @@ class PluginManager(object):
                 # Run plugin init
                 plugin.module.doOnce()
         PluginManager.path_map = OrderedDict(sorted(path_map.items(), key = lambda x: x[0]))
+
+    def updateGlobals(self, newglobals):
+        module_globals.update(newglobals)
  
     @staticmethod
     def getByName(name):

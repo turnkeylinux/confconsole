@@ -16,6 +16,7 @@ from string import Template
 import ifutil
 import netinfo
 import executil
+import getopt
 
 import conf
 
@@ -574,20 +575,53 @@ class TurnkeyConsole:
                 dialog = prev_dialog
 
 def main():
+    interactive = True
     advanced_enabled = True
-
-    args = sys.argv[1:]
-    if args:
-        if args[0] == '--usage':
-            advanced_enabled = False
-        else:
-            usage()
+    plugin_name = None
 
     if os.geteuid() != 0:
         fatal("confconsole needs root privileges to run")
 
-    tc = TurnkeyConsole(advanced_enabled)
-    tc.loop()
+    try:
+        l_opts = ["help", "usage", "nointeractive", "plugin="] 
+        opts, args = getopt.gnu_getopt(sys.argv[1:], "hn", l_opts)
+    except getopt.GetoptError, e:
+        usage(e)
+
+    for opt, val in opts:
+        if opt in ("-h", "--help"):
+            usage()
+        elif opt == "--usage":
+            advanced_enabled = False
+        elif opt == "--nointeractive":
+            interactive = False
+        elif opt == "--plugin":
+            plugin_name = val
+        else:
+            usage()
+
+    if plugin_name:
+        em = plugin.EventManager()
+        pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
+
+        ps = pm.getByName(plugin_name)
+
+        if len(ps) > 1:
+            fatal('plugin name ambiguous, matches all of %s' % ps)
+        elif len(ps) == 1:
+            p = ps[0]
+
+            if interactive:
+                tc = TurnkeyConsole(advanced_enabled, dialog=p.path)
+                pm.updateGlobals({'console': tc})
+                tc.loop() # calls .run()
+            else:
+                p.module.run()
+        else:
+            fatal('no such plugin')
+    else:
+        tc = TurnkeyConsole(advanced_enabled)
+        tc.loop()
 
 if __name__ == "__main__":
     main()
