@@ -114,14 +114,9 @@ class PluginDir(object):
                 items.append((plugin.module_name.capitalize(), plugin.description))
                 plugin_map[plugin.module_name.capitalize()] = plugin
 
-        items.append(('Back', ''))
-
         retcode, choice = self.module_globals['console'].menu(self.module_name.capitalize(), self.module_name.capitalize()+'\n', items, no_cancel = False)
 
         if retcode is not 0: # confconsole.TurnkeyConsole.OK
-            return 'usage'
-
-        if choice == 'Back':
             if not hasattr(self, 'parent'):
                 return 'advanced'
             else:
