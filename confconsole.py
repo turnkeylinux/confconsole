@@ -16,11 +16,16 @@ from string import Template
 import ifutil
 import netinfo
 import executil
+import getopt
 
 import conf
 
 from StringIO import StringIO
 import traceback
+
+import plugin
+
+PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins.d')
 
 class Error(Exception):
     pass
@@ -86,6 +91,12 @@ class Console:
         return self._wrapper("msgbox", text, self.height, self.width,
                              title=title, ok_label=button_label)
 
+    def inputbox(self, title, text, init='', ok_label="OK", cancel_label="Cancel"):
+        no_cancel = True if cancel_label == "" else False
+        return self._wrapper("inputbox", text, self.height, self.width, title=title,
+                            init=init, ok_label=ok_label, cancel_label=cancel_label,
+                            no_cancel=no_cancel)
+
     def menu(self, title, text, choices, no_cancel=False):
         return self._wrapper("menu", text, self.height, self.width,
                              menu_height=len(choices)+1,
@@ -137,6 +148,9 @@ class TurnkeyConsole:
         self.installer = Installer(path='/usr/bin/di-live')
 
         self.advanced_enabled = advanced_enabled
+
+        self.eventManager = plugin.EventManager()
+        self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -191,12 +205,24 @@ class TurnkeyConsole:
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
+        
+        plugin_map = {}
+
+        for path in self.pluginManager.path_map:
+            plug = self.pluginManager.path_map[path]
+            if os.path.dirname(path) == PLUGIN_PATH: 
+                if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
+                    items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
+                elif isinstance(plug, plugin.PluginDir):
+                    items.append((plug.module_name.capitalize(), plug.description))
+                plugin_map[plug.module_name.capitalize()] = plug
+
 
         items.append(("Reboot", "Reboot the appliance"))
         items.append(("Shutdown", "Shutdown the appliance"))
         items.append(("Quit", "Quit the configuration console"))
 
-        return items
+        return items, plugin_map
 
     def _get_netmenu(self):
         menu = []
@@ -325,13 +351,19 @@ class TurnkeyConsole:
         no_cancel = False
         if len(self._get_filtered_ifnames()) == 0:
             no_cancel = True
+
+        items, plugin_map = self._get_advmenu()
+
         retcode, choice = self.console.menu("Advanced Menu",
                                             self.appname + " Advanced Menu\n",
-                                            self._get_advmenu(),
+                                            items,
                                             no_cancel=no_cancel)
 
         if retcode is not self.OK:
             return "usage"
+        
+        if choice in plugin_map:
+            return plugin_map[choice].path
 
         return "_adv_" + choice.lower()
 
@@ -515,6 +547,8 @@ class TurnkeyConsole:
 
         return "advanced"
 
+
+
     _adv_networking = networking
     quit = _adv_quit
 
@@ -524,10 +558,16 @@ class TurnkeyConsole:
 
         while dialog and self.running:
             try:
-                try:
-                    method = getattr(self, dialog)
-                except AttributeError:
-                    raise Error("dialog not supported: " + dialog)
+                if not dialog.startswith(PLUGIN_PATH):
+                    try:
+                        method = getattr(self, dialog)
+                    except AttributeError:
+                        raise Error("dialog not supported: " + dialog)
+                else:
+                    try:
+                        method = self.pluginManager.path_map[dialog].run
+                    except KeyError:
+                        raise Error("could not find plugin dialog: " + dialog)
 
                 new_dialog = method()
                 prev_dialog = dialog
@@ -541,20 +581,53 @@ class TurnkeyConsole:
                 dialog = prev_dialog
 
 def main():
+    interactive = True
     advanced_enabled = True
-
-    args = sys.argv[1:]
-    if args:
-        if args[0] == '--usage':
-            advanced_enabled = False
-        else:
-            usage()
+    plugin_name = None
 
     if os.geteuid() != 0:
         fatal("confconsole needs root privileges to run")
 
-    tc = TurnkeyConsole(advanced_enabled)
-    tc.loop()
+    try:
+        l_opts = ["help", "usage", "nointeractive", "plugin="] 
+        opts, args = getopt.gnu_getopt(sys.argv[1:], "hn", l_opts)
+    except getopt.GetoptError, e:
+        usage(e)
+
+    for opt, val in opts:
+        if opt in ("-h", "--help"):
+            usage()
+        elif opt == "--usage":
+            advanced_enabled = False
+        elif opt == "--nointeractive":
+            interactive = False
+        elif opt == "--plugin":
+            plugin_name = val
+        else:
+            usage()
+
+    if plugin_name:
+        em = plugin.EventManager()
+        pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
+
+        ps = pm.getByName(plugin_name)
+
+        if len(ps) > 1:
+            fatal('plugin name ambiguous, matches all of %s' % ps)
+        elif len(ps) == 1:
+            p = ps[0]
+
+            if interactive:
+                tc = TurnkeyConsole(advanced_enabled, dialog=p.path)
+                pm.updateGlobals({'console': tc})
+                tc.loop() # calls .run()
+            else:
+                p.module.run()
+        else:
+            fatal('no such plugin')
+    else:
+        tc = TurnkeyConsole(advanced_enabled)
+        tc.loop()
 
 if __name__ == "__main__":
     main()
