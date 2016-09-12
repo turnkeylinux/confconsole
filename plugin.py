@@ -75,6 +75,9 @@ class Plugin(object):
         for k in module_globals:
             setattr(self.module, k, module_globals[k])
 
+        # after module is found, it's safe to use pretty name
+        self.module_name = os.path.splitext(self.name)[0]
+
     def run(self):
         ret = self.module.run()
         # default behaviour is to go to previous
