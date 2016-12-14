@@ -205,12 +205,12 @@ class TurnkeyConsole:
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
-        
+
         plugin_map = {}
 
         for path in self.pluginManager.path_map:
             plug = self.pluginManager.path_map[path]
-            if os.path.dirname(path) == PLUGIN_PATH: 
+            if os.path.dirname(path) == PLUGIN_PATH:
                 if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
                     items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
                 elif isinstance(plug, plugin.PluginDir):
@@ -330,7 +330,10 @@ class TurnkeyConsole:
             retcode = self.console.msgbox("Usage", text,
                                           button_label=default_button_label)
         except conf.Error:
-            t = file(conf.path("services.txt"), 'r').read().rstrip()
+            try:
+                t = file(conf.path("services.txt"), 'r').read().rstrip()
+            except:
+                t = ""
             text = Template(t).substitute(ipaddr=ip_addr)
 
             text += "\n\n%s\n\n" % tklbam_status
@@ -361,7 +364,7 @@ class TurnkeyConsole:
 
         if retcode is not self.OK:
             return "usage"
-        
+
         if choice in plugin_map:
             return plugin_map[choice].path
 
@@ -589,7 +592,7 @@ def main():
         fatal("confconsole needs root privileges to run")
 
     try:
-        l_opts = ["help", "usage", "nointeractive", "plugin="] 
+        l_opts = ["help", "usage", "nointeractive", "plugin="]
         opts, args = getopt.gnu_getopt(sys.argv[1:], "hn", l_opts)
     except getopt.GetoptError, e:
         usage(e)

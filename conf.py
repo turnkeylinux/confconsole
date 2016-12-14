@@ -16,7 +16,7 @@ def path(filename):
 
 class Conf:
     def _load_conf(self):
-        if not os.path.exists(self.conf_file):
+        if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
         for line in file(self.conf_file).readlines():
@@ -36,7 +36,12 @@ class Conf:
     def __init__(self):
         self.default_nic = None
         self.publicip_cmd = None
-        self.conf_file = path("confconsole.conf")
+
+        try:
+	    self.conf_file = path("confconsole.conf")
+        except Error:
+            self.conf_file = None
+
         self._load_conf()
 
     def set_default_nic(self, ifname):
