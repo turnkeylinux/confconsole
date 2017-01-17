@@ -137,7 +137,7 @@ class TurnkeyConsole:
     OK = 0
     CANCEL = 1
 
-    def __init__(self, advanced_enabled=True):
+    def __init__(self, pluginManager, eventManager, advanced_enabled=True):
         title = "TurnKey GNU/Linux Configuration Console"
         self.width = 60
         self.height = 20
@@ -149,8 +149,12 @@ class TurnkeyConsole:
 
         self.advanced_enabled = advanced_enabled
 
-        self.eventManager = plugin.EventManager()
-        self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
+        #self.eventManager = plugin.EventManager()
+        #self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
+
+	self.eventManager = eventManager
+	self.pluginManager = pluginManager
+	self.pluginManager.updateGlobals({'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -606,9 +610,10 @@ def main():
         else:
             usage()
 
+    em = plugin.EventManager()
+    pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
+
     if plugin_name:
-        em = plugin.EventManager()
-        pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
 
         ps = pm.getByName(plugin_name)
 
@@ -618,15 +623,14 @@ def main():
             p = ps[0]
 
             if interactive:
-                tc = TurnkeyConsole(advanced_enabled, dialog=p.path)
-                pm.updateGlobals({'console': tc})
+                tc = TurnkeyConsole(pm, em, advanced_enabled, dialog=p.path)
                 tc.loop() # calls .run()
             else:
                 p.module.run()
         else:
             fatal('no such plugin')
     else:
-        tc = TurnkeyConsole(advanced_enabled)
+        tc = TurnkeyConsole(pm, em, advanced_enabled)
         tc.loop()
 
 if __name__ == "__main__":
