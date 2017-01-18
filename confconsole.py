@@ -623,8 +623,8 @@ def main():
             p = ps[0]
 
             if interactive:
-                tc = TurnkeyConsole(pm, em, advanced_enabled, dialog=p.path)
-                tc.loop() # calls .run()
+                tc = TurnkeyConsole(pm, em, advanced_enabled)
+                tc.loop(dialog=p.path) # calls .run()
             else:
                 p.module.run()
         else:
