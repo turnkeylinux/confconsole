@@ -3,7 +3,10 @@
 """TurnKey Configuration Console
 
 Options:
-    --usage         Display usage screen without Advanced Menu
+    -h, --help           Display this help and exit
+        --usage          Display usage screen without Advanced Menu
+        --nointeractive  Do not display interactive dialog
+        --plugin=<name>  Run plugin directly         
 
 """
 
@@ -152,9 +155,9 @@ class TurnkeyConsole:
         #self.eventManager = plugin.EventManager()
         #self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
 
-	self.eventManager = eventManager
-	self.pluginManager = pluginManager
-	self.pluginManager.updateGlobals({'console': self.console})
+        self.eventManager = eventManager
+        self.pluginManager = pluginManager
+        self.pluginManager.updateGlobals({'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
