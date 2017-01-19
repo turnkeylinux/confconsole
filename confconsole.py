@@ -621,7 +621,7 @@ def main():
 
     if plugin_name:
 
-        ps = pm.getByName(plugin_name)
+        ps = filter(lambda x: isinstance(x, plugin.Plugin), pm.getByName(plugin_name))
 
         if len(ps) > 1:
             fatal('plugin name ambiguous, matches all of %s' % ps)
