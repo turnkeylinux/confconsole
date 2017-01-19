@@ -562,6 +562,7 @@ class TurnkeyConsole:
     def loop(self, dialog="usage"):
         self.running = True
         prev_dialog = dialog
+        standalone = dialog != 'usage' # no "back" for plugins
 
         while dialog and self.running:
             try:
@@ -577,6 +578,8 @@ class TurnkeyConsole:
                         raise Error("could not find plugin dialog: " + dialog)
 
                 new_dialog = method()
+                if standalone:  # XXX This feels dirty
+                    break
                 prev_dialog = dialog
                 dialog = new_dialog
 
