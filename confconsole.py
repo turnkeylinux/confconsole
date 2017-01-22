@@ -640,5 +640,8 @@ def main():
         tc.loop()
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        main()
+    except KeyboardInterrupt:
+        executil.system('stty sane')
+        traceback.print_exc()
