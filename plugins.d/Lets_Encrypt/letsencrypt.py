@@ -15,6 +15,8 @@ def run():
     field_width = 60
     field_names = ['C', 'ST', 'L', 'O', 'OU', 'CN']
 
+    canceled = False
+
     while True:
         while True:
             fields = [
@@ -28,12 +30,19 @@ def run():
 
             ret, values = console.form(TITLE, DESC, fields)
 
+            if ret != 0:
+                canceled = True
+                break
+
             if values and len(values[0]) != 2:
                 console.msgbox(TITLE, 'Country code is invalid.')
                 continue
 
             if ret is 0:
                 break
+
+        if canceled:
+            break
 
         crtpath = path.join('/', 'etc', 'ssl', 'private', values[-1] + '.crt')
         ret, crtpath = console.inputbox(TITLE, 'You may edit the path where to generate the certificate and accompanying files if desired:', crtpath)
