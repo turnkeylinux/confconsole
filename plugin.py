@@ -205,7 +205,7 @@ class PluginManager(object):
 
     def getByPath(self, path):
         ''' Return plugin object with exact given path or None'''
-        return self.path_map.get(path)
+        return self.path_map.get(path, None)
 
     #-- Used by plugins
     def impByName(self, name):
@@ -218,7 +218,10 @@ class PluginManager(object):
 
     def impByPath(self, path):
         ''' Return a python module from plugin at given path or None '''
-        return self.getByPath(path).module
+        out = self.getByPath(path)
+        if out:
+            return out.module
+        return out
 
 #em = EventManager()
 #pm = PluginManager('plugins.d', {'eventManager': em})
