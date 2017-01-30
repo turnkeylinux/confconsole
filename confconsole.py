@@ -219,7 +219,8 @@ class TurnkeyConsole:
 
     def _get_advmenu(self):
         items = []
-        items.append(("Networking", "Configure appliance networking"))
+        if conf.Conf().networking:
+            items.append(("Networking", "Configure appliance networking"))
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
