@@ -38,6 +38,10 @@ def run():
                 console.msgbox(TITLE, 'Country code is invalid.')
                 continue
 
+            if values and not len(values[5]):
+                console.msgbox(TITLE, 'Common name is empty!')
+                continue
+
             if ret is 0:
                 break
 
