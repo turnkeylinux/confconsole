@@ -146,9 +146,9 @@ class PluginManager(object):
         path_map = {}
 
         module_globals.update({
-            'impByName': PluginManager.getByName,
-            'impByDir': PluginManager.getByDir,
-            'impByPath': PluginManager.getByPath,
+            'impByName' : PluginManager.impByName,
+            'impByDir'  : PluginManager.impByDir,
+            'impByPath' : PluginManager.impByPath,
         })
 
         self.module_globals = module_globals
