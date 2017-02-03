@@ -68,7 +68,7 @@ def run():
         try:
             getoutput('openssl', 'ecparam', '-out', keypath, '-name', 'prime256v1', '-genkey')
             getoutput('openssl', 'req', '-new', '-key', keypath, '-nodes', '-out', csrpath, '-subj', subjline)
-            getoutput('/usr/bin/dehydrate', '--signcsr', csrpath, '--hook', '/usr/local/etc/letsencrypt.sh/hook.sh', '--out', basepath)
+            getoutput('/usr/bin/dehydrated', '--signcsr', csrpath, '--hook', '/usr/local/etc/letsencrypt.sh/hook.sh', '--out', basepath)
 
             break
         except ExecError as err:
