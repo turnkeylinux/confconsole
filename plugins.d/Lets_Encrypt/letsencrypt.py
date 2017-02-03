@@ -17,6 +17,14 @@ def run():
 
     canceled = False
 
+    if not path.isfile('/usr/bin/dehydrated'):
+        console.msgbox(
+            'Error',
+            'Dehydrated not installed, please see www.turnkeylinux.org/docs/letsencrypt',
+            autosize=True
+        )
+        return
+
     while True:
         while True:
             fields = [
@@ -60,7 +68,7 @@ def run():
         try:
             getoutput('openssl', 'ecparam', '-out', keypath, '-name', 'prime256v1', '-genkey')
             getoutput('openssl', 'req', '-new', '-key', keypath, '-nodes', '-out', csrpath, '-subj', subjline)
-            getoutput('/usr/local/bin/letsencrypt.sh', '--signcsr', csrpath, '--hook', '/usr/local/etc/letsencrypt.sh/hook.sh', '--out', basepath)
+            getoutput('/usr/bin/dehydrate', '--signcsr', csrpath, '--hook', '/usr/local/etc/letsencrypt.sh/hook.sh', '--out', basepath)
 
             break
         except ExecError as err:
