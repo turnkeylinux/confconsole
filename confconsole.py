@@ -88,7 +88,7 @@ class Console:
         return self._wrapper("infobox", text)
 
     def yesno(self, text):
-        return self._wrapper("yesno", text)
+        return self._wrapper("yesno", text+'\n ', 0, 0)
 
     def msgbox(self, title, text, button_label="ok"):
         return self._wrapper("msgbox", text, self.height, self.width,
