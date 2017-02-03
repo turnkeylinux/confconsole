@@ -87,11 +87,22 @@ class Console:
     def infobox(self, text):
         return self._wrapper("infobox", text)
 
-    def yesno(self, text):
-        return self._wrapper("yesno", text+'\n ', 0, 0)
+    def yesno(self, text, autosize=False):
+        if autosize:
+            text += '\n '
+            height, width = 0, 0
+        else:
+            height, width = 10, 30
+        return self._wrapper("yesno", text, height, width)
 
-    def msgbox(self, title, text, button_label="ok"):
-        return self._wrapper("msgbox", text, self.height, self.width,
+    def msgbox(self, title, text, button_label="ok", autosize=False):
+        if autosize:
+            text += '\n '
+            height, width = 0, 0
+        else:
+            height, width = self.height, self.width
+
+        return self._wrapper("msgbox", text, height, width,
                              title=title, ok_label=button_label)
 
     def inputbox(self, title, text, init='', ok_label="OK", cancel_label="Cancel"):
@@ -549,7 +560,7 @@ class TurnkeyConsole:
             self.running = False
             return "usage"
 
-        if self.console.yesno("Do you really want to quit?") == self.OK:
+        if self.console.yesno("Do you really want to quit?", autosize=True) == self.OK:
             self.running = False
 
         return "advanced"

@@ -3,7 +3,11 @@ import os
 
 def run():
     if interactive:
-        console.infobox('We STRONGLY recommend you choose "None" as your default locale.')
+        console.msgbox(
+            'Locale',
+            'We STRONGLY recommend you choose "None" as your default locale.',
+            autosize=True)
+
         os.system('dpkg-reconfigure locales')
     else:
         locale = os.getenv('LOCALE')
