@@ -1,6 +1,6 @@
 '''Reconfigure Keyboard '''
 import os
-from subprocess import check_output, CalledProcessError
+from subprocess import check_call, check_output, CalledProcessError
 
 def is_installed(pkg):
     for line in check_output(['apt-cache', 'policy', pkg]).splitlines():
@@ -15,8 +15,12 @@ def run():
 
     if interactive:
         if not is_installed('keyboard-configuration'):
-            console.msgbox('Keyboard', 'To perform keyboard configuration you must first install the keyboard-configuration package e.g.\n\napt-get update\napt-get install keyboard-configuration', autosize=True)
-        return
+            ret = console.yesno('The keyboard-configuration package is required for this operation, do you wish to install it now?', autosize=True)
+
+            if ret == 0:
+                check_call(['apt-get', '-y', 'install', 'keyboard-configuration'])
+            else:
+                return
 
         ret = console.yesno('Note: If new keyboard settings are not applied, you may need to reboot your operating system. Continue with configuration?', autosize=True)
 
