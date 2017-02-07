@@ -20,7 +20,7 @@ def run():
     if not path.isfile('/usr/bin/dehydrated'):
         console.msgbox(
             'Error',
-            'Dehydrated not installed, please see www.turnkeylinux.org/docs/letsencrypt',
+            'Dehydrated not installed, dehydrated can be installed with apt from the jessie-backports repo.\n\nMore info: www.turnkeylinux.org/docs/letsencrypt',
             autosize=True
         )
         return
