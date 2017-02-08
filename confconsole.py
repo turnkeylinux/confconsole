@@ -3,7 +3,10 @@
 """TurnKey Configuration Console
 
 Options:
-    --usage         Display usage screen without Advanced Menu
+    -h, --help           Display this help and exit
+        --usage          Display usage screen without Advanced Menu
+        --nointeractive  Do not display interactive dialog
+        --plugin=<name>  Run plugin directly         
 
 """
 
@@ -84,11 +87,22 @@ class Console:
     def infobox(self, text):
         return self._wrapper("infobox", text)
 
-    def yesno(self, text):
-        return self._wrapper("yesno", text)
+    def yesno(self, text, autosize=False):
+        if autosize:
+            text += '\n '
+            height, width = 0, 0
+        else:
+            height, width = 10, 30
+        return self._wrapper("yesno", text, height, width)
 
-    def msgbox(self, title, text, button_label="ok"):
-        return self._wrapper("msgbox", text, self.height, self.width,
+    def msgbox(self, title, text, button_label="ok", autosize=False):
+        if autosize:
+            text += '\n '
+            height, width = 0, 0
+        else:
+            height, width = self.height, self.width
+
+        return self._wrapper("msgbox", text, height, width,
                              title=title, ok_label=button_label)
 
     def inputbox(self, title, text, init='', ok_label="OK", cancel_label="Cancel"):
@@ -137,7 +151,7 @@ class TurnkeyConsole:
     OK = 0
     CANCEL = 1
 
-    def __init__(self, advanced_enabled=True):
+    def __init__(self, pluginManager, eventManager, advanced_enabled=True):
         title = "TurnKey GNU/Linux Configuration Console"
         self.width = 60
         self.height = 20
@@ -149,8 +163,12 @@ class TurnkeyConsole:
 
         self.advanced_enabled = advanced_enabled
 
-        self.eventManager = plugin.EventManager()
-        self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
+        #self.eventManager = plugin.EventManager()
+        #self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
+
+        self.eventManager = eventManager
+        self.pluginManager = pluginManager
+        self.pluginManager.updateGlobals({'console': self.console})
 
     @staticmethod
     def _get_filtered_ifnames():
@@ -542,7 +560,7 @@ class TurnkeyConsole:
             self.running = False
             return "usage"
 
-        if self.console.yesno("Do you really want to quit?") == self.OK:
+        if self.console.yesno("Do you really want to quit?", autosize=True) == self.OK:
             self.running = False
 
         return "advanced"
@@ -555,6 +573,7 @@ class TurnkeyConsole:
     def loop(self, dialog="usage"):
         self.running = True
         prev_dialog = dialog
+        standalone = dialog != 'usage' # no "back" for plugins
 
         while dialog and self.running:
             try:
@@ -570,6 +589,8 @@ class TurnkeyConsole:
                         raise Error("could not find plugin dialog: " + dialog)
 
                 new_dialog = method()
+                if standalone:  # XXX This feels dirty
+                    break
                 prev_dialog = dialog
                 dialog = new_dialog
 
@@ -606,11 +627,12 @@ def main():
         else:
             usage()
 
-    if plugin_name:
-        em = plugin.EventManager()
-        pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
+    em = plugin.EventManager()
+    pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
 
-        ps = pm.getByName(plugin_name)
+    if plugin_name:
+
+        ps = filter(lambda x: isinstance(x, plugin.Plugin), pm.getByName(plugin_name))
 
         if len(ps) > 1:
             fatal('plugin name ambiguous, matches all of %s' % ps)
@@ -618,17 +640,19 @@ def main():
             p = ps[0]
 
             if interactive:
-                tc = TurnkeyConsole(advanced_enabled, dialog=p.path)
-                pm.updateGlobals({'console': tc})
-                tc.loop() # calls .run()
+                tc = TurnkeyConsole(pm, em, advanced_enabled)
+                tc.loop(dialog=p.path) # calls .run()
             else:
                 p.module.run()
         else:
             fatal('no such plugin')
     else:
-        tc = TurnkeyConsole(advanced_enabled)
+        tc = TurnkeyConsole(pm, em, advanced_enabled)
         tc.loop()
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        main()
+    except KeyboardInterrupt:
+        executil.system('stty sane')
+        traceback.print_exc()
