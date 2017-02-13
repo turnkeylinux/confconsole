@@ -30,12 +30,15 @@ class Conf:
                 self.default_nic = val
             elif op == 'publicip_cmd':
                 self.publicip_cmd = val
+            elif op == 'networking' and val in ('true', 'false'):
+                self.networking = True if val == 'true' else False 
             else:
                 raise Error("illegal configuration line: " + line)
 
     def __init__(self):
         self.default_nic = None
         self.publicip_cmd = None
+        self.networking = True
         self.conf_file = path("confconsole.conf")
         self._load_conf()
 
