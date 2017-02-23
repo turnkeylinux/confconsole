@@ -80,9 +80,9 @@ if __name__ == '__main__':
     WEBROOT =dirname(TOKEN_PATH)
 
 
-    print('Daemonizing')
-    daemonize(args.daemonize, args.logfile)
-    print('Daemonized')
-    
+    if not args.daemonize is None:
+        print("Daemonizing")
+        daemonize(args.daemonize, args.logfile)
+
     run(host=args.host, port=args.port)
 
