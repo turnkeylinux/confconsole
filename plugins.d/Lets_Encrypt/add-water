@@ -45,7 +45,7 @@ def daemonize(pidfile, logfile=None):
     #os.chdir("/")
     os.setsid()
 
-    logfile = file(logfile, "w")
+    logfile = file(logfile, "a")
     os.dup2(logfile.fileno(), sys.stdout.fileno())
     os.dup2(logfile.fileno(), sys.stderr.fileno())
 
