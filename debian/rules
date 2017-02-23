@@ -29,6 +29,7 @@ binary-indep: install
 	dh_installdocs docs/
 	dh_installdeb
 	dh_gencontrol
+	dh_installlogrotate
 	dh_md5sums 
 	dh_builddeb
 
