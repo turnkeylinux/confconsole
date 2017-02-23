@@ -1,0 +1,88 @@
+#!/usr/bin/python
+
+# Copyright (c) 2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+# 
+# Add-Water - Bottle based python HTTP server to serve
+#             Dehydrated Let's Encrypt challenges
+#
+# This file is part of Confconsole.
+# 
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+import os
+import sys
+from argparse import ArgumentParser
+from os.path import isfile, join, abspath, dirname, isdir, basename
+from bottle import get, static_file, run, route, redirect, app
+
+# "Maintence" page to serve for all requested content, other than LE token
+DEFAULT_INDEX_HTML = '/usr/share/doc/add-water/index.html'
+CUSTOM_INDEX_HTML = '/var/lib/add-water/index.html'
+
+#with open('add-water.path') as fob:
+#    TOKEN_PATH=fob.read().rstrip()
+
+DEFAULT_INDEX_HTML = 'index.html' #XXX For debug only
+
+if isfile(CUSTOM_INDEX_HTML):
+    HTML_PATH = CUSTOM_INDEX_HTML
+else:
+    HTML_PATH = DEFAULT_INDEX_HTML
+HTML_DIR = dirname(HTML_PATH)
+
+def daemonize(pidfile, logfile=None):
+    if logfile is None:
+        logfile = "/dev/null"
+
+    pid = os.fork()
+    if pid != 0:
+        print >> file(pidfile, "w"), "%d" % pid
+        sys.exit(0)
+
+    #os.chdir("/")
+    os.setsid()
+
+    logfile = file(logfile, "w")
+    os.dup2(logfile.fileno(), sys.stdout.fileno())
+    os.dup2(logfile.fileno(), sys.stderr.fileno())
+
+    devnull = file("/dev/null", "r")
+    os.dup2(devnull.fileno(), sys.stdin.fileno())
+
+@get("/.well-known/acme-challenge/<filename:path>")
+def challenge(filename):
+    if filename == TOKEN_FILENAME:
+        return static_file(filename, root=WEBROOT)
+    else:
+        redirect('/')
+
+@route('/')
+def hello():
+    return static_file(HTML_PATH, root=HTML_DIR)
+
+@route('<randompath:path>')
+def test(randompath):
+    redirect('/')
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('host', help = 'host to listen on')
+    parser.add_argument('port', default=80, type=int, help = 'port to listen on')
+    parser.add_argument('-d', '--daemonize', metavar='PIDFILE', help='path to daemon pidfile')
+    parser.add_argument('-l', '--logfile', help='path to logfile')
+    parser.add_argument('token_path', help='path to token file to serve')
+    args = parser.parse_args()
+    TOKEN_PATH = args.token_path
+    TOKEN_FILENAME=basename(TOKEN_PATH)
+    WEBROOT =dirname(TOKEN_PATH)
+
+
+    print('Daemonizing')
+    daemonize(args.daemonize, args.logfile)
+    print('Daemonized')
+    
+    run(host=args.host, port=args.port)
+

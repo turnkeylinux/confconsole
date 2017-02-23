@@ -1,0 +1,197 @@
+#!/bin/bash
+
+# Copyright (c) 2016-2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+#
+# dehyrdated-wrapper - A wrapper script for the Dehydrated
+#                      Let's Encrypt client
+# 
+# This file is part of Confconsole.
+# 
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+### Some initial setup ###
+
+APP="$(basename $0)"
+DEHYD_ETC=/etc/dehydrated
+CONFIG="$DEHYD_ETC/confconsole.config"
+CC_HOOK="$DEHYD_ETC/confconsole.hook.sh"
+CC_DOMAINS="$DEHYD_ETC/confconsole.domains.txt"
+AUTHBIND80=/etc/authbind/byport/80
+LOG_DIR=/var/log/confconsole
+DEHY_LOG=$LOG_DIR/dehydrated.log
+HOOK_LOG=$LOG_DIR/dehydrated-hook.log
+WRAP_LOG=$LOG_DIR/dehydrated-wrapper.log
+[ -f "$AUTHBIND80" ] || touch "$AUTHBIND80"
+AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
+
+BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
+export HTTP="add-water"
+export HTTP_USR="www-data"
+export HTTP_BIN="$BASE_BIN_PATH/$HTTP"
+export HTTP_PID=/var/run/$HTTP/pid
+export HTTP_LOG=$LOG_DIR/$HTTP.log
+mkdir -p "$(dirname $HTTP_PID)" "$(dirname $HTTP_LOG)" "$LOG_DIR"
+chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $HTTP_LOG)"
+
+#echo > $DEHY_LOG > $HOOK_LOG > $WRAP_LOG
+
+### some basic output & logging functions ###
+
+fatal() { echo "FATAL: $@" 1>&2 | tee -a $WRAP_LOG; exit 1; }
+warning() { echo "WARNING: $@" | tee -a $WRAP_LOG;  }
+info() { echo "INFO: $@" | tee -a $WRAP_LOG; }
+
+info "Logging started: $(date "+%Y-%m-%d %H:%M:%S")"
+
+### some intial checks ###
+
+[ "$EUID" = "0" ] || fatal "$APP must be run as root"
+[ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the PATH"
+[ $(which authbind) ] || fatal "Authbind not installed"
+
+### write config file if it doesn't exist ###
+
+if [ ! -f "$CONFIG" ]; then
+    warning "Config file: $CONFIG not found; creating now"
+    cat > $CONFIG <<EOF
+########################################################
+# This is the config file for dehydrated when launched #
+# via confconsole on TurnKey GNU/Linux.                #
+#                                                      #
+# It is loaded by the dehydrated-wrapper script.       #
+#                                                      #
+# For more information about advanced usage of the     #
+# confconsole Let's Encrypt plugin and/or the          #
+# dehydrated-wrapper please see:                       #
+# /usr/share/doc/confconsole/docs/Lets_Enrypt.rst      #
+# or:                                                  #
+# https://www.turnkeylinux.org/letsencrypt#advanced    #
+########################################################
+
+BASEDIR=/var/lib/dehydrated
+WELLKNOWN="/var/lib/dehydrated/acme-challenges"
+DOMAINS_TXT="$CC_DOMAINS"
+HOOK="$CC_HOOK"
+EOF
+
+fi
+
+. "$CONFIG"
+
+### some more checks ###
+
+[ -f "$DOMAINS_TXT" ] || fatal "$DOMAINS_TXT not found"
+[ "$DOMAINS_TXT" != "$CC_DOMAINS" ] && warning "$CONFIG is not using $CC_DOMAINS"
+[ -z "$HOOK" ] && fatal "hook script not defined in $CONFIG"
+[ "$HOOK" != "$CC_HOOK" ] && warning "$CONFIG is not using $CC_HOOK"
+
+### write hook script if it doesn't exist ###
+
+if [ ! -f "$HOOK" ]; then
+    warning "Hook script: $HOOK not found; creating now"
+    cat > "$HOOK" <<EOF
+#!/bin/bash
+
+function hook_log {
+    echo "[\$(date "+%Y-%m-%d %H:%M:%S")] \${1}" >> $HOOK_LOG
+}
+
+function deploy_challenge {
+    local DOMAIN="\${1}" TOKEN_FILENAME="\${2}" TOKEN_VALUE="\${3}"
+
+    hook_log "Deploying challenge for \$DOMAIN"
+    hook_log "Starting $(basename $HTTP_BIN) daemon"
+    su - -s /bin/bash -c "authbind $HTTP_BIN -d $HTTP_PID -l $HTTP_LOG 0.0.0.0 80 \$TOKEN_FILENAME"
+}
+
+function clean_challenge {
+    local DOMAIN="\${1}" TOKEN_FILENAME="\${2}" TOKEN_VALUE="\${3}"
+
+    hook_log "Stopping $(basename $HTTP_BIN) daemon"
+    kill -9 \$(cat $HTTP_PID)
+    rm $HTTP_PID
+}
+
+function deploy_cert {
+    local DOMAIN="\${1}" KEYFILE="\${2}" CERTFILE="\${3}" FULLCHAINFILE="\${4}" CHAINFILE="\${5}" TIMESTAMP="\${6}"
+
+    hook_log "writing cert.pem & cert.key for \$DOMAIN to /etc/ssl/private"
+    cat "\$KEYFILE" > /etc/ssl/private/cert.key
+    cat "\$FULLCHAIN" > /etc/ssl/private/cert.pem
+    cat "\$KEYFILE" >> /etc/ssl/private/cert.pem
+}
+
+function unchanged_cert {
+    local DOMAIN="\${1}" KEYFILE="\${2}" CERTFILE="\${3}" FULLCHAINFILE="\${4}" CHAINFILE="\${5}"
+
+    hook_log "cert for \$DOMAIN is unchanged - nothing to do"
+}
+
+HANDLER=\$1; shift; \$HANDLER \$@
+EOF
+fi
+
+chmod +x $HOOK
+
+#### dehydrated-wrapper functions ####
+
+check_80() {
+    netstat -ltpn | grep ":80 " | cut -d/ -f2 | sed -e 's|[[:space:]]*$||'
+}
+
+restart_servers() {
+    for servicename in $@; do
+        info "starting $servicename"
+        service $servicename restart
+    done
+}
+
+#### dehydrated-wrapper main script ####
+
+WEBSERVER="$(check_80)"
+if [ -n "$WEBSERVER" ]; then
+    info "found $WEBSERVER listening on port 80"
+    case $WEBSERVER in
+        apache2 | lighttpd | nginx | tomcat7 | tomcat8 )
+            info "stopping $WEBSERVER";
+            service $WEBSERVER stop;
+            while [ "$(check_80)" != "" ]; do
+                info "waiting 1 second for $WEBSERVER to stop"
+                sleep 1
+            done;
+            ;;
+        python )
+            fatal "Python is listening on port 80";;
+        * )
+            fatal "An unexpected service is listening on port 80: $WEBSERVER";;
+    esac
+else
+    warning "could not find process listening on port 80; continuing"
+fi
+
+[ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
+info "running dehydrated"
+dehydrated --cron --config $CONFIG 2>&1 | tee -a $DEHY_LOG
+EXIT_CODE=${PIPESTATUS[0]}
+([ $EXIT_CODE -ne 0 ] && warning "dehydrated exited with a non-zero exit code.") \
+    || info "dehydrated complete"
+
+while [ "$(check_80)" = "python" ]; do
+    if [ -f "$HTTP_PID" ]; then
+        warning "python is still using port 80 - attempting to stop $HTTP"
+        kill -9 $(cat $HTTP_PID)
+        rm $HTTP_PID
+    else
+        fatal "unknown python process using port 80"
+    fi
+done
+
+info "restarting services"
+[ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
+restart_servers $WEBSERVER stunnel4
+info "$APP almost complete: \$(date "+%Y-%m-%d %H:%M:%S")" >> $WRAP_LOG
+[ $EXIT_CODE -ne 0 ] && fatal "Dehydrated error. Please check logs ($LOG_DIR) for details"
+info "$APP completed successfully"
