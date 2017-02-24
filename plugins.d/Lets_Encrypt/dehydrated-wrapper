@@ -26,6 +26,8 @@ HOOK_LOG=$LOG_DIR/dehydrated-hook.log
 WRAP_LOG=$LOG_DIR/dehydrated-wrapper.log
 [ -f "$AUTHBIND80" ] || touch "$AUTHBIND80"
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
+FREQ=weekly
+CRON=/etc/cron.$FREQ/confconsole-dehydrated-wrapper
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
 export HTTP="add-water"
@@ -136,6 +138,37 @@ fi
 
 chmod +x $HOOK
 
+### write cron job if it doesn't exist ###
+
+if [ ! -f "$CRON" ]; then
+    warning "Cron script: $CRON not found; creating now"
+    cat > "$CRON" <<EOF
+#!/bin/bash
+
+CERT=/etc/ssl/private/cert.pem
+LOG=$LOG_DIR/dehydrated-wrapper-cron.log
+DEHYDRATED=$BASE_BIN_PATH/dehydrated-wrapper
+
+log() {
+    echo "[\$(date "+%Y-%m-%d %H:%M:%S")] \${1}" >> \$LOG
+}
+
+
+if $(which openssl) x509 -checkend 2592000 -noout -in \$CERT; then
+    log "\$CERT does not require renewal. Nothing to do."
+else
+    log "\$CERT has expired or will do so within 30 days. Attempting renewal."
+    \$DEHYDRATED
+    if [ \$? -ne 0 ]; then
+        log "ERROR: \$(basename \$DEHYDRATED) exited with a non-zero exit code."
+        log "Please consult relevant logs in \$(dirname \$LOG) for details."
+    fi
+fi
+
+EOF
+
+fi
+
 #### dehydrated-wrapper functions ####
 
 check_80() {
@@ -149,7 +182,7 @@ restart_servers() {
     done
 }
 
-#### dehydrated-wrapper main script ####
+### dehydrated-wrapper main script ###
 
 WEBSERVER="$(check_80)"
 if [ -n "$WEBSERVER" ]; then
