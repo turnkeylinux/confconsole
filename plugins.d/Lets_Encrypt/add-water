@@ -14,6 +14,7 @@
 
 import os
 import sys
+import datetime
 from argparse import ArgumentParser
 from os.path import isfile, join, abspath, dirname, isdir, basename
 from bottle import get, static_file, run, route, redirect, app
@@ -84,5 +85,7 @@ if __name__ == '__main__':
         print("Daemonizing")
         daemonize(args.daemonize, args.logfile)
 
+    print("[{}] Starting Server".format(
+        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     run(host=args.host, port=args.port)
 
