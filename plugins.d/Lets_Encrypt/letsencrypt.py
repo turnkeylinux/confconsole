@@ -83,6 +83,16 @@ def run():
 
     canceled = False
 
+    ret = console.yesno(
+        'DNS must be configured before obtaining certificates. '
+        'Incorrectly configured dns and excessive attempts could '
+        'lead to being temporarily blocked from requesting '
+        'certificates.\n\nDo you wish to continue?',
+        autosize=True
+    )
+    if ret:
+        return
+
     if not path.isdir(dehydrated_conf):
         console.msgbox(
             'Error',
