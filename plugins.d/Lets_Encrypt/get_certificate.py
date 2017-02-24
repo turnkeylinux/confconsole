@@ -136,8 +136,11 @@ def run():
                 continue
 
             if ret is 0:
-                save_domains(values)
-                break
+                ret2 = console.yesno('This will overwrite previous settings and check for certificate, continue?')
+                if ret2 is 0:
+                    save_domains(values)
+                    break
+
 
         if canceled:
             break
