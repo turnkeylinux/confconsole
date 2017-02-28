@@ -20,19 +20,16 @@ from os.path import isfile, join, abspath, dirname, isdir, basename
 from bottle import get, static_file, run, route, redirect, app
 
 # "Maintence" page to serve for all requested content, other than LE token
-DEFAULT_INDEX_HTML = '/usr/share/doc/add-water/index.html'
-CUSTOM_INDEX_HTML = '/var/lib/add-water/index.html'
+DEFAULT_INDEX = '/usr/share/confconsole/letsencrypt/index.html'
+CUSTOM_INDEX = '/var/lib/confconsole/letsencrypt/index.html'
 
-#with open('add-water.path') as fob:
-#    TOKEN_PATH=fob.read().rstrip()
-
-DEFAULT_INDEX_HTML = 'index.html' #XXX For debug only
-
-if isfile(CUSTOM_INDEX_HTML):
-    HTML_PATH = CUSTOM_INDEX_HTML
+if isfile(CUSTOM_INDEX):
+    INDEX_PATH = CUSTOM_INDEX
 else:
-    HTML_PATH = DEFAULT_INDEX_HTML
-HTML_DIR = dirname(HTML_PATH)
+    INDEX_PATH = DEFAULT_INDEX
+
+INDEX_FILE = basename(INDEX_PATH)
+INDEX_WEBROOT = dirname(INDEX_PATH)
 
 def daemonize(pidfile, logfile=None):
     if logfile is None:
@@ -43,7 +40,6 @@ def daemonize(pidfile, logfile=None):
         print >> file(pidfile, "w"), "%d" % pid
         sys.exit(0)
 
-    #os.chdir("/")
     os.setsid()
 
     logfile = file(logfile, "a")
@@ -55,37 +51,34 @@ def daemonize(pidfile, logfile=None):
 
 @get("/.well-known/acme-challenge/<filename:path>")
 def challenge(filename):
-    if filename == TOKEN_FILENAME:
-        return static_file(filename, root=WEBROOT)
+    if filename == TOKEN_FILE:
+        return static_file(filename, root=TOKEN_WEBROOT)
     else:
         redirect('/')
 
 @route('/')
-def hello():
-    return static_file(HTML_PATH, root=HTML_DIR)
+def index():
+    return static_file(INDEX_FILE, root=INDEX_WEBROOT)
 
 @route('<randompath:path>')
 def test(randompath):
     redirect('/')
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('host', help = 'host to listen on')
-    parser.add_argument('port', default=80, type=int, help = 'port to listen on')
+    parser = ArgumentParser(description="add-water - Bottle based python HTTP server to serve Dehydrated Let's Encrypt challenges")
     parser.add_argument('-d', '--daemonize', metavar='PIDFILE', help='path to daemon pidfile')
     parser.add_argument('-l', '--logfile', help='path to logfile')
     parser.add_argument('token_path', help='path to token file to serve')
     args = parser.parse_args()
     TOKEN_PATH = args.token_path
-    TOKEN_FILENAME=basename(TOKEN_PATH)
-    WEBROOT =dirname(TOKEN_PATH)
-
+    TOKEN_FILE = basename(TOKEN_PATH)
+    TOKEN_WEBROOT = dirname(TOKEN_PATH)
 
     if not args.daemonize is None:
-        print("Daemonizing")
+        print("Daemonizing add-water server")
         daemonize(args.daemonize, args.logfile)
 
     print("[{}] Starting Server".format(
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-    run(host=args.host, port=args.port)
+    run(host='0.0.0.0', port=80)
 

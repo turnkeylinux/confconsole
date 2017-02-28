@@ -9,7 +9,7 @@ function deploy_challenge {
 
     hook_log "Deploying challenge for $DOMAIN"
     hook_log "Serving $WELLKNOWN/$TOKEN_FILENAME on http://$DOMAIN/.well-known/acme-challenge/$TOKEN_FILENAME"
-    su - -s /bin/bash -c "authbind $HTTP_BIN -d $HTTP_PID -l $HTTP_LOG 0.0.0.0 80 $WELLKNOWN/$TOKEN_FILENAME"
+    su - -s /bin/bash -c "authbind $HTTP_BIN -d $HTTP_PID -l $HTTP_LOG $WELLKNOWN/$TOKEN_FILENAME"
 }
 
 function clean_challenge {
