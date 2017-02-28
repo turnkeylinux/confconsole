@@ -1,0 +1,21 @@
+#!/bin/sh
+
+CERT=/etc/ssl/private/cert.pem
+LOG=/var/log/confconsole/letsencrypt.log
+DEHYDRATED=/usr/lib/confconsole/plugins.d/Lets_Encrypt/dehydrated-wrapper
+
+log() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
+}
+
+log "Checking if SSL certificate needs update"
+if $(which openssl) x509 -checkend 2592000 -noout -in $CERT; then
+    log "$CERT does not require renewal. Nothing to do."
+else
+    log "$CERT has expired or will do so within 30 days. Attempting renewal."
+    $DEHYDRATED
+    if [ $? -ne 0 ]; then
+        log "ERROR: $(basename $DEHYDRATED) exited with a non-zero exit code."
+    fi
+fi
+

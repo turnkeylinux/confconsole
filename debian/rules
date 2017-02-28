@@ -3,6 +3,7 @@
 progname=$(shell awk '/^Source/ {print $$2}' debian/control)
 buildroot=debian/$(progname)
 confconsole_dir=$(buildroot)/usr/lib/$(progname)
+share_dir=$(buildroot)/usr/share/$(progname)
 
 clean:
 	dh_clean
@@ -19,6 +20,8 @@ install:
 	touch $(confconsole_dir)/plugins.d/.anchor
 	dh_link usr/lib/$(progname)/confconsole.py usr/bin/confconsole
 	dh_link etc/$(progname) usr/lib/$(progname)/conf
+	mkdir -p $share_dir/letsencrypt
+	touch $share_dir/letsencrypt/.anchor
 
 binary-indep: install
 	dh_testdir
