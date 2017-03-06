@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # Copyright (c) 2016-2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
 #
@@ -74,6 +74,15 @@ info "$APP started ($(date "+%Y-%m-%d %H:%M:%S"))"
 
 ### check config - set up whats needed ###
 
+args=""
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+        -f|--force)  args="$args --force";;
+        *)           fatal "unknown argument: $1";;
+    esac
+done
+
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
 . "$CONFIG"
@@ -115,7 +124,7 @@ fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
 info "running dehydrated"
-dehydrated --cron --config $CONFIG 2>&1 | tee -a $LOG
+dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $LOG
 EXIT_CODE=${PIPESTATUS[0]}
 
 if [ $EXIT_CODE -ne 0 ]; then
