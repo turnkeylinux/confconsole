@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export PATH=$PATH:/usr/sbin
+
 CERT=/etc/ssl/private/cert.pem
 LOG=/var/log/confconsole/letsencrypt.log
 DEHYDRATED=/usr/lib/confconsole/plugins.d/Lets_Encrypt/dehydrated-wrapper
