@@ -1,4 +1,4 @@
-"""Obtain a certificate from Let's Encrypt"""
+"""Get Let's Encrypt SSl cert"""
 
 from executil import getoutput, ExecError
 from os import path, remove

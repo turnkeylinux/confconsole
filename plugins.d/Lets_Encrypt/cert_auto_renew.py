@@ -1,4 +1,4 @@
-"""Enable/Disable auto-renew cronjob"""
+"""Enable/Disable cert auto-renew"""
 
 from os import chmod, stat, path
 
