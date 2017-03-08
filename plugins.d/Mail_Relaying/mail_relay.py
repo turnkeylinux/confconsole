@@ -8,7 +8,11 @@ from os import path
 
 TITLE = 'Mail Relay'
 
-TEXT = 'By default, this system sends e-mail directly. Please select an option if you would like to proceed with configuring an external mail relay.'
+TEXT = '''By default, TurnKey servers send e-mail directly. An SMTP relay provides more robust mail deliverability. 
+
+Send up to 9000 emails per month with a free SendinBlue account. To sign up, open the below URL in your web browser and follow the prompts:
+
+https://hub.turnkeylinux.org/email'''
 
 FORMNOTE = """Please enter the settings below.
 
@@ -54,7 +58,7 @@ def run():
     cmd = path.join(path.dirname(__file__), 'mail_relay.sh')
 
     retcode, choice = console.menu(TITLE, TEXT, [
-        ('TKMS', 'The SMTP gateway provided by TurnKey Linux'),
+        ('SendinBlue', "TurnKey's preferred SMTP gateway"),
         ('Custom', 'Custom mail relay configuration'),
         ('Deconfigure', 'Erase current mail relay settings')
     ])
@@ -65,7 +69,7 @@ def run():
             console.msgbox(TITLE, 'The mail relay settings were succesfully erased. No relaying will take place from now on.')
             return
 
-        if choice == 'TKMS':
+        if choice == 'SendinBlue':
             host = 'smtp-relay.sendinblue.com'
             port = '587'
 
