@@ -57,6 +57,15 @@ check_80() {
     netstat -ltpn | grep ":80 " | cut -d/ -f2 | sed -e 's|[[:space:]].*$||'
 }
 
+stop_server() {
+    info "stopping $1"
+    service $WEBSERVER stop
+    while [ "$(check_80)" != "" ]; do
+        info "waiting 1 second for $1 to stop"
+        sleep 1
+    done
+}
+
 restart_servers() {
     for servicename in $@; do
         info "starting $servicename"
@@ -105,16 +114,20 @@ WEBSERVER="$(check_80)"
 if [ -n "$WEBSERVER" ]; then
     info "found $WEBSERVER listening on port 80"
     case $WEBSERVER in
-        apache2 | lighttpd | nginx | tomcat7 | tomcat8 )
-            info "stopping $WEBSERVER";
-            service $WEBSERVER stop;
-            while [ "$(check_80)" != "" ]; do
-                info "waiting 1 second for $WEBSERVER to stop"
-                sleep 1
-            done;
-            ;;
+        apache2 | lighttpd | nginx )
+            stop_server $WEBSERVER;;
+        java )
+            TOMCAT=/etc/init.d/tomcat
+            if [ -x "${TOMCAT}7" ]; then
+                WEBSERVER=tomcat7;
+            elif [ -x "${TOMCAT}8" ]; then
+                WEBSERVER=tomcat8;
+            else
+                fatal "An unknown Java app is listening on port 80";
+            fi;
+            stop_server $WEBSERVER;;
         python )
-            fatal "Python is listening on port 80";;
+            fatal "An unknown Python app is listening on port 80";;
         * )
             fatal "An unexpected service is listening on port 80: $WEBSERVER";;
     esac
