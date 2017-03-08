@@ -90,6 +90,7 @@ while [[ $# -gt 0 ]]; do
         -f|--force)  args="$args --force";;
         *)           fatal "unknown argument: $1";;
     esac
+    shift
 done
 
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
