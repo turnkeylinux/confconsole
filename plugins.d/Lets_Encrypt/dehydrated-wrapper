@@ -14,6 +14,8 @@
 
 ### initial setup of vars and functions ###
 
+[ "$DEBUG" = "y" ] && set -x
+
 APP="$(basename $0)"
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
