@@ -28,11 +28,18 @@ LOG=/var/log/confconsole/letsencrypt.log
 AUTHBIND80=/etc/authbind/byport/80
 [ -f "$AUTHBIND80" ] || touch "$AUTHBIND80"
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
+EXIT_CODE=0
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
 SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
 SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
+
+CERTS_DONE=0
+export TKL_CERTFILE="/etc/ssl/private/cert.pem"
+export TKL_KEYFILE="/etc/ssl/private/cert.key"
+cp $TKL_CERTFILE $TKL_CERTFILE.bak
+cp $TKL_KEYFILE $TKL_KEYFILE.bak
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
 export HTTP="add-water"
@@ -44,7 +51,7 @@ mkdir -p "$(dirname $HTTP_PID)" "$(dirname $LOG)" "$DEHYD_ETC"
 touch $LOG
 chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
 
-fatal() { echo "FATAL: $@" >&2 > >(tee -a $LOG >&2); exit 1; }
+fatal() { echo "FATAL: $@" >&2 > >(tee -a $LOG >&2); clean_finish 1; }
 warning() { echo "WARNING: $@" | tee -a $LOG;  }
 info() { echo "INFO: $@" | tee -a $LOG; }
 
@@ -60,9 +67,11 @@ check_80() {
 }
 
 stop_server() {
+    [ -z "$@" ] && return
     info "stopping $1"
-    service $WEBSERVER stop
-    while [ "$(check_80)" != "" ]; do
+    service $1 stop 2>&1 | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+    while [ "$(check_80)" != "" ] && [ $EXIT_CODE -eq 0 ]; do
         info "waiting 1 second for $1 to stop"
         sleep 1
     done
@@ -71,11 +80,40 @@ stop_server() {
 restart_servers() {
     for servicename in $@; do
         info "starting $servicename"
-        service $servicename restart
+        service $servicename restart | tee -a $LOG
+        [ "${PIPESTATUS[0]}" -eq 0 ] || EXIT_CODE=1
     done
 }
 
-### some intial checks ###
+clean_finish() {
+    # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
+    # You have been warned...
+    EXIT_CODE=$1
+    if [ "$(check_80)" = "python" ]; then
+        warning "Python is still listening on port 80"
+        info "attempting to kill add-water server"
+        [ -f "$HTTP_PID" ] && kill -9 $(cat $HTTP_PID)
+        rm -f $HTTP_PID
+    fi
+    [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
+    if [ $CERTS_DONE -eq 0 ]; then
+        warning "Certificate update was not completed, restoring original cert & key."
+        mv $TKL_CERTFILE.bak $TKL_CERTFILE
+        mv $TKL_KEYFILE.bak $TKL_KEYFILE
+    else
+        info "Cleaning backup cert & key"
+        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak
+    fi
+    restart_servers $WEBSERVER stunnel4
+    if [ $EXIT_CODE -ne 0 ]; then
+        warning "Check today's previous log entries for details of error. ($(date "+%Y-%m-%d %H:%M:%S"))"
+    else
+        info "$APP completed successfully. ($(date "+%Y-%m-%d %H:%M:%S"))"
+    fi
+    exit $EXIT_CODE
+}
+
+### some intial checks & set up trap ###
 
 info "$APP started ($(date "+%Y-%m-%d %H:%M:%S"))"
 
@@ -83,14 +121,18 @@ info "$APP started ($(date "+%Y-%m-%d %H:%M:%S"))"
 [ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the PATH"
 [ $(which authbind) ] || fatal "Authbind not installed"
 
-### check config - set up whats needed ###
+for sig in INT TERM; do
+    trap "clean_finish 1; kill -$sig $$" $sig
+done
+
+### read args & check config - set up whats needed ###
 
 args=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
         -f|--force)  args="$args --force";;
-        *)           fatal "unknown argument: $1";;
+        *)           fatal "unsupported or unknown argument: $1";;
     esac
     shift
 done
@@ -126,31 +168,28 @@ if [ -n "$WEBSERVER" ]; then
             elif [ -x "${TOMCAT}8" ]; then
                 WEBSERVER=tomcat8;
             else
+                unset WEBSERVER;
                 fatal "An unknown Java app is listening on port 80";
             fi;
             stop_server $WEBSERVER;;
         python )
+            unset WEBSERVER;
             fatal "An unknown Python app is listening on port 80";;
         * )
-            fatal "An unexpected service is listening on port 80: $WEBSERVER";;
+            unknown="$WEBSERVER"
+            unset WEBSERVER;
+            fatal "An unexpected service is listening on port 80: $unknown";;
     esac
 else
-    warning "could not find process listening on port 80; continuing"
+    info "No process found listening on port 80; continuing"
 fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
 info "running dehydrated"
 dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $LOG
-EXIT_CODE=${PIPESTATUS[0]}
-
-if [ $EXIT_CODE -ne 0 ]; then
-    warning "dehydrated exited with a non-zero exit code."
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
+    clean_finish
 fi
-
-[ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
-info "restarting services"
-restart_servers $WEBSERVER stunnel4
-[ $EXIT_CODE -ne 0 ] && fatal "Please check previous log entries for details of dehydrated error. ($(date "+%Y-%m-%d %H:%M:%S"))"
-info "$APP completed successfully. ($(date "+%Y-%m-%d %H:%M:%S"))"
