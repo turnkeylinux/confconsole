@@ -35,7 +35,6 @@ SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
 SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
 
-CERTS_DONE=0
 export TKL_CERTFILE="/etc/ssl/private/cert.pem"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
 cp $TKL_CERTFILE $TKL_CERTFILE.bak
@@ -96,8 +95,8 @@ clean_finish() {
         rm -f $HTTP_PID
     fi
     [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
-    if [ $CERTS_DONE -eq 0 ]; then
-        warning "Certificate update was not completed, restoring original cert & key."
+    if [ $EXIT_CODE -ne 0 ]; then
+        warning "Something went wrong, restoring original cert & key."
         mv $TKL_CERTFILE.bak $TKL_CERTFILE
         mv $TKL_KEYFILE.bak $TKL_KEYFILE
     else
@@ -118,7 +117,7 @@ clean_finish() {
 info "$APP started ($(date "+%Y-%m-%d %H:%M:%S"))"
 
 [ "$EUID" = "0" ] || fatal "$APP must be run as root"
-[ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the PATH"
+[ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the \$PATH"
 [ $(which authbind) ] || fatal "Authbind not installed"
 
 for sig in INT TERM; do
@@ -162,7 +161,7 @@ if [ -n "$WEBSERVER" ]; then
         apache2 | lighttpd | nginx )
             stop_server $WEBSERVER;;
         java )
-            TOMCAT=/etc/init.d/tomcat
+            TOMCAT=/etc/init.d/tomcat;
             if [ -x "${TOMCAT}7" ]; then
                 WEBSERVER=tomcat7;
             elif [ -x "${TOMCAT}8" ]; then
@@ -176,7 +175,7 @@ if [ -n "$WEBSERVER" ]; then
             unset WEBSERVER;
             fatal "An unknown Python app is listening on port 80";;
         * )
-            unknown="$WEBSERVER"
+            unknown="$WEBSERVER";
             unset WEBSERVER;
             fatal "An unexpected service is listening on port 80: $unknown";;
     esac
@@ -191,5 +190,5 @@ if [ ${PIPESTATUS[0]} -ne 0 ]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
-    clean_finish
+    clean_finish 0
 fi

@@ -33,14 +33,12 @@ function deploy_cert {
     cat "$KEYFILE" > $TKL_KEYFILE
     cat "$FULLCHAINFILE" > $TKL_CERTFILE
     cat "$KEYFILE" >> $TKL_CERTFILE
-    export CERTS_DONE=1
 }
 
 function unchanged_cert {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}"
 
     hook_log "cert for $DOMAIN is unchanged - nothing to do"
-    export CERTS_DONE=1
 }
 
 HANDLER=$1; shift; $HANDLER $@
