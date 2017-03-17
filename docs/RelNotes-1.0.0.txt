@@ -1,0 +1,24 @@
+====================
+v1.0.0 Release Notes
+====================
+
+* update license to GPL v3
+
+* update to work reliably with SystemD
+
+* numerous bugfixes and improvements, especially related to display 
+  and networking
+
+* plugin system
+
+    - refacted confconsole to support additional functionality 
+      by way of a plugin system.
+
+    - new plugins:
+
+        - Let's Encrypt - free SSL certs
+        - Mail relaying - remote SMTP mail relay config
+        - Proxy settings - only apt proxy so far
+        - Region config - keyboard, locales & tzdata
+        - System settings - install secupdates & update hostname (so
+          far)
