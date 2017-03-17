@@ -11,11 +11,37 @@ The information provided includes:
     - The listening services the user may connect to over the network
 
 The basic tasks that the user may perform include:
-    - Setting a static IP address
-    - Requesting DHCP
+
+    - Networking:
+      - Setting a static IP address
+      - Requesting DHCP
+
+    - Let's Encrypt (see docs/Lets_encrypt.rst):
+      - Enable/disable auto SSL cert update
+      - Get SSL certificate from Let's Encrypt
+
+    - Mail relaying:
+      - configure and enable remote SMTP email relay
+
+    - Proxy settings:
+      - configure apt proxy
+
+    - Region config:
+      - Keyboard layout
+      - Locales and language
+      - Tzdata (timezone)
+
+    - System settings:
+      - install security updates
+      - update hostname
+
     - Installing the system to the hard disk (if live)
     - Rebooting the appliance
     - Shutting down the appliance
+
+The new functionality (as of v1.0.0) is provided by the plugins system. 
+For more information and/or if you wish to develop your own plugins, 
+please see docs/Plugins.rst
 
 When setting a static IP address or requesting DHCP, /etc/network/interfaces
 will be updated so the changes are perminent (unless the configuration
@@ -25,6 +51,5 @@ The Configuration Console will be invoked automatically on a new vt (by
 its init script) unless the boot paramater 'noconfconsole' is present 
 on /proc/cmdline. 
 
-The Configuration Console (confconsole) may be executed manually aswell.
-
+The Configuration Console (confconsole) may be executed manually as well.
 
