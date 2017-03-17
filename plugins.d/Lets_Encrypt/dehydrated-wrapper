@@ -50,9 +50,57 @@ mkdir -p "$(dirname $HTTP_PID)" "$(dirname $LOG)" "$DEHYD_ETC"
 touch $LOG
 chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
 
-fatal() { echo "FATAL: $@" >&2 > >(tee -a $LOG >&2); clean_finish 1; }
-warning() { echo "WARNING: $@" | tee -a $LOG;  }
-info() { echo "INFO: $@" | tee -a $LOG; }
+usage() {
+echo "$@"
+cat<<EOF
+Syntax: $APP [--force|-f] [--log-info|-i] [--help|-h]
+
+Wrapper script for dehydrated on TurnKey Linux.
+Provides a clean way to get SSL certs from Let's Encrypt's ACME server,
+regardless of which webserver is being used or how it is configured.
+
+This file is part of confconsole.
+
+Environment variables:
+
+    DEBUG=y
+
+        - $APP will be very verbose (set -x)
+        - INFO will be logged (default logging is WARNING & FATAL only)
+
+Options:
+
+    --force|-f     - pass force switch to dehydrated
+
+                     This will force dehydrated to update certs regardless of
+                     expiry. The included cron job does this by default (after
+                     checking the expiry of /etc/ssl/private/cert/pem)
+
+    --log-info|-i  - INFO will be logged (default logging is WARNING & FATAL
+                     only)
+
+    --help|-h      - print this information and exit
+
+For more info on advanced useage, please see
+
+    https://www.turnkeylinux.org/docs/letsencrypt#advanced
+
+EOF
+exit 1
+}
+
+fatal() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
+    clean_finish 1
+}
+
+warning() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: WARNING: $@" | tee -a $LOG
+}
+
+info() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: INFO: $@" | tee -a $DEBUG_LOG
+}
 
 copy_if_not_found() {
     if [ ! -f "$1" ]; then
@@ -105,23 +153,22 @@ clean_finish() {
     fi
     restart_servers $WEBSERVER stunnel4
     if [ $EXIT_CODE -ne 0 ]; then
-        warning "Check today's previous log entries for details of error. ($(date "+%Y-%m-%d %H:%M:%S"))"
+        warning "Check today's previous log entries for details of error."
     else
-        info "$APP completed successfully. ($(date "+%Y-%m-%d %H:%M:%S"))"
+        info "$APP completed successfully."
     fi
     exit $EXIT_CODE
 }
 
 ### some intial checks & set up trap ###
 
-info "$APP started ($(date "+%Y-%m-%d %H:%M:%S"))"
-
 [ "$EUID" = "0" ] || fatal "$APP must be run as root"
 [ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the \$PATH"
 [ $(which authbind) ] || fatal "Authbind not installed"
 
 for sig in INT TERM; do
-    trap "clean_finish 1; kill -$sig $$" $sig
+    trap "clean_finish 1
+    kill -$sig $$" $sig
 done
 
 ### read args & check config - set up whats needed ###
@@ -130,11 +177,22 @@ args=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-        -f|--force)  args="$args --force";;
-        *)           fatal "unsupported or unknown argument: $1";;
+        -f|--force)     args="$args --force";;
+        -i|--log-info)  LOG_INFO=y;;
+        -h|--help)      usage;;
+        *)              usage "FATAL: unsupported or unknown argument: $1";;
     esac
     shift
 done
+
+if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+    DEBUG_LOG="$LOG"
+else
+    DEBUG_LOG="/dev/null"
+    export HTTP_LOG=$DEBUG_LOG
+fi
+
+info "started"
 
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
@@ -185,8 +243,14 @@ fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
 info "running dehydrated"
-dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $LOG
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
+if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+    dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+else
+    (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+fi
+if [ $EXIT_CODE -ne 0 ]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
