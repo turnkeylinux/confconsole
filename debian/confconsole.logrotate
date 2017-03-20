@@ -1,7 +1,7 @@
 /var/log/confconsole/*.log {
          monthly
          missingok
-         rotate 18
+         rotate 6
          compress
          delaycompress
          notifempty
