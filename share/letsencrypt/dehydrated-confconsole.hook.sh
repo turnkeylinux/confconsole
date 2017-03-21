@@ -8,7 +8,7 @@ function hook_log {
     default="[$(date "+%Y-%m-%d %H:%M:%S")] $(basename $0):"
     case ${1} in
         info)    echo "$default INFO: ${2}";;
-        warning) echo "$default WARNING: ${2}" >&2;;
+        success) echo "$default SUCCESS: ${2}" >&2;;
         fatal)   echo "$default FATAL: ${2}" >&2; exit 1;;
     esac
 }
@@ -37,7 +37,7 @@ function clean_challenge {
 function deploy_cert {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}" TIMESTAMP="${6}"
 
-    hook_log warning "writing cert.pem & cert.key for $DOMAIN to /etc/ssl/private"
+    hook_log success "Cert request successful. Writing cert.pem & cert.key for $DOMAIN to /etc/ssl/private"
     hook_log info "fullchain: $FULLCHAIN"
     hook_log info "keyfile: $KEYFILE"
     cat "$KEYFILE" > $TKL_KEYFILE
