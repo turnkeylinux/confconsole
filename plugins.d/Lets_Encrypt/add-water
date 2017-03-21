@@ -1,0 +1,84 @@
+#!/usr/bin/python
+
+# Copyright (c) 2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+# 
+# Add-Water - Bottle based python HTTP server to serve
+#             Dehydrated Let's Encrypt challenges
+#
+# This file is part of Confconsole.
+# 
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+import os
+import sys
+import datetime
+from argparse import ArgumentParser
+from os.path import isfile, join, abspath, dirname, isdir, basename
+from bottle import get, static_file, run, route, redirect, app
+
+# "Maintence" page to serve for all requested content, other than LE token
+DEFAULT_INDEX = '/usr/share/confconsole/letsencrypt/index.html'
+CUSTOM_INDEX = '/var/lib/confconsole/letsencrypt/index.html'
+
+if isfile(CUSTOM_INDEX):
+    INDEX_PATH = CUSTOM_INDEX
+else:
+    INDEX_PATH = DEFAULT_INDEX
+
+INDEX_FILE = basename(INDEX_PATH)
+INDEX_WEBROOT = dirname(INDEX_PATH)
+
+def daemonize(pidfile, logfile=None):
+    if logfile is None:
+        logfile = "/dev/null"
+
+    pid = os.fork()
+    if pid != 0:
+        print >> file(pidfile, "w"), "%d" % pid
+        sys.exit(0)
+
+    os.setsid()
+
+    logfile = file(logfile, "a")
+    os.dup2(logfile.fileno(), sys.stdout.fileno())
+    os.dup2(logfile.fileno(), sys.stderr.fileno())
+
+    devnull = file("/dev/null", "r")
+    os.dup2(devnull.fileno(), sys.stdin.fileno())
+
+@get("/.well-known/acme-challenge/<filename:path>")
+def challenge(filename):
+    if filename == TOKEN_FILE:
+        return static_file(filename, root=TOKEN_WEBROOT)
+    else:
+        redirect('/')
+
+@route('/')
+def index():
+    return static_file(INDEX_FILE, root=INDEX_WEBROOT)
+
+@route('<randompath:path>')
+def test(randompath):
+    redirect('/')
+
+if __name__ == '__main__':
+    parser = ArgumentParser(description="add-water - Bottle based python HTTP server to serve Dehydrated Let's Encrypt challenges")
+    parser.add_argument('-d', '--daemonize', metavar='PIDFILE', help='path to daemon pidfile')
+    parser.add_argument('-l', '--logfile', help='path to logfile')
+    parser.add_argument('token_path', help='path to token file to serve')
+    args = parser.parse_args()
+    TOKEN_PATH = args.token_path
+    TOKEN_FILE = basename(TOKEN_PATH)
+    TOKEN_WEBROOT = dirname(TOKEN_PATH)
+
+    if not args.daemonize is None:
+        print("Daemonizing add-water server")
+        daemonize(args.daemonize, args.logfile)
+
+    print("[{}] Starting Server".format(
+        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    run(host='0.0.0.0', port=80)
+

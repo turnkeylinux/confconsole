@@ -74,6 +74,7 @@ class Plugin(object):
 
         for k in module_globals:
             setattr(self.module, k, module_globals[k])
+        self.module.PLUGIN_PATH = self.path
 
         # after module is found, it's safe to use pretty name
         self.module_name = os.path.splitext(self.name)[0]
