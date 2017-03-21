@@ -1,6 +1,7 @@
 '''Update machine hostname'''
 
 import os
+import re
 from subprocess import Popen, CalledProcessError, PIPE
 
 TITLE = 'Update Hostname'
@@ -19,6 +20,13 @@ def run():
 
             with open('/etc/hostname', 'w') as fob:
                 fob.write(new_hostname + '\n')
+
+            with open('/etc/hosts', 'r') as fob:
+                lines = fob.readlines()
+            with open('/etc/hosts', 'w') as fob:
+                for line in lines:
+                    fob.write(re.sub(r'^127\.0\.1\.1 .*', '127.0.1.1 ' + new_hostname, line))
+
             console.msgbox(TITLE, 'Hostname updated successfully. Some applications might require a relaunch before the setting applies to them.')
 
             break
