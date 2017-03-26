@@ -1,0 +1,11 @@
+/var/log/confconsole/*.log {
+         monthly
+         missingok
+         rotate 6
+         compress
+         delaycompress
+         notifempty
+         create 640 root root
+
+}
+

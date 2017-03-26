@@ -1,3 +1,4 @@
 plugins.d/  /usr/lib/confconsole/
 *.py        /usr/lib/confconsole/
 conf/*      /etc/confconsole/
+share/*     /usr/share/confconsole/

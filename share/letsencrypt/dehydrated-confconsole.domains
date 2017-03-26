@@ -1,0 +1,4 @@
+# please use this file with confconsole or
+# alternatively use dehydrated with it's appropriate
+# configuration directly
+example.com www.example.com ftp.example.com

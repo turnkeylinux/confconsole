@@ -1,0 +1,258 @@
+#!/bin/bash -e
+
+# Copyright (c) 2016-2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+#
+# dehyrdated-wrapper - A wrapper script for the Dehydrated
+#                      Let's Encrypt client
+# 
+# This file is part of Confconsole.
+# 
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+### initial setup of vars and functions ###
+
+[ "$DEBUG" = "y" ] && set -x
+
+APP="$(basename $0)"
+DEHYD_ETC=/etc/dehydrated
+SHARE=/usr/share/confconsole/letsencrypt
+CONFIG="$DEHYD_ETC/confconsole.config"
+CC_HOOK="$DEHYD_ETC/confconsole.hook.sh"
+CC_DOMAINS="$DEHYD_ETC/confconsole.domains.txt"
+FREQ=daily
+CRON=/etc/cron.$FREQ/confconsole-dehydrated
+LOG=/var/log/confconsole/letsencrypt.log
+AUTHBIND80=/etc/authbind/byport/80
+[ -f "$AUTHBIND80" ] || touch "$AUTHBIND80"
+AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
+EXIT_CODE=0
+
+SH_CONFIG=$SHARE/dehydrated-confconsole.config
+SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
+SH_CRON=$SHARE/dehydrated-confconsole.cron
+SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
+
+export TKL_CERTFILE="/etc/ssl/private/cert.pem"
+export TKL_KEYFILE="/etc/ssl/private/cert.key"
+cp $TKL_CERTFILE $TKL_CERTFILE.bak
+cp $TKL_KEYFILE $TKL_KEYFILE.bak
+
+BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
+export HTTP="add-water"
+export HTTP_USR="www-data"
+export HTTP_BIN="$BASE_BIN_PATH/$HTTP"
+export HTTP_PID=/var/run/$HTTP/pid
+export HTTP_LOG=$LOG
+mkdir -p "$(dirname $HTTP_PID)" "$(dirname $LOG)" "$DEHYD_ETC"
+touch $LOG
+chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
+
+usage() {
+echo "$@"
+cat<<EOF
+Syntax: $APP [--force|-f] [--log-info|-i] [--help|-h]
+
+Wrapper script for dehydrated on TurnKey Linux.
+Provides a clean way to get SSL certs from Let's Encrypt's ACME server,
+regardless of which webserver is being used or how it is configured.
+
+This file is part of confconsole.
+
+Environment variables:
+
+    DEBUG=y
+
+        - $APP will be very verbose (set -x)
+        - INFO will be logged (default logging is WARNING & FATAL only)
+
+Options:
+
+    --force|-f     - pass force switch to dehydrated
+
+                     This will force dehydrated to update certs regardless of
+                     expiry. The included cron job does this by default (after
+                     checking the expiry of /etc/ssl/private/cert/pem)
+
+    --log-info|-i  - INFO will be logged (default logging is WARNING & FATAL
+                     only)
+
+    --help|-h      - print this information and exit
+
+For more info on advanced useage, please see
+
+    https://www.turnkeylinux.org/docs/letsencrypt#advanced
+
+EOF
+exit 1
+}
+
+fatal() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
+    clean_finish 1
+}
+
+warning() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: WARNING: $@" | tee -a $LOG
+}
+
+info() {
+    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: INFO: $@" | tee -a $DEBUG_LOG
+}
+
+copy_if_not_found() {
+    if [ ! -f "$1" ]; then
+        warning "$1 not found; copying default from $2"
+        cp "$2" "$1"
+    fi
+}
+
+check_80() {
+    netstat -ltpn | grep ":80 " | cut -d/ -f2 | sed -e 's|[[:space:]].*$||'
+}
+
+stop_server() {
+    [ -z "$@" ] && return
+    info "stopping $1"
+    service $1 stop 2>&1 | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+    while [ "$(check_80)" != "" ] && [ $EXIT_CODE -eq 0 ]; do
+        info "waiting 1 second for $1 to stop"
+        sleep 1
+    done
+}
+
+restart_servers() {
+    for servicename in $@; do
+        info "starting $servicename"
+        service $servicename restart | tee -a $LOG
+        [ "${PIPESTATUS[0]}" -eq 0 ] || EXIT_CODE=1
+    done
+}
+
+clean_finish() {
+    # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
+    # You have been warned...
+    EXIT_CODE=$1
+    if [ "$(check_80)" = "python" ]; then
+        warning "Python is still listening on port 80"
+        info "attempting to kill add-water server"
+        [ -f "$HTTP_PID" ] && kill -9 $(cat $HTTP_PID)
+        rm -f $HTTP_PID
+    fi
+    [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
+    if [ $EXIT_CODE -ne 0 ]; then
+        warning "Something went wrong, restoring original cert & key."
+        mv $TKL_CERTFILE.bak $TKL_CERTFILE
+        mv $TKL_KEYFILE.bak $TKL_KEYFILE
+    else
+        info "Cleaning backup cert & key"
+        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak
+    fi
+    restart_servers $WEBSERVER stunnel4
+    if [ $EXIT_CODE -ne 0 ]; then
+        warning "Check today's previous log entries for details of error."
+    else
+        info "$APP completed successfully."
+    fi
+    exit $EXIT_CODE
+}
+
+### some intial checks & set up trap ###
+
+[ "$EUID" = "0" ] || fatal "$APP must be run as root"
+[ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the \$PATH"
+[ $(which authbind) ] || fatal "Authbind not installed"
+
+for sig in INT TERM; do
+    trap "clean_finish 1
+    kill -$sig $$" $sig
+done
+
+### read args & check config - set up whats needed ###
+
+args=""
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+        -f|--force)     args="$args --force";;
+        -i|--log-info)  LOG_INFO=y;;
+        -h|--help)      usage;;
+        *)              usage "FATAL: unsupported or unknown argument: $1";;
+    esac
+    shift
+done
+
+if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+    DEBUG_LOG="$LOG"
+else
+    DEBUG_LOG="/dev/null"
+    export HTTP_LOG=$DEBUG_LOG
+fi
+
+info "started"
+
+copy_if_not_found "$CONFIG" "$SH_CONFIG"
+
+. "$CONFIG"
+
+copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
+
+[ "$DOMAINS_TXT" != "$CC_DOMAINS" ] && warning "$CONFIG is not using $CC_DOMAINS"
+[ -z "$HOOK" ] && fatal "hook script not defined in $CONFIG"
+[ "$HOOK" != "$CC_HOOK" ] && warning "$CONFIG is not using $CC_HOOK"
+
+copy_if_not_found "$HOOK" "$SH_HOOK"
+
+chmod +x $HOOK
+
+copy_if_not_found "$CRON" "$SH_CRON"
+
+### main script ###
+
+WEBSERVER="$(check_80)"
+if [ -n "$WEBSERVER" ]; then
+    info "found $WEBSERVER listening on port 80"
+    case $WEBSERVER in
+        apache2 | lighttpd | nginx )
+            stop_server $WEBSERVER;;
+        java )
+            TOMCAT=/etc/init.d/tomcat;
+            if [ -x "${TOMCAT}7" ]; then
+                WEBSERVER=tomcat7;
+            elif [ -x "${TOMCAT}8" ]; then
+                WEBSERVER=tomcat8;
+            else
+                unset WEBSERVER;
+                fatal "An unknown Java app is listening on port 80";
+            fi;
+            stop_server $WEBSERVER;;
+        python )
+            unset WEBSERVER;
+            fatal "An unknown Python app is listening on port 80";;
+        * )
+            unknown="$WEBSERVER";
+            unset WEBSERVER;
+            fatal "An unexpected service is listening on port 80: $unknown";;
+    esac
+else
+    info "No process found listening on port 80; continuing"
+fi
+
+[ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
+info "running dehydrated"
+if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+    dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+else
+    (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+fi
+if [ $EXIT_CODE -ne 0 ]; then
+    fatal "dehydrated exited with a non-zero exit code."
+else
+    info "dehydrated complete"
+    clean_finish 0
+fi
