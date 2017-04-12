@@ -1,1 +1,1 @@
-docs/Lets_encrypt.rst#advanced
+Lets_encrypt.rst
