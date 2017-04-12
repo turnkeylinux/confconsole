@@ -1,86 +1,167 @@
-Free SSL certificates from Let's Encrypt
-========================================
+Confconsole - Let's Encrypt
+===========================
 
-For full documentation, please see:
+.. contents::
 
-  https://www.turnkeylinux.org/docs/letsencrypt
+Overview
+--------
 
-For advanced usage, please see:
-
-  docs/Lets_encrypt#advanced.rst
-
-About
------
-
-ConfConsole Let's Encrypt plugin provides a simple way to get free
+Confconsole Let's Encrypt plugin provides a simple way to get free
 legitimate SSL certs via Let's Encrypt. It uses a custom mini 
 webserver to host the challenges required by Let's Encrypt (to prove
-your ownership). That means that the same tool will work with any  
-webserver included with any TurnKey appliance, regardless of 
-webserver configuration.
+your ownership of the domain name). That means that the same tool
+will work with any webserver included with any TurnKey appliance, 
+regardless of webserver configuration.
+
+.. image:: ./images/03_confconsole_lets_encrypt.png
 
 Currently support webservers are:
 
-  - Apache
-  - LigHTTPd
-  - Nginx
-  - Tomcat7/Tomcat8
+- Apache
+- LigHTTPd
+- Nginx
+- Tomcat7/Tomcat8
 
-What it does
-------------
+Cert auto renew
+---------------
 
-GET CERTIFICATE
+Selecting this option makes the default SSL certificate renewal cron
+job (`/etc/cron.daily/confconsole-dehydrated`) executable (or not).
+Only executable files within /etc/cron.daily are triggered automatically
+by cron.
+
+**Note:** Until you get your initial certificate (which also
+configures dehydarated), the cron job doesn't exist in the cron.daily
+directory. This ensures that the cron job can't be enabled until the
+dehydrated-wrapper has been run (and hopefully a Let's Encrypt SSL
+cert has been generated).
+
+For more info about what the cron job actually does, please see `Cron
+job details`_ below.
+
+Get certificate
+---------------
+
+Selecting this option will allow you to set a single fully qualified
+domain name (FQDN) for you server.
+
+You may optionally set a root domain and up to 4 separate subdomains.
+
+If you wish to set more than one root domain and/or more than 4
+subdomains, manual configuration is required. Please see `Advanced -
+usage with multiple domain names`_ below.
+
+**Note:** Please ensure that you have your Domain nameservers
+correctly configured prior to running this. Failure to do so will
+cause the Let's Encrypt challenges to fail (so you won't get a
+certificate). Repeated failures may cause your server to be blocked
+(for a week) from further attempts.
+
+Getting a certificate - Behind the scenes
+-----------------------------------------
 
 The process goes like this:
 
 - Confconsole Let's Encrypt plugin writes the domain (and subdomains)
-  to /etc/dehydrated/confconsole.domains.txt
+  to `/etc/dehydrated/confconsole.domains.txt`
 - Confconsole calls dehydrated-wrapper
 - dehydrated-wrapper stops webserver listening on port 80
-- dehydrated-wrapper checks for /etc/dehydrated/confconsole.config 
+- dehydrated-wrapper checks for `/etc/dehydrated/confconsole.config`
   (config file); if it doesn't exist, it copies it the default file 
-  from: /usr/share/confconsole/letsencrypt/dehydrated-confconsole.config
-- dehydrated-wrapper checks for /etc/dehydrated/confconsole.hook.sh 
+  from:
+  `/usr/share/confconsole/letsencrypt/dehydrated-confconsole.config`
+- dehydrated-wrapper checks for `/etc/dehydrated/confconsole.hook.sh`
   (hook script); if it doesn't exist, it copies it the default file 
-  from: /usr/share/confconsole/letsencrypt/dehydrated-confconsole.hook.sh
-- dehydrated-wrapper checks for /etc/cron.daily/confconsole-dehydrated 
-  (cron script); if it doesn't exist, it copies it the default file from: 
-  /usr/share/confconsole/letsencrypt/dehydrated-confconsole.cron
-- dehydrated-wrapper calls dehydrated, passing confconsole.config, 
-  confconsole.hook.sh & confconsole.domains.txt (all stored within 
-  /etc/dehydrated/)
+  from:
+  `/usr/share/confconsole/letsencrypt/dehydrated-confconsole.hook.sh`
+- dehydrated-wrapper checks for 
+  `/etc/cron.daily/confconsole-dehydrated` (cron script); if it
+  doesn't exist, it copies it the default file from: 
+  `/usr/share/confconsole/letsencrypt/dehydrated-confconsole.cron`
+- dehydrated-wrapper calls dehydrated, passing `confconsole.config`, 
+  `confconsole.hook.sh` & `confconsole.domains.txt` (all stored
+  within `/etc/dehydrated/`)
 - dehydrated contacts Let's Encrypt and gets the challenge (to prove you 
   control the domain)
-- Whilst hosting the challenge, add-water temporarily redirects (i.e.
-  304) all web traffic except for the challenge are redirected (304 -
-  temporarily moved) to the web root. A simple "Under Maintence" 
-  message is displayed.
+- Whilst hosting the challenge, add-water temporarily redirects all
+  web traffic except for the challenge (i.e. 304 - temporarily moved)
+  to the web root. A simple "Under Maintence" message is displayed. To
+  provide a custom html page, please see `Advanced - custom maintence
+  message`_ below.
 - via the hook script, dehydrated serves Let's Encrypt challenges 
   using add-water server (minimalist python webserver)
 - when done, add-water is killed (via hook script)
-- dehydrated writes certificate to /etc/ssl/private/cert.pem (via 
+- dehydrated writes certificate to `/etc/ssl/private/cert.pem` (via 
   hook script); original certs generated by dehydrated remain in 
-  /var/lib/dehydrated/certs/DOMAIN
+  `/var/lib/dehydrated/certs/DOMAIN`
 - dehydrated hands back to dehydrated-wrapper
 - dehydrated-wrapper restarts webserver
 - dehydrated-wrapper restarts stunnel (so Webmin & Webshell also use new cert)
 - dehydrated-wrapper hands back to confconsole
 
-CERT AUTO RENEW
-
-Confconsole simply makes the default cron job (/etc/cron.daily/confconsole
--dehydrated) executable (or not). Only executable files within 
-/etc/cron.daily are triggered by cron.
-
-Note: the cron job doesn't exist in the cron.daily directory until 
-dehydrated-wrapper is run for the first time (as hinted above). This 
-ensures that the cron job can't be enabled until the dehydrated
--wrapper has been run (and hopefully a Let's Encrypt SSL cert has 
-been generated).
-
-CRON JOB
+Cron job details
+----------------
 
 The cron job checks the expiry date of the default certificate 
-(/etc/ssl/private/cert.pem) and if it will expire within 30 days or 
+(`/etc/ssl/private/cert.pem`) and if it will expire within 30 days or
 less, it runs dehydrated-wrapper (using the --force switch).
+
+Advanced - custom maintence message
+-----------------------------------
+
+As noted, whilst it is serving the challenges, add-water will 
+redirect all other urls to the web root. By default it will display 
+a simple "Maintenance" message via a basic index.html file.
+
+If you wish to display a custom message, then you can add a custom 
+index.html file to /var/lib/confconsole/letsencrypt/. E.g. to copy 
+across the default and then tweak it:
+
+.. code-block:: bash
+
+    mkdir -p /var/lib/confconsole/letsencrypt/
+    cp /usr/share/confconsole/letsencrypt/index.html \
+      /var/lib/confconsole/letsencrypt/index.html
+
+add-water will serve /var/lib/confconsole/letsencrypt/index.html
+if it exists, or otherwise will fall back to the default.
+
+**Note:** The custom file must be named `index.html` and contain only
+valid HTML (and CSS). PHP or other server side languages are not
+supported. Embedded (i.e. "inline") JavaScript is also supported as
+that is processed client side.
+
+Advanced - usage with multiple domain names
+-------------------------------------------
+
+The interactive Confconsole plugin only supports a single domain with
+up to 4 subdomains. However, the dehydrated-wrapper can handle 
+multiple root domains, plus multiple subdomains. To support that
+you will need to manually make configuration adjustments in a number
+of places:
+
+- add additional domains to `/etc/dehydrated/confconsole.domains.txt`
+
+  - ensure that each line starts with the base domain, followed by
+    a space separated list of any subdomains.
+  - **WARNING:** If you re-run confconsole's Let's Encrypt plugin, your
+    custom additional domains will be removed!
+
+- adjust your webserver virtual hosts to use the relevant 
+  certificates in `/var/lib/dehydrated/certs/DOMAIN`. Each domain 
+  will have it's own subdirectory under `/var/lib/dehydrated/certs/`.
+
+- By default, the last domain (and any subdomains) configured, will
+  be the one which will work for Webmin & Webshell (and Adminer, if
+  it's included). To change this behaviour, you can adjust the hook 
+  script, or simply rearange the order of your domains and put the 
+  one you want Webmin & Webshell available from, last.
+
+- **Note:** the cron job only checks the expiry of 
+  `/etc/ssl/private/cert.pem`. So if you adjust the hook script to no
+  longer update `/etc/ssl/private/cert.pem`, you will also need to 
+  adjust the cron job to check the expiry of a certificate you are
+  updating. Failure to do so will result in daily certificate updates,
+  which may get your server temporarily blocked from accessing the Let's
+  Encrypt servers.
 
