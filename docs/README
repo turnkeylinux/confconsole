@@ -2,6 +2,15 @@
 TurnKey GNU/Linux Configuration Console
 ===================================
 
+A pretty version of this readme (with screenshots and clickable links)
+is avaialble online from:
+
+https://www.turnkeylinux.org/docs/confconsole
+
+The source can be found on GitHub:
+
+https://github.com/turnkeylinux/confconsole
+
 The Configuration Console's objective is to provide the user with basic
 network configuration information and the ability to perform basic
 tasks, so as not to force the user to the command line.
@@ -20,18 +29,18 @@ The basic tasks that the user may perform include:
       - Enable/disable auto SSL cert update
       - Get SSL certificate from Let's Encrypt
 
-    - Mail relaying:
+    - Mail relaying (see docs/Mail_relay.rst):
       - configure and enable remote SMTP email relay
 
-    - Proxy settings:
+    - Proxy settings (see docs/Proxy_settings.rst):
       - configure apt proxy
 
-    - Region config:
+    - Region config (see docs/Region_config.rst):
       - Keyboard layout
       - Locales and language
       - Tzdata (timezone)
 
-    - System settings:
+    - System settings (see docs/System_settings.rst):
       - install security updates
       - update hostname
 
