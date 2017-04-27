@@ -27,6 +27,12 @@ def run():
                 for line in lines:
                     fob.write(re.sub(r'^127\.0\.1\.1 .*', '127.0.1.1 ' + new_hostname, line))
 
+            with open('/etc/postfix/main.cf', 'r') as fob:
+                lines = fob.readlines()
+            with open('/etc/postfix/main.cf', 'w') as fob:
+                for line in lines:
+                    fob.write(re.sub(r'myhostname =.*', 'myhostname = {}'.format(new_hostname), line))
+
             console.msgbox(TITLE, 'Hostname updated successfully. Some applications might require a relaunch before the setting applies to them.')
 
             break
