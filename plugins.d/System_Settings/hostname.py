@@ -33,6 +33,8 @@ def run():
                 for line in lines:
                     fob.write(re.sub(r'myhostname =.*', 'myhostname = {}'.format(new_hostname), line))
 
+            os.system('postfix reload')
+
             console.msgbox(TITLE, 'Hostname updated successfully. Some applications might require a relaunch before the setting applies to them.')
 
             break
