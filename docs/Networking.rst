@@ -9,6 +9,14 @@ Overview
 Networking allows the user to allocate a server IP address via DHCP
 (default) or set a static IP.
 
+**IMPORTANT:** setting a static IP address on a cloud instance (e.g. AWS
+EC2) will break your server's internet access and may make it unreachable.
+**unless you know exactly what you are doing; DO NOT ADJUST NETWORKING ON
+CLOUD SERVERS!** You have been warned!
+
+Future cloud builds will have Confconsole's Networking options disabled
+ (``networking false`` in ``/etc/confconsole/confconsole.conf``).
+
 .. image:: ./images/02_confconsole_core_networking.png
 
 DHCP
@@ -19,6 +27,8 @@ dynamically allocated IP address.
 
 Static
 ------
+
+As noted above; **DO NOT change network settings on a cloud server!**
 
 Selecting **StaticIP** from the menu allows you to set a static IP address
 as follows:
@@ -57,11 +67,12 @@ any networking adjustments made via Confconsole (or other means) will
 NOT be persistent post-reboot. The networking can still be 
 reconfigured on the running system. However, changes will be lost on
 reboot. As a general rule, it is recommended that unless you have a need
-to reconfigure newtorking within the instance, that the desired settings
-are configured on the host.
+to reconfigure networking within the instance, set the desired configuration
+on the host.
 
-Some other platforms (e.g. AWS EC2) may not work correctly if a
-static IP is set.
+Some other platforms (e.g. AWS EC2 and OpenStack) may ll almost certainly
+break if a static IP is set! Future TurnKey Cloud builds (currently includes
+EC2, Xen and OpenStack) will have the Networking config options disabled.
 
 Technical note
 --------------
