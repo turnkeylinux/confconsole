@@ -110,7 +110,7 @@ copy_if_not_found() {
 }
 
 check_80() {
-    netstat -ltpn | grep ":80 " | cut -d/ -f2 | sed -e 's|[[:space:]].*$||'
+    netstat -ltpn | grep ":80 " | head -1 | cut -d/ -f2 | sed -e 's|[[:space:]].*$||'
 }
 
 stop_server() {
