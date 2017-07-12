@@ -18,6 +18,7 @@ Recommends:
  dehydrated,
  di-live,
  kbd,
+ ${misc:Depends},
  python-bottle,
  resolvconf,
 Section: misc
