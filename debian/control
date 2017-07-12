@@ -5,12 +5,15 @@ Maintainer: Alon Swartz <alon@turnkeylinux.org>
 Build-Depends:
  debhelper (>= 10),
  dh-systemd,
+ python-all (>= 2.6.6-3~),
 Standards-Version: 4.0.0
+X-Python-Version: >= 2.6
 
 Package: confconsole
 Architecture: all
 Depends:
- python (>= 2.4),
+ ${misc:Depends},
+ ${python:Depends},
  python-dialog (>= 2.7-1turnkey+4),
  turnkey-pylib,
 Recommends:
@@ -18,7 +21,6 @@ Recommends:
  dehydrated,
  di-live,
  kbd,
- ${misc:Depends},
  python-bottle,
  resolvconf,
 Description: TurnKey GNU/Linux Configuration Console
