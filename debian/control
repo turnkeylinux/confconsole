@@ -21,5 +21,4 @@ Recommends:
  ${misc:Depends},
  python-bottle,
  resolvconf,
-Section: misc
 Description: TurnKey GNU/Linux Configuration Console
