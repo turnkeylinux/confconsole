@@ -3,7 +3,7 @@ Section: misc
 Priority: optional
 Maintainer: Alon Swartz <alon@turnkeylinux.org>
 Build-Depends:
- debhelper (>> 4.2.0),
+ debhelper (>= 10),
  dh-systemd,
 Standards-Version: 4.0.0
 
