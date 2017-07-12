@@ -5,7 +5,7 @@ Maintainer: Alon Swartz <alon@turnkeylinux.org>
 Build-Depends:
  debhelper (>> 4.2.0),
  dh-systemd,
-Standards-Version: 3.6.1
+Standards-Version: 4.0.0
 
 Package: confconsole
 Architecture: all
