@@ -1,0 +1,2 @@
+etc/confconsole usr/lib/confconsole/conf
+usr/lib/confconsole/confconsole.py usr/bin/confconsole

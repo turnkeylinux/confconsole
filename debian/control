@@ -2,12 +2,25 @@ Source: confconsole
 Section: misc
 Priority: optional
 Maintainer: Alon Swartz <alon@turnkeylinux.org>
-Build-Depends: debhelper (>> 4.2.0), dh-systemd
-Standards-Version: 3.6.1
+Build-Depends:
+ debhelper (>= 10),
+ dh-systemd,
+ python-all (>= 2.6.6-3~),
+Standards-Version: 4.0.0
+X-Python-Version: >= 2.6
 
 Package: confconsole
 Architecture: all
-Depends: python (>= 2.4), python-dialog (>= 2.7-1turnkey+4), turnkey-pylib
-Recommends: kbd, di-live, resolvconf, dehydrated, authbind, python-bottle
-Section: misc
+Depends:
+ ${misc:Depends},
+ ${python:Depends},
+ python-dialog (>= 2.7-1turnkey+4),
+ turnkey-pylib,
+Recommends:
+ authbind,
+ dehydrated,
+ di-live,
+ kbd,
+ python-bottle,
+ resolvconf,
 Description: TurnKey GNU/Linux Configuration Console
