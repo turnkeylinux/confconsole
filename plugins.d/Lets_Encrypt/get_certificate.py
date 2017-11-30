@@ -1,40 +1,37 @@
 """Get Let's Encrypt SSl cert"""
 
+import requests
 from executil import getoutput, ExecError
 from os import path, remove
 
+LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
+
 TITLE = 'Certificate Creation Wizard'
 
-DESC = """Please enter domain to generate certificate for.
+DESC = """Please enter domain(s) to generate certificate for.
 
-To generate a certificate for a single domain name, please enter it into the
-first box and leave the others blank"
+To generate a single certificate for up to five domains (including subdomains),
+enter each domain into a box, one domain per box. Empty boxes will be ignored.
 
-To generate a certificate for a base domain and a number of subdomains,
-please enter the full domain first, then the subdomains on subsequent lines.
-
-For advanced useage, please see:
+To generate multiple certificates, please consult the advanced docs:
 https://www.turnkeylinux.org/docs/letsencrypt#advanced
 """
 
-domain_path = '/etc/dehydrated/confconsole.domains.txt'
 dehydrated_conf = '/etc/dehydrated'
-default_domains = '''
-# please use this file with confconsole or
+domain_path = dehydrated_conf+'/confconsole.domains.txt'
+
+default_domains = '''# please use this file with confconsole or
 # alternatively use dehydrated with it's appropriate
 # configuration directly
-''' 
-
+'''
+example_domain = 'example.com'
 # XXX Debug paths
 
 def load_domains():
     ''' Loads domain conf, writes default config if non-existant. Expects
     "/etc/dehydrated" to exist '''
     if not path.isfile(domain_path):
-        with open(domain_path, 'w') as fob:
-            fob.write(default_domains+\
-                    'example.com www.example.com ftp.example.com\n')
-        return ['example.com', 'www.example.com', 'ftp.example.com', '', '']
+        return [example_domain, '', '', '', '']
     else:
         domains = []
         with open(domain_path, 'r') as fob:
@@ -53,41 +50,62 @@ def load_domains():
 def save_domains(domains):
     ''' Saves domain configuration '''
     with open(domain_path, 'w') as fob:
-        fob.write(default_domains + ' '.join(domains))
+        fob.write(default_domains + ' '.join(domains) + '\n')
 
-def invalid_domains(dom, subdoms):
+def invalid_domains(domains):
     ''' Validates well known limitations of domain-name specifications
     doesn't enforce when or if special characters are valid. Returns a
     string if domains are invalid explaining why otherwise returns False'''
-    if len(dom) > 254:
-        return 'Domain names must not exceed 254 characters'
-    for part in dom.split('.'):
-        if not 0 < len(part) < 64:
-            return ('Domain segments may not be larger than 63 characters'
-                    'or less than 1')
-    for subdom in subdoms:
-        if subdom and not subdom.endswith(dom):
-            return '{} is not a subdomain of {}'.format(subdom, dom)
-        if len(subdom) > 254:
-            return ('Domain names must not exceed 254 characters')
-        for part in subdom.split('.'):
-            if not len(part) < 64:
-                return 'Domain segments may not be larger than 63 characters'
+    if domains[0] == '':
+        return ('Error: At least one domain must be provided in {} (with no'
+            ' preceeding space)'.format(domain_path))
+    for domain in domains:
+        if len(domain) != 0:
+            if len(domain) > 254:
+                return ('Error in {}: Domain names must not exceed 254'
+                    ' characters'.format(domain))
+            for part in domain.split('.'):
+                if not 0 < len(part) < 64:
+                    return ('Error in {}: Domain segments may not be larger'
+                        ' than 63 characters or less than 1'.format(domain))
     return False
-
 
 def run():
     field_width = 60
-    field_names = ['domain', 'subdomain1', 'subdomain2', 'subdomain3', 'subdomain4']
-
+    field_names = ['domain1', 'domain2', 'domain3', 'domain4', 'domain5']
 
     canceled = False
+
+    tos_url = None
+    try:
+        response = requests.get(LE_INFO_URL)
+        tos_url = response.json()['meta']['terms-of-service']
+    except ConnectionError:
+        msg = 'Connection error. Failed to connect to '+LE_INFO_URL
+    except JSONDecodeError:
+        msg = 'Data error, no JSON data found'
+    except KeyError:
+        msg = 'Data error, no value found for "terms-of-service"'
+    if not tos_url:
+        console.msgbox('Error', msg, autosize=True)
+        return
 
     ret = console.yesno(
         'DNS must be configured before obtaining certificates. '
         'Incorrectly configured dns and excessive attempts could '
         'lead to being temporarily blocked from requesting '
         'certificates.\n\nDo you wish to continue?',
+        autosize=True
+    )
+    if ret:
+        return
+
+    ret = console.yesno(
+        "Before getting a Let's Encrypt certificate, you must agree "
+        'to the current Terms of Service.\n\n'
+        'You can find the current Terms of Service here:\n\n'
+        +tos_url+'\n\n'
+        "Do you agree to the Let's Encrypt Terms of Service?",
         autosize=True
     )
     if ret:
@@ -102,7 +120,7 @@ def run():
         return
 
     domains = load_domains()
-    m = invalid_domains(domains[0], domains[1:])
+    m = invalid_domains(domains)
     
     if m:
         ret = console.yesno(
@@ -118,11 +136,11 @@ def run():
     while True:
         while True:
             fields = [
-                ('Domain', values[0], field_width, 255),
-                ('Subdomain 1', values[1], field_width, 255),
-                ('Subdomain 2', values[2], field_width, 255),
-                ('Subdomain 3', values[3], field_width, 255),
-                ('Subdomain 4', values[4], field_width, 255),
+                ('Domain 1', values[0], field_width, 255),
+                ('Domain 2', values[1], field_width, 255),
+                ('Domain 3', values[2], field_width, 255),
+                ('Domain 4', values[3], field_width, 255),
+                ('Domain 5', values[4], field_width, 255),
             ]
             ret, values = console.form(TITLE, DESC, fields, autosize=True)
 
@@ -130,7 +148,7 @@ def run():
                 canceled = True
                 break
 
-            msg = invalid_domains(values[0], values[1:])
+            msg = invalid_domains(values)
             if msg:
                 console.msgbox('Error', msg)
                 continue
