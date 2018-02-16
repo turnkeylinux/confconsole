@@ -30,6 +30,8 @@ AUTHBIND80=/etc/authbind/byport/80
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
 
+LE_TOS_URL=https://acme-v01.api.letsencrypt.org/directory
+
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
 SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
@@ -197,6 +199,9 @@ info "started"
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
 . "$CONFIG"
+
+LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep terms-of-service \
+    | sed 's|^.*service": "||; s|"$||')
 
 copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 
