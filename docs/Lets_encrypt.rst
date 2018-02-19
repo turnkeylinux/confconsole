@@ -52,7 +52,8 @@ recommended that you add your root domain, or primary domain first.
 
 If you wish to set more than 5 domains or you wish to create more
 than one certificate, manual configuration is required. Please see
-`Advanced - usage with multiple domain names`_ below.
+`Advanced - create multiple certificates (&/or more than 5 domains)`_
+below.
 
 **Note:** Before you attempt to retreive a certificate, please ensure
 that you have your Domain nameservers correctly configured to resolve
