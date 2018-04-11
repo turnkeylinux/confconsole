@@ -22,5 +22,6 @@ Recommends:
  di-live,
  kbd,
  python-bottle,
+ python-requests,
  resolvconf,
 Description: TurnKey GNU/Linux Configuration Console
