@@ -115,14 +115,8 @@ support for Let's Encrypt, please do the following:
 
 .. code-block:: bash
 
-    cat > /etc/apt/sources.list.d/backports.list <<EOF
-    # Jessie Backports
-    deb http://ftp.debian.org/debian jessie-backports main
-    EOF
-
     apt-get update
-    apt-get install confconsole python-bottle authbind 
-    apt-get install -t jessie-backports dehydrated
+    apt-get install confconsole python-bottle authbind dehydrated
 
 Plugins
 -------

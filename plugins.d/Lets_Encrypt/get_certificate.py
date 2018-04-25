@@ -114,7 +114,7 @@ def run():
     if not path.isdir(dehydrated_conf):
         console.msgbox(
             'Error',
-            'Dehydrated not installed or %s not found, dehydrated can be installed with apt from the jessie-backports repo.\n\nMore info: www.turnkeylinux.org/docs/letsencrypt' % dehydrated_conf,
+            'Dehydrated not installed or %s not found, dehydrated can be installed with apt from the stretch repo.\n\nMore info: www.turnkeylinux.org/docs/letsencrypt' % dehydrated_conf,
             autosize=True
         )
         return
