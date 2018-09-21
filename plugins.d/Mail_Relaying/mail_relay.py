@@ -73,7 +73,7 @@ def run():
             host = 'smtp-relay.sendinblue.com'
             port = '587'
 
-        field_width = field_limit = 60
+        field_width = field_limit = 100
 
         while 1:
             fields = [
