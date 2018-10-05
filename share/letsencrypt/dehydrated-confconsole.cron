@@ -11,7 +11,7 @@ log() {
     echo "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
 }
 
-if $(which openssl) x509 -checkend 2592000 -noout -in $CERT; then
+if $(which openssl) x509 -checkend 2592000 -noout -in $CERT > /dev/null; then
     log "$CERT does not require renewal. Nothing to do."
 else
     log "$CERT has expired or will do so within 30 days. Attempting renewal."
