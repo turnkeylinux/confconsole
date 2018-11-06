@@ -5,6 +5,7 @@ from time import sleep
 
 import executil
 from netinfo import InterfaceInfo
+from netinfo import get_hostname
 
 class Error(Exception):
     pass
@@ -96,7 +97,13 @@ class EtcNetworkInterfaces:
         fh.close()
 
     def set_dhcp(self, ifname):
-        ifconf = "auto %s\niface %s inet dhcp" % (ifname, ifname)
+        hostname = get_hostname()
+        ifconf = ["auto %s\niface %s inet dhcp" % (ifname, ifname)]
+
+        if hostname:
+            ifconf.append("    hostname %s" % hostname)
+
+        ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
