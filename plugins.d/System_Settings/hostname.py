@@ -33,6 +33,14 @@ def run():
                 for line in lines:
                     fob.write(re.sub(r'myhostname =.*', 'myhostname = {}'.format(new_hostname), line))
 
+            with open('/etc/network/interfaces', 'r') as fob:
+                lines = fob.readlines()
+            with open('/etc/network/interfaces', 'w') as fob:
+                for line in lines:
+                    fob.write(re.sub(r'hostname .*', 'hostname {}'.format(new_hostname), line))
+
+            os.system('service networking restart')
+
             os.system('postfix reload')
 
             console.msgbox(TITLE, 'Hostname updated successfully. Some applications might require a relaunch before the setting applies to them.')
