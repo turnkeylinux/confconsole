@@ -16,6 +16,7 @@ Depends:
  ${python:Depends},
  python-dialog (>= 2.7-1turnkey+4),
  turnkey-pylib,
+ libsasl2-modules,
 Recommends:
  authbind,
  dehydrated,
