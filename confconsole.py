@@ -18,13 +18,13 @@ from string import Template
 
 import ifutil
 import netinfo
-import executil
 import getopt
 
 import conf
 
 from StringIO import StringIO
 import traceback
+import subprocess
 
 import plugin
 
@@ -150,7 +150,7 @@ class Installer:
         if not self.available:
             raise Error("installer is not available to be executed")
 
-        executil.system(self.path)
+        os.system(self.path)
 
 class TurnkeyConsole:
     OK = 0
@@ -187,7 +187,7 @@ class TurnkeyConsole:
         defifname = conf.Conf().default_nic
         if defifname and defifname.startswith('br'):
                 ifnames.append(defifname)
-                bridgedif = executil.getoutput('brctl', 'show', defifname).split('\n')[1].split('\t')[-1]
+                bridgedif = subprocess.getoutput(['brctl', 'show', defifname]).split('\n')[1].split('\t')[-1]
                 ifnames.remove(bridgedif)
 
         ifnames.sort()
@@ -216,8 +216,8 @@ class TurnkeyConsole:
         publicip_cmd = conf.Conf().publicip_cmd
         if publicip_cmd:
             try:
-                return executil.getoutput(publicip_cmd)
-            except executil.ExecError, e:
+                return subprocess.getoutput(publicip_cmd)
+            except subprocess.CalledProcessError, e:
                 pass
 
         return None
@@ -332,9 +332,9 @@ class TurnkeyConsole:
 
         #tklbam integration
         try:
-            tklbam_status = executil.getoutput("tklbam-status --short")
-        except executil.ExecError, e:
-            if e.exitcode in (10, 11): #not initialized, no backups
+            tklbam_status = subprocess.getoutput(["tklbam-status", "--short"])
+        except subprocess.CalledProcessError, e:
+            if e.returncode in (10, 11): #not initialized, no backups
                 tklbam_status = e.output
             else:
                 tklbam_status = ''
@@ -554,7 +554,7 @@ class TurnkeyConsole:
             fgvt = os.environ.get("FGVT")
             if fgvt:
                 cmd = "chvt %s; " % fgvt + cmd
-            executil.system(cmd)
+            os.system(cmd)
 
         return "advanced"
 
@@ -663,5 +663,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        executil.system('stty sane')
+        os.system('stty sane')
         traceback.print_exc()
