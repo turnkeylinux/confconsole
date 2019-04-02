@@ -164,7 +164,7 @@ def run():
             break
 
         try:
-            subprocess.getoutput(['bash', path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper')])
+            subprocess.check_output(['bash', path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper')])
             break
         except subprocess.CalledProcessError as err:
             _, _, errmsg = err.args

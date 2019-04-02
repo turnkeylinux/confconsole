@@ -184,10 +184,10 @@ def get_nameservers(ifname):
     return []
 
 def ifup(ifname):
-    return subprocess.getoutput(["ifup", ifname])
+    return subprocess.check_output(["ifup", ifname])
 
 def ifdown(ifname):
-    return subprocess.getoutput(["ifdown", ifname])
+    return subprocess.check_output(["ifdown", ifname])
 
 def unconfigure_if(ifname):
     try:
