@@ -3,7 +3,7 @@
 import os
 from time import sleep
 
-import executil
+import subprocess
 from netinfo import InterfaceInfo
 
 class Error(Exception):
@@ -184,17 +184,17 @@ def get_nameservers(ifname):
     return []
 
 def ifup(ifname):
-    return executil.getoutput("ifup", ifname)
+    return subprocess.getoutput(["ifup", ifname])
 
 def ifdown(ifname):
-    return executil.getoutput("ifdown", ifname)
+    return subprocess.getoutput(["ifdown", ifname])
 
 def unconfigure_if(ifname):
     try:
         ifdown(ifname)
         interfaces = EtcNetworkInterfaces()
         interfaces.set_manual(ifname)
-        executil.system("ifconfig %s 0.0.0.0" % ifname)
+        os.system("ifconfig %s 0.0.0.0" % ifname)
         ifup(ifname)
     except Exception, e:
         return str(e)

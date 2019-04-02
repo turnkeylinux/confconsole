@@ -3,8 +3,7 @@
 import ssl
 import socket
 from smtplib import SMTP, SMTP_SSL, SMTPException
-from executil import system
-from os import path
+from os import path, system
 
 TITLE = 'Mail Relay'
 

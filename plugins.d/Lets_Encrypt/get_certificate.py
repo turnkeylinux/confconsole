@@ -1,7 +1,7 @@
 """Get Let's Encrypt SSl cert"""
 
 import requests
-from executil import getoutput, ExecError
+import subprocess
 from os import path, remove
 
 LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
@@ -164,9 +164,9 @@ def run():
             break
 
         try:
-            getoutput('bash {}'.format(path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper')))
+            subprocess.getoutput(['bash', path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper')])
             break
-        except ExecError as err:
+        except subprocess.CalledProcessError as err:
             _, _, errmsg = err.args
             console.msgbox('Error!', errmsg)
 
