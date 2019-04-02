@@ -187,7 +187,7 @@ class TurnkeyConsole:
         defifname = conf.Conf().default_nic
         if defifname and defifname.startswith('br'):
                 ifnames.append(defifname)
-                bridgedif = subprocess.getoutput(['brctl', 'show', defifname]).split('\n')[1].split('\t')[-1]
+                bridgedif = subprocess.check_output(['brctl', 'show', defifname]).split('\n')[1].split('\t')[-1]
                 ifnames.remove(bridgedif)
 
         ifnames.sort()
@@ -216,7 +216,7 @@ class TurnkeyConsole:
         publicip_cmd = conf.Conf().publicip_cmd
         if publicip_cmd:
             try:
-                return subprocess.getoutput(publicip_cmd)
+                return subprocess.check_output(publicip_cmd)
             except subprocess.CalledProcessError, e:
                 pass
 
@@ -332,7 +332,7 @@ class TurnkeyConsole:
 
         #tklbam integration
         try:
-            tklbam_status = subprocess.getoutput(["tklbam-status", "--short"])
+            tklbam_status = subprocess.check_output(["tklbam-status", "--short"])
         except subprocess.CalledProcessError, e:
             if e.returncode in (10, 11): #not initialized, no backups
                 tklbam_status = e.output
