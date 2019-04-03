@@ -126,7 +126,7 @@ class PluginDir(object):
 
         retcode, choice = self.module_globals['console'].menu(self.module_name.capitalize(), self.module_name.capitalize()+'\n', items, no_cancel = False)
 
-        if retcode is not 0: # confconsole.TurnkeyConsole.OK
+        if retcode is not 'ok':
             if not hasattr(self, 'parent'):
                 return 'advanced'
             else:
@@ -164,11 +164,13 @@ class PluginManager(object):
 
                 file_path = os.path.join(root, file_name)
                 if os.path.isfile(file_path):
-                    if not os.stat(file_path).st_mode & 0111 == 0:
+                    if not os.stat(file_path).st_mode & 0o111 == 0:
                         current_plugin = Plugin(file_path, module_globals)
                         path_map[file_path] = current_plugin
 
             for dir_name in dirs:
+                if dir_name == '__pycache__':
+                    continue
                 dir_path = os.path.join(root, dir_name)
                 
                 if os.path.isdir(dir_path):

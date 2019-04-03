@@ -22,7 +22,7 @@ import getopt
 
 import conf
 
-from StringIO import StringIO
+from io import StringIO
 import traceback
 import subprocess
 
@@ -59,7 +59,7 @@ class Console:
             self.console.add_persistent_args(["--backtitle", title])
 
     def _handle_exitcode(self, retcode):
-        if retcode == 2: # ESC, ALT+?
+        if retcode == 'esc':
             text = "Do you really want to quit?"
             if self.console.yesno(text) == 0:
                 sys.exit(0)
@@ -74,7 +74,7 @@ class Console:
 
         while 1:
             ret = method("\n" + text, *args, **kws)
-            if type(ret) is int:
+            if type(ret) is str:
                 retcode = ret
             else:
                 retcode = ret[0]
@@ -136,9 +136,9 @@ class Installer:
         if not os.path.exists(self.path):
             return False
 
-        fh = file('/proc/cmdline')
-        cmdline = fh.readline()
-        fh.close()
+    
+        with open('/proc/cmdline') as fh:
+            cmdline = fh.readline()
 
         for cmd in cmdline.split():
             if cmd == "boot=casper":
@@ -153,7 +153,7 @@ class Installer:
         os.system(self.path)
 
 class TurnkeyConsole:
-    OK = 0
+    OK = 'ok'
     CANCEL = 1
 
     def __init__(self, pluginManager, eventManager, advanced_enabled=True):
@@ -217,7 +217,7 @@ class TurnkeyConsole:
         if publicip_cmd:
             try:
                 return subprocess.check_output(publicip_cmd)
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError as e:
                 pass
 
         return None
@@ -333,11 +333,13 @@ class TurnkeyConsole:
         #tklbam integration
         try:
             tklbam_status = subprocess.check_output(["tklbam-status", "--short"])
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             if e.returncode in (10, 11): #not initialized, no backups
                 tklbam_status = e.output
             else:
-                tklbam_status = ''
+                tklbam_status = b''
+
+        tklbam_status = tklbam_status.decode('utf-8')
 
         #display usage
         ip_addr = self._get_public_ipaddr()
@@ -348,14 +350,16 @@ class TurnkeyConsole:
 
         try:
             #backwards compatible - use usage.txt if it exists
-            t = file(conf.path("usage.txt"), 'r').read()
+            with open(conf.path("usage.txt"), 'r') as fob:
+                t = fob.read()
             text = Template(t).substitute(hostname=hostname, ipaddr=ip_addr)
 
             retcode = self.console.msgbox("Usage", text,
                                           button_label=default_button_label)
         except conf.Error:
             try:
-                t = file(conf.path("services.txt"), 'r').read().rstrip()
+                with open(conf.path('services.txt'), 'r') as fob:
+                    t = fob.read().rstrip()
             except:
                 t = ""
             text = Template(t).substitute(ipaddr=ip_addr)
@@ -603,7 +607,7 @@ class TurnkeyConsole:
                 prev_dialog = dialog
                 dialog = new_dialog
 
-            except Exception, e:
+            except Exception as e:
                 sio = StringIO()
                 traceback.print_exc(file=sio)
 
@@ -621,7 +625,7 @@ def main():
     try:
         l_opts = ["help", "usage", "nointeractive", "plugin="]
         opts, args = getopt.gnu_getopt(sys.argv[1:], "hn", l_opts)
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         usage(e)
 
     for opt, val in opts:

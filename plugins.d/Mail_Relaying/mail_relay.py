@@ -84,7 +84,7 @@ def run():
 
             retcode, values = console.form(TITLE, FORMNOTE, fields)
 
-            if retcode is not 0:
+            if retcode is not 'ok':
                 console.msgbox(TITLE, 'You have cancelled the configuration process. No relaying of mail will be performed.')
                 return
 

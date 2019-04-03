@@ -1,7 +1,7 @@
 ''' Set APT's HTTP Proxy '''
 from re import match, sub, MULTILINE, search
 from os.path import isfile
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 CONF = '/etc/apt/apt.conf.d/80proxy'
 PROXY_LINE = r'Acquire::http::Proxy "(.*)";'

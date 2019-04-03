@@ -32,29 +32,29 @@ def _int2str(num):
 class Error(Exception):
     pass
 
-class IP(long):
+class IP(int):
     def __new__(cls, arg):
         if isinstance(arg, IP):
-            return long.__new__(cls, long(arg))
+            return int.__new__(cls, int(arg))
 
-        elif isinstance(arg, (int, long)):
-            return long.__new__(cls, arg)
+        elif isinstance(arg, int):
+            return int.__new__(cls, arg)
 
         else:
             if not is_legal_ip(arg):
                 raise Error("illegal ip (%s)" % arg)
 
-            return long.__new__(cls, _str2int(arg))
+            return int.__new__(cls, _str2int(arg))
 
     def __str__(self):
         return _int2str(self)
 
     def __repr__(self):
-        return "IP(%s)" % `str(self)`
+        return "IP(%r)" % str(self)
 
     def _numeric_method(method):
         def f(self, other):
-            return IP(getattr(long, method)(self, other))
+            return IP(getattr(int, method)(self, other))
 
         return f
 
