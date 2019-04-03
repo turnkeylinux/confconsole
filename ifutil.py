@@ -28,20 +28,21 @@ class EtcNetworkInterfaces:
         self.unconfigured = False
 
         ifname = None
-        for line in file(self.CONF_FILE).readlines():
-            line = line.rstrip()
+        with open(self.CONF_FILE) as fob:
+            for line in fob:
+                line = line.rstrip()
 
-            if line == self.HEADER_UNCONFIGURED:
-                self.unconfigured = True
+                if line == self.HEADER_UNCONFIGURED:
+                    self.unconfigured = True
 
-            if not line or line.startswith("#"):
-                continue
+                if not line or line.startswith("#"):
+                    continue
 
-            if line.startswith("auto"):
-                ifname = line.split()[1]
-                self.conf[ifname] = line + "\n"
-            elif ifname:
-                self.conf[ifname] += line + "\n"
+                if line.startswith("auto"):
+                    ifname = line.split()[1]
+                    self.conf[ifname] = line + "\n"
+                elif ifname:
+                    self.conf[ifname] += line + "\n"
 
     def _get_iface_opts(self, ifname):
         iface_opts = ('pre-up', 'up', 'post-up', 'pre-down', 'down', 'post-down')
@@ -160,9 +161,10 @@ def get_nameservers(ifname):
 
     def parse_resolv(path):
         nameservers = []
-        for line in file(path).readlines():
-            if line.startswith('nameserver'):
-                nameservers.append(line.strip().split()[1])
+        with open(path, 'r') as fob:
+            for line in fob:
+                if line.startswith('nameserver'):
+                    nameservers.append(line.strip().split()[1])
         return nameservers
 
     #resolvconf (dhcp)
@@ -196,7 +198,7 @@ def unconfigure_if(ifname):
         interfaces.set_manual(ifname)
         os.system("ifconfig %s 0.0.0.0" % ifname)
         ifup(ifname)
-    except Exception, e:
+    except Exception as e:
         return str(e)
 
 def set_static(ifname, addr, netmask, gateway, nameservers):
@@ -214,7 +216,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
-    except Exception, e:
+    except Exception as e:
         return str(e)
 
 def set_dhcp(ifname):
@@ -228,7 +230,7 @@ def set_dhcp(ifname):
         if not net.addr:
             raise Error('Error obtaining IP address\n\n%s' % output)
 
-    except Exception, e:
+    except Exception as e:
         return str(e)
 
 def get_ipconf(ifname):

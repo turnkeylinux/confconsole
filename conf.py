@@ -19,21 +19,22 @@ class Conf:
         if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
-        for line in file(self.conf_file).readlines():
-            line = line.strip()
+        with open(self.conf_file) as fob:
+            for line in fob:
+                line = line.strip()
 
-            if not line or line.startswith("#"):
-                continue
+                if not line or line.startswith("#"):
+                    continue
 
-            op, val = re.split(r'\s+', line, 1)
-            if op == 'default_nic':
-                self.default_nic = val
-            elif op == 'publicip_cmd':
-                self.publicip_cmd = val
-            elif op == 'networking' and val in ('true', 'false'):
-                self.networking = True if val == 'true' else False
-            else:
-                raise Error("illegal configuration line: " + line)
+                op, val = re.split(r'\s+', line, 1)
+                if op == 'default_nic':
+                    self.default_nic = val
+                elif op == 'publicip_cmd':
+                    self.publicip_cmd = val
+                elif op == 'networking' and val in ('true', 'false'):
+                    self.networking = True if val == 'true' else False
+                else:
+                    raise Error("illegal configuration line: " + line)
 
     def __init__(self):
         self.default_nic = None
