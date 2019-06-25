@@ -19,7 +19,7 @@ class Conf:
         if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
-        with open(self.conf_file) as fob:
+        with open(self.conf_file, 'r') as fob:
             for line in fob:
                 line = line.strip()
 
@@ -46,7 +46,6 @@ class Conf:
     def set_default_nic(self, ifname):
         self.default_nic = ifname
 
-        fh = file(self.conf_file, "w")
-        print >> fh, "default_nic %s" % ifname
-        fh.close()
+        with open(self.conf_file, 'w') as fob:
+            fob.write("default_nic %s\n" % ifname)
 

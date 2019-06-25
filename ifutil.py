@@ -65,20 +65,20 @@ class EtcNetworkInterfaces:
                                    for opt in self._get_iface_opts(ifname) ])
 
         fh = file(self.CONF_FILE, "w")
-        print >> fh, self.HEADER_UNCONFIGURED
-        print >> fh, "# remove the above line if you edit this file"
-        print >> fh
-        print >> fh, "auto lo"
-        print >> fh, "iface lo inet loopback"
-        print >> fh
+        print(self.HEADER_UNCONFIGURED, file=fh)
+        print("# remove the above line if you edit this file", file=fh)
+        print(file=fh)
+        print("auto lo", file=fh)
+        print("iface lo inet loopback", file=fh)
+        print(file=fh)
 
-        print >> fh, ifconf
+        print(ifconf, file=fh)
 
         for c in self.conf:
             if c in ('lo', ifname):
                 continue
 
-            print >> fh, self.conf[c]
+            print(self.conf[c], file=fh)
 
         fh.close()
 

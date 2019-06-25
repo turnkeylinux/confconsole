@@ -21,13 +21,13 @@ def is_legal_ip(ip):
     return True
 
 def _str2int(ip):
-    bytes = map(int, ip.split('.'))
+    bytes = list(map(int, ip.split('.')))
     ip, = struct.unpack("!L", struct.pack("BBBB", *bytes))
     return ip
 
 def _int2str(num):
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
-    return string.join(map(str, bytes), '.')
+    return string.join(list(map(str, bytes)), '.')
 
 class Error(Exception):
     pass
