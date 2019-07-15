@@ -34,15 +34,15 @@ class Error(Exception):
     pass
 
 def fatal(e):
-    print >> sys.stderr, "error: " + str(e)
+    print("error:", e, file=sys.stderr)
     sys.exit(1)
 
 def usage(e=None):
     if e:
-        print >> sys.stderr, "error: " + str(e)
+        print("Error:", e, file=sys.stderr)
 
-    print >> sys.stderr, "Syntax: %s" % (sys.argv[0])
-    print >> sys.stderr, __doc__.strip()
+    print("Syntax: %s" % sys.argv[0], file=sys.stderr)
+    print(__doc__.strip(), file=sys.stderr)
     sys.exit(1)
 
 class Console:
