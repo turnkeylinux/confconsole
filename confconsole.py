@@ -45,6 +45,15 @@ def usage(e=None):
     print(__doc__.strip(), file=sys.stderr)
     sys.exit(1)
 
+def format_fields(fields):
+    ''' Takes fields in format (label, field, label_length, field_length) and outputs fields in format
+    (label, ly, lx, item, iy, ix, field_length, input_length)
+    '''
+    out = []
+    for i, (label, field, l_length, f_length) in enumerate(fields):
+        out.append((label, i+1, 1, field, i+1, l_length+1, l_length, f_length))
+    return out
+
 class Console:
     def __init__(self, title=None, width=60, height=20):
         self.width = width
@@ -122,9 +131,10 @@ class Console:
             height, width = 0, 0
         else:
             height, width = self.height, self.width
-        return self._wrapper("form", text, height, width,
+        return self._wrapper("form", text, fields,
+                             height=height, width=width,
                              form_height=len(fields)+1,
-                             title=title, fields=fields,
+                             title=title,
                              ok_label=ok_label, cancel_label=cancel_label)
 
 class Installer:
@@ -498,6 +508,7 @@ class TurnkeyConsole:
             for i in range(len(input[3:])):
                 fields.append(("Name Server", input[3+i], field_width, field_limit))
 
+            fields = format_fields(fields)
             text = "Static IP configuration (%s)" % self.ifname
             retcode, input = self.console.form("Network settings", text, fields)
 
