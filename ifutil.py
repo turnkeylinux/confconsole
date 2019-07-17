@@ -67,7 +67,7 @@ class EtcNetworkInterfaces:
         with open(self.CONF_FILE, "w") as fob:
             fob.write(self.HEADER_UNCONFIGURED+'\n')
             fob.write("# remove the above line if you edit this file\n\n")
-            
+
             fob.write("auto lo\n")
             fob.write("iface lo inet loopback\n\n")
 
