@@ -17,6 +17,7 @@ Depends:
  python3-dialog (>= 3.4),
  turnkey-netinfo,
  libsasl2-modules,
+ python3-requests,
 Recommends:
  authbind,
  dehydrated,

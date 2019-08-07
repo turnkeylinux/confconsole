@@ -64,23 +64,21 @@ class EtcNetworkInterfaces:
         ifconf += "\n" + "\n".join([ "    " + opt
                                    for opt in self._get_iface_opts(ifname) ])
 
-        fh = file(self.CONF_FILE, "w")
-        print(self.HEADER_UNCONFIGURED, file=fh)
-        print("# remove the above line if you edit this file", file=fh)
-        print(file=fh)
-        print("auto lo", file=fh)
-        print("iface lo inet loopback", file=fh)
-        print(file=fh)
+        with open(self.CONF_FILE, "w") as fob:
+            fob.write(self.HEADER_UNCONFIGURED+'\n')
+            fob.write("# remove the above line if you edit this file\n\n")
 
-        print(ifconf, file=fh)
+            fob.write("auto lo\n")
+            fob.write("iface lo inet loopback\n\n")
 
-        for c in self.conf:
-            if c in ('lo', ifname):
-                continue
+            fob.write(ifconf+'\n')
 
-            print(self.conf[c], file=fh)
+            for c in self.conf:
+                if c in ('lo', ifname):
+                    continue
 
-        fh.close()
+                fob.write(self.conf[c] + '\n')
+
 
     def set_dhcp(self, ifname):
         ifconf = "auto %s\niface %s inet dhcp" % (ifname, ifname)
