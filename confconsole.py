@@ -151,7 +151,7 @@ class Installer:
             cmdline = fh.readline()
 
         for cmd in cmdline.split():
-            if cmd == "boot=casper":
+            if cmd == "boot=casper" or cmd == "boot=live":
                 return True
 
         return False
