@@ -24,7 +24,7 @@ import conf
 
 from io import StringIO
 import traceback
-import subprocess
+from subprocess import run, check_output, PIPE
 
 import plugin
 
@@ -197,7 +197,7 @@ class TurnkeyConsole:
         defifname = conf.Conf().default_nic
         if defifname and defifname.startswith('br'):
                 ifnames.append(defifname)
-                bridgedif = subprocess.check_output(['brctl', 'show', defifname]).split('\n')[1].split('\t')[-1]
+                bridgedif = check_output(['brctl', 'show', defifname]).split('\n')[1].split('\t')[-1]
                 ifnames.remove(bridgedif)
 
         ifnames.sort()
@@ -225,10 +225,9 @@ class TurnkeyConsole:
     def _get_public_ipaddr(cls):
         publicip_cmd = conf.Conf().publicip_cmd
         if publicip_cmd:
-            try:
-                return subprocess.check_output(publicip_cmd)
-            except subprocess.CalledProcessError as e:
-                pass
+            command = run(publicip_cmd, stdout=PIPE)
+            if command.returncode == 0:
+                return command.stdout
 
         return None
 
@@ -341,13 +340,11 @@ class TurnkeyConsole:
             return "networking"
 
         #tklbam integration
-        try:
-            tklbam_status = subprocess.check_output(["tklbam-status", "--short"])
-        except subprocess.CalledProcessError as e:
-            if e.returncode in (10, 11): #not initialized, no backups
-                tklbam_status = e.output
-            else:
-                tklbam_status = b''
+        tklbamstatus_cmd = run(['which', 'tklbam-status'], stdout=PIPE).stdout
+        if tklbamstatus_cmd:
+            tklbam_status = run([tklbamstatus_cmd, "--short"], stdout=PIPE).stdout
+        else:
+            tklbam_status = b"TKLBAM not found - please check that it's installed."
 
         tklbam_status = tklbam_status.decode('utf-8')
 
