@@ -16,6 +16,7 @@ Depends:
  ${python3:Depends},
  python3-dialog (>= 3.4),
  turnkey-netinfo,
+ turnkey-conffile,
  libsasl2-modules,
  python3-requests,
 Recommends:
