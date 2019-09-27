@@ -51,4 +51,14 @@ function unchanged_cert {
     hook_log info "cert for $DOMAIN is unchanged - nothing to do"
 }
 
-HANDLER=$1; shift; $HANDLER $@
+HANDLER="$1"; shift
+case "$HANDLER" in
+    deploy_challenge)
+        deploy_challenge "$@";;
+    clean_challenge)
+        clean_challenge "$@";;
+    deploy_cert)
+        deploy_cert "$@";;
+    unchanged_cert)
+        unchanged_cert "$@";;
+esac
