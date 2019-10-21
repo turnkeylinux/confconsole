@@ -36,6 +36,14 @@ directory. This ensures that the cron job can't be enabled until the
 dehydrated-wrapper has been run (and hopefully a Let's Encrypt SSL
 cert has been generated).
 
+**Note:** TurnKey Let's Encrypt integration **does not** currently
+support wildcard certificates. That requires the DNS validation
+method, which is not currently an option. If you need wildcard
+certificates, you will need to either use Dehydrated directly (with
+an appropriate hook script to make the required DNS records), or
+use an alternate tool (that supports the `DNS-01` validation method)
+to get your Let's Encrypt certificates.
+
 For more info about what the cron job actually does, please see `Cron
 job details`_ below.
 
