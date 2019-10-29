@@ -5,10 +5,11 @@ import struct
 import socket
 import math
 
+
 def is_legal_ip(ip):
     try:
-        if len([ octet for octet in ip.split(".") 
-                if 255 >= int(octet) >= 0 ]) != 4:
+        if len([octet for octet in ip.split(".")
+                if 255 >= int(octet) >= 0]) != 4:
             return False
     except ValueError:
         return False
@@ -20,17 +21,21 @@ def is_legal_ip(ip):
 
     return True
 
+
 def _str2int(ip):
     bytes = list(map(int, ip.split('.')))
     ip, = struct.unpack("!L", struct.pack("BBBB", *bytes))
     return ip
 
+
 def _int2str(num):
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
     return string.join(list(map(str, bytes)), '.')
 
+
 class Error(Exception):
     pass
+
 
 class IP(int):
     def __new__(cls, arg):
@@ -63,6 +68,7 @@ class IP(int):
     __and__ = _numeric_method("__and__")
     __xor__ = _numeric_method("__xor__")
     __or__ = _numeric_method("__or__")
+
 
 class IPRange:
     @classmethod
