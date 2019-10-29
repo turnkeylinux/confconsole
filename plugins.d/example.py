@@ -28,8 +28,10 @@ run() - if defined is run whenever the plugin is selected, if not defined, no me
         created for this plugin.
 '''
 
+
 def doOnce():
     eventManager.add_event('test_event')
+
 
 def run():
     eventManager.fire_event('test_event')

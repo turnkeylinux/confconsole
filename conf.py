@@ -3,8 +3,10 @@
 import re
 import os
 
+
 class Error(Exception):
     pass
+
 
 def path(filename):
     for dir in ("conf", "/etc/confconsole"):
@@ -13,6 +15,7 @@ def path(filename):
             return path
 
     raise Error('could not find configuration file: %s' % path)
+
 
 class Conf:
     def _load_conf(self):
@@ -48,4 +51,3 @@ class Conf:
 
         with open(self.conf_file, 'w') as fob:
             fob.write("default_nic %s\n" % ifname)
-

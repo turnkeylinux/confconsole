@@ -1,6 +1,7 @@
 '''Reconfigure TZdata '''
 import os
 
+
 def run():
     flag = ''
     if not interactive:
