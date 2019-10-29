@@ -6,7 +6,7 @@ Options:
     -h, --help           Display this help and exit
         --usage          Display usage screen without Advanced Menu
         --nointeractive  Do not display interactive dialog
-        --plugin=<name>  Run plugin directly         
+        --plugin=<name>  Run plugin directly
 
 """
 
@@ -29,14 +29,18 @@ import subprocess
 import plugin
 
 PIPE = subprocess.PIPE
-PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins.d')
+PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                           'plugins.d')
+
 
 class Error(Exception):
     pass
 
+
 def fatal(e):
     print("error:", e, file=sys.stderr)
     sys.exit(1)
+
 
 def usage(e=None):
     if e:
@@ -46,14 +50,17 @@ def usage(e=None):
     print(__doc__.strip(), file=sys.stderr)
     sys.exit(1)
 
+
 def format_fields(fields):
-    ''' Takes fields in format (label, field, label_length, field_length) and outputs fields in format
-    (label, ly, lx, item, iy, ix, field_length, input_length)
+    '''Takes fields in format (label, field, label_length, field_length) and
+    outputs fields in format (label, ly, lx, item, iy, ix, field_length,
+    input_length)
     '''
     out = []
     for i, (label, field, l_length, f_length) in enumerate(fields):
         out.append((label, i+1, 1, field, i+1, l_length+1, l_length, f_length))
     return out
+
 
 class Console:
     def __init__(self, title=None, width=60, height=20):
@@ -115,18 +122,20 @@ class Console:
         return self._wrapper("msgbox", text, height, width,
                              title=title, ok_label=button_label)
 
-    def inputbox(self, title, text, init='', ok_label="OK", cancel_label="Cancel"):
+    def inputbox(self, title, text, init='', ok_label="OK",
+                 cancel_label="Cancel"):
         no_cancel = True if cancel_label == "" else False
-        return self._wrapper("inputbox", text, self.height, self.width, title=title,
-                            init=init, ok_label=ok_label, cancel_label=cancel_label,
-                            no_cancel=no_cancel)
+        return self._wrapper("inputbox", text, self.height, self.width,
+                             title=title, init=init, ok_label=ok_label,
+                             cancel_label=cancel_label, no_cancel=no_cancel)
 
     def menu(self, title, text, choices, no_cancel=False):
         return self._wrapper("menu", text, self.height, self.width,
                              menu_height=len(choices)+1,
                              title=title, choices=choices, no_cancel=no_cancel)
 
-    def form(self, title, text, fields, ok_label="Apply", cancel_label="Cancel", autosize=False):
+    def form(self, title, text, fields, ok_label="Apply",
+             cancel_label="Cancel", autosize=False):
         if autosize:
             text += '\n '
             height, width = 0, 0
@@ -138,6 +147,7 @@ class Console:
                              title=title,
                              ok_label=ok_label, cancel_label=cancel_label)
 
+
 class Installer:
     def __init__(self, path):
         self.path = path
@@ -147,7 +157,6 @@ class Installer:
         if not os.path.exists(self.path):
             return False
 
-    
         with open('/proc/cmdline') as fh:
             cmdline = fh.readline()
 
@@ -162,6 +171,7 @@ class Installer:
             raise Error("installer is not available to be executed")
 
         os.system(self.path)
+
 
 class TurnkeyConsole:
     OK = 'ok'
@@ -179,8 +189,10 @@ class TurnkeyConsole:
 
         self.advanced_enabled = advanced_enabled
 
-        #self.eventManager = plugin.EventManager()
-        #self.pluginManager = plugin.PluginManager(PLUGIN_PATH, {'eventManager': self.eventManager, 'console': self.console})
+        # self.eventManager = plugin.EventManager()
+        # self.pluginManager = plugin.PluginManager(
+        #     PLUGIN_PATH,
+        #     {'eventManager': self.eventManager, 'console': self.console})
 
         self.eventManager = eventManager
         self.pluginManager = pluginManager
@@ -190,7 +202,8 @@ class TurnkeyConsole:
     def _get_filtered_ifnames():
         ifnames = []
         for ifname in netinfo.get_ifnames():
-            if ifname.startswith(('lo', 'tap', 'br', 'natbr', 'tun', 'vmnet', 'veth', 'wmaster')):
+            if ifname.startswith(('lo', 'tap', 'br', 'natbr', 'tun',
+                                  'vmnet', 'veth', 'wmaster')):
                 continue
             ifnames.append(ifname)
 
@@ -247,12 +260,14 @@ class TurnkeyConsole:
         for path in self.pluginManager.path_map:
             plug = self.pluginManager.path_map[path]
             if os.path.dirname(path) == PLUGIN_PATH:
-                if isinstance(plug, plugin.Plugin) and hasattr(plug.module, 'run'):
-                    items.append((plug.module_name.capitalize(), str(plug.module.__doc__)))
+                if isinstance(plug, plugin.Plugin) and hasattr(plug.module,
+                                                               'run'):
+                    items.append((plug.module_name.capitalize(),
+                                  str(plug.module.__doc__)))
                 elif isinstance(plug, plugin.PluginDir):
-                    items.append((plug.module_name.capitalize(), plug.description))
+                    items.append((plug.module_name.capitalize(),
+                                  plug.description))
                 plugin_map[plug.module_name.capitalize()] = plug
-
 
         items.append(("Reboot", "Reboot the appliance"))
         items.append(("Shutdown", "Shutdown the appliance"))
@@ -297,7 +312,7 @@ class TurnkeyConsole:
         if addr is None:
             return "Network adapter is not configured\n"
 
-        text =  "IP Address:      %s\n" % addr
+        text = "IP Address:      %s\n" % addr
         text += "Netmask:         %s\n" % netmask
         text += "Default Gateway: %s\n" % gateway
         text += "Name Server(s):  %s\n\n" % " ".join(nameservers)
@@ -323,7 +338,7 @@ class TurnkeyConsole:
             default_button_label = "Quit"
             default_return_value = "quit"
 
-        #if no interfaces at all - display error and go to advanced
+        # if no interfaces at all - display error and go to advanced
         if len(self._get_filtered_ifnames()) == 0:
             error = "No network adapters detected"
             if not self.advanced_enabled:
@@ -332,7 +347,7 @@ class TurnkeyConsole:
             self.console.msgbox("Error", error)
             return "advanced"
 
-        #if interfaces but no default - display error and go to networking
+        # if interfaces but no default - display error and go to networking
         ifname = self._get_default_nic()
         if not ifname:
             error = "Networking is not yet configured"
@@ -342,18 +357,19 @@ class TurnkeyConsole:
             self.console.msgbox("Error", error)
             return "networking"
 
-        #tklbam integration
+        # tklbam integration
         tklbamstatus_cmd = subprocess.run(
                 ['which', 'tklbam-status'], stdout=PIPE).stdout
         if tklbamstatus_cmd:
             tklbam_status = subprocess.run(
                     [tklbamstatus_cmd, "--short"], stdout=PIPE).stdout
         else:
-            tklbam_status = b"TKLBAM not found - please check that it's installed."
+            tklbam_status = (b"TKLBAM not found - please check that it's "
+                             b"installed.")
 
         tklbam_status = tklbam_status.decode('utf-8')
 
-        #display usage
+        # display usage
         ip_addr = self._get_public_ipaddr()
         if not ip_addr:
             ip_addr = ifutil.get_ipconf(ifname)[0]
@@ -361,7 +377,7 @@ class TurnkeyConsole:
         hostname = netinfo.get_hostname().upper()
 
         try:
-            #backwards compatible - use usage.txt if it exists
+            # backwards compatible - use usage.txt if it exists
             with open(conf.path("usage.txt"), 'r') as fob:
                 t = fob.read()
             text = Template(t).substitute(hostname=hostname, ipaddr=ip_addr)
@@ -382,7 +398,8 @@ class TurnkeyConsole:
             text += "             https://hub.turnkeylinux.org"
 
             retcode = self.console.msgbox("%s appliance services" % hostname,
-                                          text, button_label=default_button_label)
+                                          text,
+                                          button_label=default_button_label)
 
         if retcode is not self.OK:
             self.running = False
@@ -390,7 +407,7 @@ class TurnkeyConsole:
         return default_return_value
 
     def advanced(self):
-        #dont display cancel button when no interfaces at all
+        # dont display cancel button when no interfaces at all
         no_cancel = False
         if len(self._get_filtered_ifnames()) == 0:
             no_cancel = True
@@ -413,7 +430,7 @@ class TurnkeyConsole:
     def networking(self):
         ifnames = self._get_filtered_ifnames()
 
-        #if no interfaces at all - display error and go to advanced
+        # if no interfaces at all - display error and go to advanced
         if len(ifnames) == 0:
             self.console.msgbox("Error", "No network adapters detected")
             return "advanced"
@@ -478,12 +495,12 @@ class TurnkeyConsole:
 
             if gateway:
                 if not ipaddr.is_legal_ip(gateway):
-                    return [ "Invalid gateway: %s" % gateway ]
+                    return ["Invalid gateway: %s" % gateway]
                 else:
                     iprange = ipaddr.IPRange(addr, netmask)
                     if gateway not in iprange:
-                        return [ "Gateway (%s) not in IP range (%s)" % (gateway,
-                                                                        iprange) ]
+                        return ["Gateway (%s) not in IP range (%s)"
+                                "" % (gateway, iprange)]
             return []
 
         addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname)
@@ -508,11 +525,13 @@ class TurnkeyConsole:
             ]
 
             for i in range(len(input[3:])):
-                fields.append(("Name Server", input[3+i], field_width, field_limit))
+                fields.append(("Name Server", input[3+i],
+                               field_width, field_limit))
 
             fields = format_fields(fields)
             text = "Static IP configuration (%s)" % self.ifname
-            retcode, input = self.console.form("Network settings", text, fields)
+            retcode, input = self.console.form("Network settings",
+                                               text, fields)
 
             if retcode is not self.OK:
                 break
@@ -586,12 +605,11 @@ class TurnkeyConsole:
             self.running = False
             return "usage"
 
-        if self.console.yesno("Do you really want to quit?", autosize=True) == self.OK:
+        if self.console.yesno("Do you really want to quit?",
+                              autosize=True) == self.OK:
             self.running = False
 
         return "advanced"
-
-
 
     _adv_networking = networking
     quit = _adv_quit
@@ -599,7 +617,7 @@ class TurnkeyConsole:
     def loop(self, dialog="usage"):
         self.running = True
         prev_dialog = dialog
-        standalone = dialog != 'usage' # no "back" for plugins
+        standalone = dialog != 'usage'  # no "back" for plugins
 
         while dialog and self.running:
             try:
@@ -626,6 +644,7 @@ class TurnkeyConsole:
 
                 self.console.msgbox("Caught exception", sio.getvalue())
                 dialog = prev_dialog
+
 
 def main():
     interactive = True
@@ -654,11 +673,13 @@ def main():
             usage()
 
     em = plugin.EventManager()
-    pm = plugin.PluginManager(PLUGIN_PATH, {'eventManager': em, 'interactive': interactive})
+    pm = plugin.PluginManager(PLUGIN_PATH,
+                              {'eventManager': em, 'interactive': interactive})
 
     if plugin_name:
 
-        ps = filter(lambda x: isinstance(x, plugin.Plugin), pm.getByName(plugin_name))
+        ps = filter(lambda x: isinstance(x, plugin.Plugin),
+                    pm.getByName(plugin_name))
 
         if len(ps) > 1:
             fatal('plugin name ambiguous, matches all of %s' % ps)
@@ -667,7 +688,7 @@ def main():
 
             if interactive:
                 tc = TurnkeyConsole(pm, em, advanced_enabled)
-                tc.loop(dialog=p.path) # calls .run()
+                tc.loop(dialog=p.path)  # calls .run()
             else:
                 p.module.run()
         else:
@@ -675,6 +696,7 @@ def main():
     else:
         tc = TurnkeyConsole(pm, em, advanced_enabled)
         tc.loop()
+
 
 if __name__ == "__main__":
     try:
