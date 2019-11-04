@@ -1,0 +1,9 @@
+[Unit]
+Description=Add Water Socket
+PartOf=add-water.service
+
+[Socket]
+ListenStream=127.0.0.1:9977
+
+[Install]
+WantedBy=sockets.target

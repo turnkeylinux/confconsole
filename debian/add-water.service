@@ -1,0 +1,11 @@
+[Unit]
+Description=Add Water
+After=network.target add-water.socket
+Requires=add-water.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/lib/confconsole/plugins.d/Lets_Encrypt/add-water
+
+[Install]
+WantedBy=default.target
