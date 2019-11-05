@@ -29,9 +29,7 @@ function deploy_challenge {
 function clean_challenge {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
-    hook_log info "Stopping $HTTP daemon"
-    kill -9 $(cat $HTTP_PID)
-    rm $HTTP_PID
+    hook_log info "Clean challenge (nothing to do)"
 }
 
 function deploy_cert {
