@@ -14,17 +14,29 @@
 
 from argparse import ArgumentParser
 import socket
+import sys
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="add-water-client - Agent to pass tokens to add-water server")
-    parser.add_argument('token_path', help='path to token file to serve')
+    token_group = parser.add_mutually_exclusive_group()
+    token_group.add_argument('--deploy', help='path to token file to serve')
+    token_group.add_argument('--clean', help='path to token file to serve')
     args = parser.parse_args()
-    token_path = args.token_path
+    
+    if args.deploy:
+        op = 'deploy'
+        token_path = args.deploy
+    elif args.clean:
+        op = 'clean'
+        token_path = args.clean
+    else:
+        print('Nothing to do!')
+        sys.exit(1)
 
     host = '127.0.0.1' 
     port = 9977
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
-    sock.sendall(token_path)
+    sock.sendall(op + ' ' + token_path)
     

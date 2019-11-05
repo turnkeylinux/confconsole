@@ -43,10 +43,19 @@ def update_tokens():
         except Empty:
             break
         else:
-            token_path = abspath(new_token)
+
+            op, token = new_token.split(' ', 1)
+
+            token_path = abspath(token)
             token_file = basename(token_path)
             token_webroot = dirname(token_path)
-            tokens[token_file] = token_webroot
+
+            if op == 'deploy':
+                tokens[token_file] = token_webroot
+            elif op == 'clean':
+                del tokens[token_file]
+            else:
+                raise ValueError('Unknown operation specified!')
 
 @get("/.well-known/acme-challenge/<filename:path>")
 def challenge(filename):
