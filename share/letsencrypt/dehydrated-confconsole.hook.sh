@@ -23,7 +23,7 @@ function deploy_challenge {
 
     hook_log info "Deploying challenge for $DOMAIN"
     hook_log info "Serving $WELLKNOWN/$TOKEN_FILENAME on http://$DOMAIN/.well-known/acme-challenge/$TOKEN_FILENAME"
-    $HTTP_BIN -l $HTTP_LOG "$WELLKNOWN/$TOKEN_FILENAME"
+    $HTTP_BIN "$WELLKNOWN/$TOKEN_FILENAME"
 }
 
 function clean_challenge {
