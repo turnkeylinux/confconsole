@@ -257,10 +257,10 @@ else
     (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
 fi
+systemctl stop add-water
 if [ $EXIT_CODE -ne 0 ]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
     clean_finish 0
 fi
-systemctl stop add-water
