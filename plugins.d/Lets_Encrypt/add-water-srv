@@ -100,11 +100,7 @@ def handle_token_input():
 if __name__ == '__main__':
     parser = ArgumentParser(description="add-water - Bottle based python HTTP server to serve Dehydrated Let's Encrypt challenges")
     parser.add_argument('-l', '--logfile', help='path to logfile')
-    #parser.add_argument('token_path', help='path to token file to serve')
     args = parser.parse_args()
-    #TOKEN_PATH = args.token_path
-    #TOKEN_FILE = basename(TOKEN_PATH)
-    #TOKEN_WEBROOT = dirname(TOKEN_PATH)
 
     input_handler = Thread(target=handle_token_input)
     input_handler.start()
