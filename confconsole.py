@@ -25,10 +25,10 @@ import conf
 from io import StringIO
 import traceback
 import subprocess
+from subprocess import PIPE
 
 import plugin
 
-PIPE = subprocess.PIPE
 PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                            'plugins.d')
 
@@ -358,16 +358,16 @@ class TurnkeyConsole:
             return "networking"
 
         # tklbam integration
-        tklbamstatus_cmd = subprocess.run(
-                ['which', 'tklbam-status'], stdout=PIPE).stdout
+        tklbamstatus_cmd = subprocess.run(['which', 'tklbam-status'],
+                                          stdout=PIPE,
+                                          encoding='utf-8').stdout.strip()
         if tklbamstatus_cmd:
-            tklbam_status = subprocess.run(
-                    [tklbamstatus_cmd, "--short"], stdout=PIPE).stdout
+            tklbam_status = subprocess.run([tklbamstatus_cmd, "--short"],
+                                           stdout=PIPE,
+                                           encoding='utf-8').stdout
         else:
-            tklbam_status = (b"TKLBAM not found - please check that it's "
-                             b"installed.")
-
-        tklbam_status = tklbam_status.decode('utf-8')
+            tklbam_status = ("TKLBAM not found - please check that it's"
+                             " installed.")
 
         # display usage
         ip_addr = self._get_public_ipaddr()
