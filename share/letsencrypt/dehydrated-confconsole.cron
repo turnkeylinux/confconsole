@@ -3,21 +3,28 @@
 export PATH=$PATH:/usr/sbin
 
 CERT=/etc/ssl/private/cert.pem
+RENEW=2592000 # seconds to cert expiry to try renew: 2592000 = 30 days
 LOG=/var/log/confconsole/letsencrypt.log
+LOG_INFO=  # set to always log certificate expiry check
 DEHYDRATED=/usr/lib/confconsole/plugins.d/Lets_Encrypt/dehydrated-wrapper
 ARG="--force"
 
 log() {
-    echo "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
+    echo -ne "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
 }
 
-if $(which openssl) x509 -checkend 2592000 -noout -in $CERT; then
-    log "$CERT does not require renewal. Nothing to do."
+exit_code=0
+check_cert_expire=$($(which openssl) x509 -checkend $RENEW -noout -in $CERT) \
+    || exit_code=$?
+msg="${CERT}: ${check_cert_expire} within $(( $RENEW / 60 / 60 / 24 )) days"
+
+if [ "$exit_code" -eq 0 ]; then
+    [ -z "$LOG_INFO" ] \
+        || log "${msg}. Nothing to do.\n"
 else
-    log "$CERT has expired or will do so within 30 days. Attempting renewal."
+    log "${msg} (or has already). Attempting renewal.\n"
     $DEHYDRATED $ARG
     if [ $? -ne 0 ]; then
-        log "ERROR: $(basename $DEHYDRATED) exited with a non-zero exit code."
+        log "ERR: $(basename $DEHYDRATED) exited with a non-zero exit code.\n"
     fi
 fi
-
