@@ -17,7 +17,7 @@ import datetime
 from argparse import ArgumentParser
 from Queue import Queue, Empty
 from threading import Thread
-from os.path import isfile, dirname, basename
+from os.path import isfile, dirname, basename, abspath
 from bottle import get, static_file, run, route, redirect
 
 # "Maintence" page to serve for all requested content, other than LE token
