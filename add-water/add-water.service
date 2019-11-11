@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python /usr/lib/confconsole/plugins.d/Lets_Encrypt/add-water-srv -l /var/log/confconsole/letsencrypt.log
+ExecStart=/usr/bin/python3 /usr/lib/confconsole/plugins.d/Lets_Encrypt/add-water-srv -l /var/log/confconsole/letsencrypt.log
 
 [Install]
 WantedBy=multi-user.target
