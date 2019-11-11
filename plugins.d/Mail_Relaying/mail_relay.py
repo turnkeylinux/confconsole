@@ -3,21 +3,23 @@
 import ssl
 import socket
 from smtplib import SMTP, SMTP_SSL, SMTPException
-from executil import system
-from os import path
+from os import path, system
 
 TITLE = 'Mail Relay'
 
-TEXT = '''By default, TurnKey servers send e-mail directly. An SMTP relay provides more robust mail deliverability. 
+TEXT = ('By default, TurnKey servers send e-mail directly. An SMTP relay'
+        ' provides more robust mail deliverability.\n\n'
+        'Send up to 9000 emails per month with a free SendinBlue account.'
+        ' To sign up, open the below URL in your web browser and follow the'
+        ' prompts:\n\n'
+        'https://hub.turnkeylinux.org/email')
 
-Send up to 9000 emails per month with a free SendinBlue account. To sign up, open the below URL in your web browser and follow the prompts:
+FORMNOTE = ("Please enter the settings below.\n\n"
+            "Note: The relay authentication procedure requires the user"
+            " password to be stored in plain text at /etc/postfix/sasl_passwd"
+            " (readable only by root). If this is not what you want, you"
+            " should cancel this configuration step.")
 
-https://hub.turnkeylinux.org/email'''
-
-FORMNOTE = """Please enter the settings below.
-
-Note: The relay authentication procedure requires the user password to be stored in plain text at /etc/postfix/sasl_passwd (readable only by root). If this is not what you want, you should cancel this configuration step.
-"""
 
 def testsettings(host, port, login, password):
     host = host.encode('utf-8')
@@ -25,17 +27,17 @@ def testsettings(host, port, login, password):
     login = login.encode('utf-8')
     password = password.encode('utf-8')
 
-    try: # SSL
+    try:  # SSL
         smtp = SMTP_SSL(host, port)
         ret, _ = smtp.login(login, password)
         smtp.quit()
 
-        if ret is 235: # 2.7.0 Authentication successful
+        if ret is 235:  # 2.7.0 Authentication successful
             return True
     except (ssl.SSLError, SMTPException):
         pass
 
-    try: # STARTTLS or plaintext
+    try:  # STARTTLS or plaintext
         smtp = SMTP(host, port)
         smtp.starttls()
         smtp.ehlo()
@@ -48,6 +50,7 @@ def testsettings(host, port, login, password):
         pass
 
     return False
+
 
 def run():
     host = 'localhost'
@@ -66,7 +69,9 @@ def run():
     if choice:
         if choice == 'Deconfigure':
             system(cmd, 'deconfigure')
-            console.msgbox(TITLE, 'The mail relay settings were succesfully erased. No relaying will take place from now on.')
+            console.msgbox(TITLE,
+                           'The mail relay settings were succesfully erased.'
+                           ' No relaying will take place from now on.')
             return
 
         if choice == 'SendinBlue':
@@ -85,8 +90,10 @@ def run():
 
             retcode, values = console.form(TITLE, FORMNOTE, fields)
 
-            if retcode is not 0:
-                console.msgbox(TITLE, 'You have cancelled the configuration process. No relaying of mail will be performed.')
+            if retcode is not 'ok':
+                console.msgbox(TITLE,
+                               'You have cancelled the configuration process.'
+                               ' No relaying of mail will be performed.')
                 return
 
             host, port, login, password = tuple(values)
@@ -94,7 +101,8 @@ def run():
             if testsettings(*values):
                 break
             else:
-                console.msgbox(TITLE, 'Could not connect with supplied parameters. Please check config and try again.')
+                console.msgbox(TITLE,
+                               'Could not connect with supplied parameters.'
+                               ' Please check config and try again.')
 
         system(cmd, host, port, login, password)
-

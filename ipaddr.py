@@ -5,10 +5,11 @@ import struct
 import socket
 import math
 
+
 def is_legal_ip(ip):
     try:
-        if len([ octet for octet in ip.split(".") 
-                if 255 >= int(octet) >= 0 ]) != 4:
+        if len([octet for octet in ip.split(".")
+                if 255 >= int(octet) >= 0]) != 4:
             return False
     except ValueError:
         return False
@@ -20,41 +21,45 @@ def is_legal_ip(ip):
 
     return True
 
+
 def _str2int(ip):
-    bytes = map(int, ip.split('.'))
+    bytes = list(map(int, ip.split('.')))
     ip, = struct.unpack("!L", struct.pack("BBBB", *bytes))
     return ip
 
+
 def _int2str(num):
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
-    return string.join(map(str, bytes), '.')
+    return string.join(list(map(str, bytes)), '.')
+
 
 class Error(Exception):
     pass
 
-class IP(long):
+
+class IP(int):
     def __new__(cls, arg):
         if isinstance(arg, IP):
-            return long.__new__(cls, long(arg))
+            return int.__new__(cls, int(arg))
 
-        elif isinstance(arg, (int, long)):
-            return long.__new__(cls, arg)
+        elif isinstance(arg, int):
+            return int.__new__(cls, arg)
 
         else:
             if not is_legal_ip(arg):
                 raise Error("illegal ip (%s)" % arg)
 
-            return long.__new__(cls, _str2int(arg))
+            return int.__new__(cls, _str2int(arg))
 
     def __str__(self):
         return _int2str(self)
 
     def __repr__(self):
-        return "IP(%s)" % `str(self)`
+        return "IP(%r)" % str(self)
 
     def _numeric_method(method):
         def f(self, other):
-            return IP(getattr(long, method)(self, other))
+            return IP(getattr(int, method)(self, other))
 
         return f
 
@@ -63,6 +68,7 @@ class IP(long):
     __and__ = _numeric_method("__and__")
     __xor__ = _numeric_method("__xor__")
     __or__ = _numeric_method("__or__")
+
 
 class IPRange:
     @classmethod

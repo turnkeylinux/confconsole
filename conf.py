@@ -3,8 +3,10 @@
 import re
 import os
 
+
 class Error(Exception):
     pass
+
 
 def path(filename):
     for dir in ("conf", "/etc/confconsole"):
@@ -14,26 +16,28 @@ def path(filename):
 
     raise Error('could not find configuration file: %s' % path)
 
+
 class Conf:
     def _load_conf(self):
         if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
-        for line in file(self.conf_file).readlines():
-            line = line.strip()
+        with open(self.conf_file, 'r') as fob:
+            for line in fob:
+                line = line.strip()
 
-            if not line or line.startswith("#"):
-                continue
+                if not line or line.startswith("#"):
+                    continue
 
-            op, val = re.split(r'\s+', line, 1)
-            if op == 'default_nic':
-                self.default_nic = val
-            elif op == 'publicip_cmd':
-                self.publicip_cmd = val
-            elif op == 'networking' and val in ('true', 'false'):
-                self.networking = True if val == 'true' else False
-            else:
-                raise Error("illegal configuration line: " + line)
+                op, val = re.split(r'\s+', line, 1)
+                if op == 'default_nic':
+                    self.default_nic = val
+                elif op == 'publicip_cmd':
+                    self.publicip_cmd = val
+                elif op == 'networking' and val in ('true', 'false'):
+                    self.networking = True if val == 'true' else False
+                else:
+                    raise Error("illegal configuration line: " + line)
 
     def __init__(self):
         self.default_nic = None
@@ -45,7 +49,5 @@ class Conf:
     def set_default_nic(self, ifname):
         self.default_nic = ifname
 
-        fh = file(self.conf_file, "w")
-        print >> fh, "default_nic %s" % ifname
-        fh.close()
-
+        with open(self.conf_file, 'w') as fob:
+            fob.write("default_nic %s\n" % ifname)

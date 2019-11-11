@@ -1,12 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-# Copyright (c) 2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
-# 
+# Copyright (c) 2017-2019 TurnKey GNU/Linux - http://www.turnkeylinux.org
+#
 # Add-Water - Bottle based python HTTP server to serve
 #             Dehydrated Let's Encrypt challenges
 #
 # This file is part of Confconsole.
-# 
+#
 # Confconsole is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License as published by the
 # Free Software Foundation; either version 3 of the License, or (at your
@@ -15,7 +15,7 @@
 import socket
 import datetime
 from argparse import ArgumentParser
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from threading import Thread
 from os.path import isfile, dirname, basename, abspath
 from bottle import get, static_file, run, route, redirect
@@ -34,6 +34,7 @@ INDEX_WEBROOT = dirname(INDEX_PATH)
 
 tokens = {}
 token_queue = Queue()
+
 
 def update_tokens():
     # pull in new tokens from token queue
@@ -57,6 +58,7 @@ def update_tokens():
             else:
                 raise ValueError('Unknown operation specified!')
 
+
 @get("/.well-known/acme-challenge/<filename:path>")
 def challenge(filename):
     update_tokens()
@@ -66,16 +68,17 @@ def challenge(filename):
     else:
         redirect('/')
 
+
 @route('/')
 def index():
     update_tokens()
     return static_file(INDEX_FILE, root=INDEX_WEBROOT)
 
+
 @route('<randompath:path>')
 def test(randompath):
     redirect('/')
 
-#--
 
 def handle_token_input():
     host = '127.0.0.1'
@@ -83,7 +86,7 @@ def handle_token_input():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((host, port))
     sock.listen(1)
-    
+
     # client will only send 1 token per connection, might be
     # more effecient way of doing this, but unsure how with dehydrated
     while True:
@@ -97,8 +100,11 @@ def handle_token_input():
 
     sock.close()
 
+
 if __name__ == '__main__':
-    parser = ArgumentParser(description="add-water - Bottle based python HTTP server to serve Dehydrated Let's Encrypt challenges")
+    parser = ArgumentParser(description="add-water"
+                            " - Bottle based python HTTP server to serve"
+                            " Dehydrated Let's Encrypt challenges")
     parser.add_argument('-l', '--logfile', help='path to logfile')
     args = parser.parse_args()
 
@@ -108,4 +114,3 @@ if __name__ == '__main__':
     print("[{}] Starting Server".format(
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     run(host='0.0.0.0', port=80)
-

@@ -1,7 +1,7 @@
 """Get Let's Encrypt SSl cert"""
 
 import requests
-from executil import getoutput, ExecError
+import subprocess
 from os import path, remove
 
 LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
@@ -27,6 +27,7 @@ default_domains = '''# please use this file with confconsole or
 example_domain = 'example.com'
 # XXX Debug paths
 
+
 def load_domains():
     ''' Loads domain conf, writes default config if non-existant. Expects
     "/etc/dehydrated" to exist '''
@@ -47,10 +48,12 @@ def load_domains():
             domains.append('')
         return domains
 
+
 def save_domains(domains):
     ''' Saves domain configuration '''
     with open(domain_path, 'w') as fob:
         fob.write(default_domains + ' '.join(domains) + '\n')
+
 
 def invalid_domains(domains):
     ''' Validates well known limitations of domain-name specifications
@@ -58,17 +61,19 @@ def invalid_domains(domains):
     string if domains are invalid explaining why otherwise returns False'''
     if domains[0] == '':
         return ('Error: At least one domain must be provided in {} (with no'
-            ' preceeding space)'.format(domain_path))
+                ' preceeding space)'.format(domain_path))
     for domain in domains:
         if len(domain) != 0:
             if len(domain) > 254:
                 return ('Error in {}: Domain names must not exceed 254'
-                    ' characters'.format(domain))
+                        ' characters'.format(domain))
             for part in domain.split('.'):
                 if not 0 < len(part) < 64:
                     return ('Error in {}: Domain segments may not be larger'
-                        ' than 63 characters or less than 1'.format(domain))
+                            ' than 63 characters or less than 1'
+                            ''.format(domain))
     return False
+
 
 def run():
     field_width = 60
@@ -101,10 +106,10 @@ def run():
         return
 
     ret = console.yesno(
-        "Before getting a Let's Encrypt certificate, you must agree "
-        'to the current Terms of Service.\n\n'
+        "Before getting a Let's Encrypt certificate, you must agree"
+        ' to the current Terms of Service.\n\n'
         'You can find the current Terms of Service here:\n\n'
-        +tos_url+'\n\n'
+        + tos_url + '\n\n'
         "Do you agree to the Let's Encrypt Terms of Service?",
         autosize=True
     )
@@ -114,14 +119,17 @@ def run():
     if not path.isdir(dehydrated_conf):
         console.msgbox(
             'Error',
-            'Dehydrated not installed or %s not found, dehydrated can be installed with apt from the stretch repo.\n\nMore info: www.turnkeylinux.org/docs/letsencrypt' % dehydrated_conf,
+            'Dehydrated not installed or %s not found, dehydrated can be'
+            ' installed with apt from the stretch repo.\n\n'
+            'More info: www.turnkeylinux.org/docs/letsencrypt'
+            '' % dehydrated_conf,
             autosize=True
         )
         return
 
     domains = load_domains()
     m = invalid_domains(domains)
-    
+
     if m:
         ret = console.yesno(
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
@@ -154,19 +162,20 @@ def run():
                 continue
 
             if ret is 0:
-                ret2 = console.yesno('This will overwrite previous settings and check for certificate, continue?')
+                ret2 = console.yesno('This will overwrite previous settings'
+                                     ' and check for certificate, continue?')
                 if ret2 is 0:
                     save_domains(values)
                     break
-
 
         if canceled:
             break
 
         try:
-            getoutput('bash {}'.format(path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper')))
+            subprocess.check_output(['bash',
+                                     path.join(path.dirname(
+                                         PLUGIN_PATH), 'dehydrated-wrapper')])
             break
-        except ExecError as err:
+        except subprocess.CalledProcessError as err:
             _, _, errmsg = err.args
             console.msgbox('Error!', errmsg)
-
