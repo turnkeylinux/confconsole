@@ -23,15 +23,14 @@ function deploy_challenge {
 
     hook_log info "Deploying challenge for $DOMAIN"
     hook_log info "Serving $WELLKNOWN/$TOKEN_FILENAME on http://$DOMAIN/.well-known/acme-challenge/$TOKEN_FILENAME"
-    su - -s /bin/bash -c "authbind $HTTP_BIN -d $HTTP_PID -l $HTTP_LOG $WELLKNOWN/$TOKEN_FILENAME"
+    $HTTP_BIN --deploy "$WELLKNOWN/$TOKEN_FILENAME"
 }
 
 function clean_challenge {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
-    hook_log info "Stopping $HTTP daemon"
-    kill -9 $(cat $HTTP_PID)
-    rm $HTTP_PID
+    hook_log info "Clean challenge for $DOMAIN"
+    $HTTP_BIN --clean "$WELLKNOWN/$TOKEN_FILENAME"
 }
 
 function deploy_cert {

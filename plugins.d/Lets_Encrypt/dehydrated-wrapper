@@ -43,7 +43,7 @@ cp $TKL_CERTFILE $TKL_CERTFILE.bak
 cp $TKL_KEYFILE $TKL_KEYFILE.bak
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
-export HTTP="add-water"
+export HTTP="add-water-client"
 export HTTP_USR="www-data"
 export HTTP_BIN="$BASE_BIN_PATH/$HTTP"
 export HTTP_PID=/var/run/$HTTP/pid
@@ -142,8 +142,7 @@ clean_finish() {
     if [ "$(check_80)" = "python" ]; then
         warning "Python is still listening on port 80"
         info "attempting to kill add-water server"
-        [ -f "$HTTP_PID" ] && kill -9 $(cat $HTTP_PID)
-        rm -f $HTTP_PID
+        systemctl stop add-water
     fi
     [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
     if [ $EXIT_CODE -ne 0 ]; then
@@ -160,6 +159,7 @@ clean_finish() {
     else
         info "$APP completed successfully."
     fi
+    systemctl stop add-water
     exit $EXIT_CODE
 }
 
@@ -248,6 +248,7 @@ else
 fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
+systemctl start add-water
 info "running dehydrated"
 if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
     dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG

@@ -1,0 +1,111 @@
+#!/usr/bin/python
+
+# Copyright (c) 2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+# 
+# Add-Water - Bottle based python HTTP server to serve
+#             Dehydrated Let's Encrypt challenges
+#
+# This file is part of Confconsole.
+# 
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+import socket
+import datetime
+from argparse import ArgumentParser
+from Queue import Queue, Empty
+from threading import Thread
+from os.path import isfile, dirname, basename, abspath
+from bottle import get, static_file, run, route, redirect
+
+# "Maintence" page to serve for all requested content, other than LE token
+DEFAULT_INDEX = '/usr/share/confconsole/letsencrypt/index.html'
+CUSTOM_INDEX = '/var/lib/confconsole/letsencrypt/index.html'
+
+if isfile(CUSTOM_INDEX):
+    INDEX_PATH = CUSTOM_INDEX
+else:
+    INDEX_PATH = DEFAULT_INDEX
+
+INDEX_FILE = basename(INDEX_PATH)
+INDEX_WEBROOT = dirname(INDEX_PATH)
+
+tokens = {}
+token_queue = Queue()
+
+def update_tokens():
+    # pull in new tokens from token queue
+    while True:
+        try:
+            new_token = token_queue.get_nowait()
+        except Empty:
+            break
+        else:
+
+            op, token = new_token.split(' ', 1)
+
+            token_path = abspath(token)
+            token_file = basename(token_path)
+            token_webroot = dirname(token_path)
+
+            if op == 'deploy':
+                tokens[token_file] = token_webroot
+            elif op == 'clean':
+                del tokens[token_file]
+            else:
+                raise ValueError('Unknown operation specified!')
+
+@get("/.well-known/acme-challenge/<filename:path>")
+def challenge(filename):
+    update_tokens()
+    if filename in tokens:
+        token_webroot = tokens[filename]
+        return static_file(filename, root=token_webroot)
+    else:
+        redirect('/')
+
+@route('/')
+def index():
+    update_tokens()
+    return static_file(INDEX_FILE, root=INDEX_WEBROOT)
+
+@route('<randompath:path>')
+def test(randompath):
+    redirect('/')
+
+#--
+
+def handle_token_input():
+    host = '127.0.0.1'
+    port = 9977
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((host, port))
+    sock.listen(1)
+    
+    # client will only send 1 token per connection, might be
+    # more effecient way of doing this, but unsure how with dehydrated
+    while True:
+        conn, addr = sock.accept()
+
+        token = conn.recv(4096).decode('utf8')
+        print('Got token {} from {}: serving'.format(token, addr))
+        token_queue.put(token)
+
+        conn.close()
+
+    sock.close()
+
+if __name__ == '__main__':
+    parser = ArgumentParser(description="add-water - Bottle based python HTTP server to serve Dehydrated Let's Encrypt challenges")
+    parser.add_argument('-l', '--logfile', help='path to logfile')
+    args = parser.parse_args()
+
+    input_handler = Thread(target=handle_token_input)
+    input_handler.start()
+
+    print("[{}] Starting Server".format(
+        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    run(host='0.0.0.0', port=80)
+
