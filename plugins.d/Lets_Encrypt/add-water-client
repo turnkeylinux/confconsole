@@ -1,12 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-# Copyright (c) 2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
-# 
+# Copyright (c) 2017-2019 TurnKey GNU/Linux - http://www.turnkeylinux.org
+#
 # Add-Water-Client - Agent to pass tokens to Add Water to serve
 #                    Dehydrated Let's Encrypt challenges
 #
 # This file is part of Confconsole.
-# 
+#
 # Confconsole is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License as published by the
 # Free Software Foundation; either version 3 of the License, or (at your
@@ -17,12 +17,13 @@ import socket
 import sys
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description="add-water-client - Agent to pass tokens to add-water server")
+    parser = ArgumentParser(description="add-water-client"
+                            " - Agent to pass tokens to add-water server")
     token_group = parser.add_mutually_exclusive_group()
     token_group.add_argument('--deploy', help='path to token file to serve')
     token_group.add_argument('--clean', help='path to token file to serve')
     args = parser.parse_args()
-    
+
     if args.deploy:
         op = 'deploy'
         token_path = args.deploy
@@ -33,10 +34,9 @@ if __name__ == '__main__':
         print('Nothing to do!')
         sys.exit(1)
 
-    host = '127.0.0.1' 
+    host = '127.0.0.1'
     port = 9977
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
     sock.sendall(op + ' ' + token_path)
-    
