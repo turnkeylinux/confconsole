@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-# Copyright (c) 2016-2017 TurnKey GNU/Linux - http://www.turnkeylinux.org
+# Copyright (c) 2016-2020 TurnKey GNU/Linux - https://www.turnkeylinux.org
 #
 # dehyrdated-wrapper - A wrapper script for the Dehydrated
 #                      Let's Encrypt client
@@ -30,7 +30,7 @@ AUTHBIND80=/etc/authbind/byport/80
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
 
-LE_TOS_URL=https://acme-v01.api.letsencrypt.org/directory
+LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
 SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
