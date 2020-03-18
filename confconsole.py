@@ -377,29 +377,20 @@ class TurnkeyConsole:
         hostname = netinfo.get_hostname().upper()
 
         try:
-            # backwards compatible - use usage.txt if it exists
-            with open(conf.path("usage.txt"), 'r') as fob:
-                t = fob.read()
-            text = Template(t).substitute(hostname=hostname, ipaddr=ip_addr)
-
-            retcode = self.console.msgbox("Usage", text,
-                                          button_label=default_button_label)
+            with open(conf.path('services.txt'), 'r') as fob:
+                t = fob.read().rstrip()
         except conf.Error:
-            try:
-                with open(conf.path('services.txt'), 'r') as fob:
-                    t = fob.read().rstrip()
-            except:
-                t = ""
-            text = Template(t).substitute(ipaddr=ip_addr)
+            t = ""
+        text = Template(t).substitute(ipaddr=ip_addr)
 
-            text += "\n\n%s\n\n" % tklbam_status
-            text += "\n" * (self.height - len(text.splitlines()) - 7)
-            text += "         TurnKey Backups and Cloud Deployment\n"
-            text += "             https://hub.turnkeylinux.org"
+        text += "\n\n%s\n\n" % tklbam_status
+        text += "\n" * (self.height - len(text.splitlines()) - 7)
+        text += "         TurnKey Backups and Cloud Deployment\n"
+        text += "             https://hub.turnkeylinux.org"
 
-            retcode = self.console.msgbox("%s appliance services" % hostname,
-                                          text,
-                                          button_label=default_button_label)
+        retcode = self.console.msgbox("%s appliance services" % hostname,
+                                      text,
+                                      button_label=default_button_label)
 
         if retcode is not self.OK:
             self.running = False
