@@ -26,6 +26,7 @@ from io import StringIO
 import traceback
 import subprocess
 from subprocess import PIPE
+import shlex
 
 import plugin
 
@@ -241,9 +242,11 @@ class TurnkeyConsole:
     def _get_public_ipaddr(cls):
         publicip_cmd = conf.Conf().publicip_cmd
         if publicip_cmd:
-            command = subprocess.run(publicip_cmd, stdout=PIPE)
+            command = subprocess.run(shlex.split(publicip_cmd),
+                                     stdout=PIPE,
+                                     encoding='utf-8')
             if command.returncode == 0:
-                return command.stdout
+                return command.stdout.strip()
 
         return None
 
