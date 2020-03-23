@@ -14,8 +14,9 @@ EC2) will break your server's internet access and may make it unreachable.
 **unless you know exactly what you are doing; DO NOT ADJUST NETWORKING ON
 CLOUD SERVERS!** You have been warned!
 
-Future cloud builds will have Confconsole's Networking options disabled
- (``networking false`` in ``/etc/confconsole/confconsole.conf``).
+As of Confconsole v2.0.0 (default in v16.0+ TurnKey appliances), all cloud
+builds have Confconsole's Networking options disabled (``networking false``
+in ``/etc/confconsole/confconsole.conf``).
 
 .. image:: ./images/02_confconsole_core_networking.png
 
@@ -50,8 +51,6 @@ limitations below).
 Changes to network config via Confconsole are persistent and will
 survive reboot (see limitations below).
 
-The Confconsole networking configuration is unchanged in v1.0.0.
-
 Limitations
 -----------
 
@@ -63,16 +62,17 @@ builds have an IP (static or dynamic), set via the host when
 initially created. 
 
 In some limited cases (e.g. Proxmox - depending on configuration),
-any networking adjustments made via Confconsole (or other means) will
-NOT be persistent post-reboot. The networking can still be 
+any networking adjustments made via Confconsole (or other means) will apply,
+but will NOT be persistent post-reboot. The networking can still be
 reconfigured on the running system. However, changes will be lost on
 reboot. As a general rule, it is recommended that unless you have a need
 to reconfigure networking within the instance, set the desired configuration
 on the host.
 
-Some other platforms (e.g. AWS EC2 and OpenStack) may ll almost certainly
-break if a static IP is set! Future TurnKey Cloud builds (currently includes
-EC2, Xen and OpenStack) will have the Networking config options disabled.
+Some other platforms (e.g. AWS EC2 and OpenStack) will almost certainly
+break if a static IP is set! As of Confconsole v2.0.0 (default in TurnKey
+v16.0+) TurnKey Cloud builds (currently includes EC2, Xen and OpenStack)
+have the Networking config options disabled.
 
 Technical note
 --------------
