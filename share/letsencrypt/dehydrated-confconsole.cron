@@ -10,7 +10,7 @@ DEHYDRATED=/usr/lib/confconsole/plugins.d/Lets_Encrypt/dehydrated-wrapper
 ARG="--force"
 
 log() {
-    echo -ne "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
+    echo -n "[$(date "+%Y-%m-%d %H:%M:%S")] cron: ${1}" >> $LOG
 }
 
 exit_code=0
