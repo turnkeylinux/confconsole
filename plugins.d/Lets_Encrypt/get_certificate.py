@@ -3,6 +3,7 @@
 import requests
 import subprocess
 from os import path, remove
+from shutil import copyfile
 
 LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
 
@@ -18,7 +19,7 @@ https://www.turnkeylinux.org/docs/letsencrypt#advanced
 """
 
 dehydrated_conf = '/etc/dehydrated'
-domain_path = dehydrated_conf+'/confconsole.domains.txt'
+domain_path = '/'.join([dehydrated_conf, 'confconsole.domains.txt'])
 
 default_domains = '''# please use this file with confconsole or
 # alternatively use dehydrated with it's appropriate
@@ -34,6 +35,8 @@ def load_domains():
     if not path.isfile(domain_path):
         return [example_domain, '', '', '', '']
     else:
+        backup_domain_path = '.'.join([domain_path, 'bak'])
+        copyfile(domain_path, backup_domain_path)
         domains = []
         with open(domain_path, 'r') as fob:
             for line in fob:
