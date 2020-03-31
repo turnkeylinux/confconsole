@@ -13,7 +13,7 @@ function hook_log {
     esac
 }
 
-for var in HTTP HTTP_BIN HTTP_PID HTTP_LOG TKL_KEYFILE TKL_CERTFILE; do
+for var in HTTP HTTP_BIN HTTP_PID HTTP_LOG TKL_KEYFILE TKL_CERTFILE TKL_COMBINED TKL_DHPARAM; do
     eval "z=\$$var"
     [ -z $z ] && hook_log fatal "$var is not set. Exiting..."
 done
@@ -36,12 +36,15 @@ function clean_challenge {
 function deploy_cert {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}" TIMESTAMP="${6}"
 
-    hook_log success "Cert request successful. Writing cert.pem & cert.key for $DOMAIN to /etc/ssl/private"
+    hook_log success "Cert request successful. Writing relevant files for $DOMAIN."
     hook_log info "fullchain: $FULLCHAIN"
     hook_log info "keyfile: $KEYFILE"
     cat "$KEYFILE" > $TKL_KEYFILE
     cat "$FULLCHAINFILE" > $TKL_CERTFILE
-    cat "$KEYFILE" >> $TKL_CERTFILE
+    cat $TKL_CERTFILE > $TKL_COMBINED
+    cat $TKL_KEYFILE >> $TKL_COMBINED
+    cat $TKL_DHPARAM >> $TKL_COMBINED
+    hook_log success "Files written/created for $DOMAIN: $TKL_CERTFILE - $TKL_KEYFILE - $TKL_COMBINED."
 }
 
 function unchanged_cert {
