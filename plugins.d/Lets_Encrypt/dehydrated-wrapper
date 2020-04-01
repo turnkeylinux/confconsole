@@ -37,10 +37,13 @@ SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
 SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
 
-export TKL_CERTFILE="/etc/ssl/private/cert.pem"
+export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
+export TKL_COMBINED="/etc/ssl/private/cert.pem"
+export TKL_DHPARAM="/etc/ssl/private/dhparams.pem"
 cp $TKL_CERTFILE $TKL_CERTFILE.bak
 cp $TKL_KEYFILE $TKL_KEYFILE.bak
+cp $TKL_COMBINED $TKL_COMBINED.bak
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
 export HTTP="add-water-client"
@@ -146,12 +149,14 @@ clean_finish() {
     fi
     [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
     if [ $EXIT_CODE -ne 0 ]; then
-        warning "Something went wrong, restoring original cert & key."
+        warning "Something went wrong, restoring original cert, key and combined files."
+
         mv $TKL_CERTFILE.bak $TKL_CERTFILE
         mv $TKL_KEYFILE.bak $TKL_KEYFILE
+        mv $TKL_COMBINED.bak $TKL_COMBINED
     else
         info "Cleaning backup cert & key"
-        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak
+        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak $TKL_COMBINED.bak
     fi
     restart_servers $WEBSERVER stunnel4
     if [ $EXIT_CODE -ne 0 ]; then
