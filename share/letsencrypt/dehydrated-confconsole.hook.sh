@@ -41,9 +41,7 @@ function deploy_cert {
     hook_log info "keyfile: $KEYFILE"
     cat "$KEYFILE" > $TKL_KEYFILE
     cat "$FULLCHAINFILE" > $TKL_CERTFILE
-    cat $TKL_CERTFILE > $TKL_COMBINED
-    cat $TKL_KEYFILE >> $TKL_COMBINED
-    cat $TKL_DHPARAM >> $TKL_COMBINED
+    cat $TKL_CERTFILE $TKL_KEYFILE $TKL_DHPARAM  > $TKL_COMBINED
     hook_log success "Files written/created for $DOMAIN: $TKL_CERTFILE - $TKL_KEYFILE - $TKL_COMBINED."
 }
 
