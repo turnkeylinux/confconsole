@@ -3,7 +3,8 @@
 import ssl
 import socket
 from smtplib import SMTP, SMTP_SSL, SMTPException
-from os import path, system
+import os
+import subprocess
 
 TITLE = 'Mail Relay'
 
@@ -58,7 +59,7 @@ def run():
     login = ''
     password = ''
 
-    cmd = path.join(path.dirname(__file__), 'mail_relay.sh')
+    cmd = os.path.join(os.path.dirname(__file__), 'mail_relay.sh')
 
     retcode, choice = console.menu(TITLE, TEXT, [
         ('SendinBlue', "TurnKey's preferred SMTP gateway"),
@@ -68,7 +69,7 @@ def run():
 
     if choice:
         if choice == 'Deconfigure':
-            system(cmd, 'deconfigure')
+            proc = subprocess.check_ouput([cmd, 'deconfigure'])
             console.msgbox(TITLE,
                            'The mail relay settings were succesfully erased.'
                            ' No relaying will take place from now on.')
@@ -105,4 +106,4 @@ def run():
                                'Could not connect with supplied parameters.'
                                ' Please check config and try again.')
 
-        system(cmd, host, port, login, password)
+        proc = subprocess.check_output([cmd, host, port, login, password])
