@@ -1,7 +1,9 @@
 """Get Let's Encrypt SSl cert"""
 
 import requests
+import sys
 import subprocess
+from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile
 
@@ -175,13 +177,15 @@ def run():
         if canceled:
             break
 
-        try:
-            # User has accepted ToS previously, so pass '--register' switch
-            subprocess.check_output(
-                ['bash',
-                path.join(path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                '--register'])
+        # User has accepted ToS as part of this process, so pass '--register'
+        # switch to Dehydrated wrapper
+        proc = subprocess.run(
+                    ['bash', path.join(
+                        path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
+                     '--register'],
+                    encoding=sys.stdin.encoding,
+                    stderr=PIPE)
+        if proc.returncode == 0:
             break
-        except subprocess.CalledProcessError as err:
-            _, errmsg = err.args
-            console.msgbox('Error!', _, errmsg)
+        else:
+            console.msgbox('Error!', proc.stderr)
