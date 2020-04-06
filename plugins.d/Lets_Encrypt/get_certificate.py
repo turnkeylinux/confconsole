@@ -5,7 +5,7 @@ import subprocess
 from os import path, remove
 from shutil import copyfile
 
-LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
+LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
 TITLE = 'Certificate Creation Wizard'
 
@@ -87,7 +87,7 @@ def run():
     tos_url = None
     try:
         response = requests.get(LE_INFO_URL)
-        tos_url = response.json()['meta']['terms-of-service']
+        tos_url = response.json()['meta']['termsOfService']
     except ConnectionError:
         msg = 'Connection error. Failed to connect to '+LE_INFO_URL
     except JSONDecodeError:
