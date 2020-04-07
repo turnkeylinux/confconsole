@@ -202,7 +202,10 @@ class PluginManager(object):
 
         for key in self.path_map:
             if os.path.isdir(key):
-                self.path_map[key].plugins = self.getByDir(key)
+                sub_plugins = self.getByDir(key)
+                for plugin in sub_plugins:
+                    plugin.parent = key
+                self.path_map[key].plugins = sub_plugins
 
     def updateGlobals(self, newglobals):
         for path, plugin in self.path_map.items():
