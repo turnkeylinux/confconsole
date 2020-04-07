@@ -548,9 +548,15 @@ class TurnkeyConsole:
             if err:
                 err = "\n".join(err)
             else:
-                err = ifutil.set_static(self.ifname, addr, netmask,
-                                        gateway, nameservers)
-                if not err:
+                in_ssh = 'SSH_CONNECTION' in os.environ
+                if not in_ssh or (in_ssh and self.console.yesno(
+                        "Warning: Changing ip while an ssh session is active will"
+                        " drop said ssh session!", autosize=True) == self.OK):
+                    err = ifutil.set_static(self.ifname, addr, netmask,
+                                            gateway, nameservers)
+                    if not err:
+                        break
+                else:
                     break
 
             self.console.msgbox("Error", err)
@@ -558,10 +564,14 @@ class TurnkeyConsole:
         return "ifconf"
 
     def _ifconf_dhcp(self):
-        self.console.infobox("Requesting DHCP for %s..." % self.ifname)
-        err = ifutil.set_dhcp(self.ifname)
-        if err:
-            self.console.msgbox("Error", err)
+        in_ssh = 'SSH_CONNECTION' in os.environ
+        if not in_ssh or (in_ssh and self.console.yesno(
+                "Warning: Changing ip while an ssh session is active will"
+                " drop said ssh session!", autosize=True) == self.OK):
+            self.console.infobox("Requesting DHCP for %s..." % self.ifname)
+            err = ifutil.set_dhcp(self.ifname)
+            if err:
+                self.console.msgbox("Error", err)
 
         return "ifconf"
 
