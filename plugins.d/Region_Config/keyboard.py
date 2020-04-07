@@ -4,7 +4,7 @@ from subprocess import check_call, check_output, CalledProcessError
 
 
 def is_installed(pkg):
-    for line in check_output(['apt-cache', 'policy', pkg]).splitlines():
+    for line in check_output(['apt-cache', 'policy', pkg], text=True).splitlines():
         if line.startswith('  Installed'):
             key, val = line.split(':')
             if val.strip() in ('(none)', ''):
@@ -21,7 +21,7 @@ def run():
                                 ' required for this operation, do you wish'
                                 ' to install it now?', autosize=True)
 
-            if ret == 0:
+            if ret == 'ok':
                 check_call(['apt-get', '-y', 'install',
                             'keyboard-configuration'])
             else:
