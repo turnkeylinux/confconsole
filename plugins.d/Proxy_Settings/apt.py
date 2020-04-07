@@ -13,7 +13,7 @@ def get_proxy():
     proxy = ''
     if not isfile(CONF):
         return proxy
-    with open(CONF, 'rb') as fob:
+    with open(CONF, 'r') as fob:
         for line in fob:
             lmatch = match(PROXY_LINE, line)
             if lmatch:
@@ -23,7 +23,7 @@ def get_proxy():
 
 def set_proxy(prox):
     if isfile(CONF):
-        with open(CONF, 'rb') as fob:
+        with open(CONF, 'r') as fob:
             data = fob.read()
     else:
         data = ''
@@ -33,7 +33,7 @@ def set_proxy(prox):
     else:
         data += '\n' + (PROXY_REPL.format(prox)) + '\n'
 
-    with open(CONF, 'wb') as fob:
+    with open(CONF, 'w') as fob:
         fob.write(data)
 
 
@@ -49,26 +49,26 @@ def doOnce():
 def run():
     original_proxy = get_proxy()
     while True:
-        prox = console.inputbox(
+        code, prox = console.inputbox(
                 'Set proxy',
                 'Set a HTTP Proxy. Must contain scheme "http://example.com"'
                 ' but not "example.com"',
                 init=original_proxy)
-        if prox[0] == 0:
-            if prox[1] and not validate_address(prox[1]):
+        if code == 'ok':
+            if prox and not validate_address(prox):
                 console.msgbox(
                         'Invalid Proxy',
                         'A valid proxy address must at least have a net'
                         ' location and scheme (http://example.com) but not'
                         ' (example.com)')
             else:
-                if not prox[1] and original_proxy:
+                if not prox and original_proxy:
                     # if no proxy chosen but there WAS a proxy set previously
                     if console.yesno('Are you sure you want to disable apt'
-                                     ' proxy?') == 0:
-                        set_proxy(prox[1])
+                                     ' proxy?') == 'ok':
+                        set_proxy(prox)
                 else:
-                    set_proxy(prox[1])
+                    set_proxy(prox)
                 break
         else:
             break
