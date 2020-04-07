@@ -1,11 +1,13 @@
 """Get Let's Encrypt SSl cert"""
 
 import requests
+import sys
 import subprocess
+from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile
 
-LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
+LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
 TITLE = 'Certificate Creation Wizard'
 
@@ -87,7 +89,7 @@ def run():
     tos_url = None
     try:
         response = requests.get(LE_INFO_URL)
-        tos_url = response.json()['meta']['terms-of-service']
+        tos_url = response.json()['meta']['termsOfService']
     except ConnectionError:
         msg = 'Connection error. Failed to connect to '+LE_INFO_URL
     except JSONDecodeError:
@@ -105,7 +107,7 @@ def run():
         'certificates.\n\nDo you wish to continue?',
         autosize=True
     )
-    if ret:
+    if ret != 'ok':
         return
 
     ret = console.yesno(
@@ -116,14 +118,14 @@ def run():
         "Do you agree to the Let's Encrypt Terms of Service?",
         autosize=True
     )
-    if ret:
+    if ret != 'ok':
         return
 
     if not path.isdir(dehydrated_conf):
         console.msgbox(
             'Error',
             'Dehydrated not installed or %s not found, dehydrated can be'
-            ' installed with apt from the stretch repo.\n\n'
+            ' installed with apt from the Buster repo.\n\n'
             'More info: www.turnkeylinux.org/docs/letsencrypt'
             '' % dehydrated_conf,
             autosize=True
@@ -136,7 +138,7 @@ def run():
     if m:
         ret = console.yesno(
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
-        if not ret:
+        if ret == 'ok':
             remove(domain_path)
             domains = load_domains()
         else:
@@ -147,15 +149,15 @@ def run():
     while True:
         while True:
             fields = [
-                ('Domain 1', values[0], field_width, 255),
-                ('Domain 2', values[1], field_width, 255),
-                ('Domain 3', values[2], field_width, 255),
-                ('Domain 4', values[3], field_width, 255),
-                ('Domain 5', values[4], field_width, 255),
+                ('Domain 1', 1, 0, values[0], 1, 10, field_width, 255),
+                ('Domain 2', 2, 0, values[1], 2, 10, field_width, 255),
+                ('Domain 3', 3, 0, values[2], 3, 10, field_width, 255),
+                ('Domain 4', 4, 0, values[3], 4, 10, field_width, 255),
+                ('Domain 5', 5, 0, values[4], 5, 10, field_width, 255),
             ]
             ret, values = console.form(TITLE, DESC, fields, autosize=True)
 
-            if ret != 0:
+            if ret != 'ok':
                 canceled = True
                 break
 
@@ -164,21 +166,26 @@ def run():
                 console.msgbox('Error', msg)
                 continue
 
-            if ret is 0:
-                ret2 = console.yesno('This will overwrite previous settings'
-                                     ' and check for certificate, continue?')
-                if ret2 is 0:
+            if ret == 'ok':
+                ret2 = console.yesno(
+                        'This will overwrite any previous settings (saving a'
+                        ' backup) and check for certificate. Continue?')
+                if ret2 == 'ok':
                     save_domains(values)
                     break
 
         if canceled:
             break
 
-        try:
-            subprocess.check_output(['bash',
-                                     path.join(path.dirname(
-                                         PLUGIN_PATH), 'dehydrated-wrapper')])
+        # User has accepted ToS as part of this process, so pass '--register'
+        # switch to Dehydrated wrapper
+        proc = subprocess.run(
+                    ['bash', path.join(
+                        path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
+                     '--register'],
+                    encoding=sys.stdin.encoding,
+                    stderr=PIPE)
+        if proc.returncode == 0:
             break
-        except subprocess.CalledProcessError as err:
-            _, _, errmsg = err.args
-            console.msgbox('Error!', errmsg)
+        else:
+            console.msgbox('Error!', proc.stderr)
