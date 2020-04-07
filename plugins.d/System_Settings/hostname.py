@@ -7,7 +7,7 @@ from subprocess import Popen, PIPE
 TITLE = 'Update Hostname'
 
 
-def _validate(hostname):
+def _validate_hostname(hostname):
     pattern = r"^[-\w]*$"
     hostname_parts = hostname.split('.')
     match_parts = []
@@ -28,7 +28,7 @@ def run():
     while True:
         ret, new_hostname = console.inputbox(
                 TITLE, 'Please enter the new hostname for this machine:')
-        if ret == 0:
+        if ret == 'ok':
             valid_hostname = _validate_hostname(new_hostname)
             if not valid_hostname:
                 console.msgbox(TITLE, '{} ({})'.format(
@@ -71,7 +71,7 @@ def run():
             proc = subprocess.run(['postfix', 'reload'], stderr=PIPE)
             if proc.returncode != 0:
                 console.msgbox(TITLE,
-                               '{} ({})'.format(out, "reloading postfix"))
+                               '{} ({})'.format(out.decode('utf8'), "reloading postfix"))
                 continue
             console.msgbox(TITLE,
                            'Hostname updated successfully. Some applications'
