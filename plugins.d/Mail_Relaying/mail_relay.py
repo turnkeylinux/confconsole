@@ -108,6 +108,10 @@ def run():
             ]
 
             retcode, values = console.form(TITLE, FORMNOTE, fields)
+            host, port, login, password = tuple(values)
+
+            with open('/usr/lib/confconsole/plugins.d/mail.log', 'w') as fob:
+                fob.write('retcode: {}\nvalues: {}\n'.format(retcode, values))
 
             if retcode is not 'ok':
                 console.msgbox(TITLE,
@@ -115,22 +119,33 @@ def run():
                                ' No relaying of mail will be performed.')
                 return
 
-            host, port, login, password = tuple(values)
-            success, error_msg = testsettings(*values)
-            if success:
-                console.msgbox(
+            elif not login:
+                ret = console.yesno(
+                        'No login username provided. Unable to test'
+                        ' SMTP connection before configuring.\n\nAre you sure'
+                        ' you want to configure SMTP forwarding with no login'
+                        ' credentials?', autosize=True)
+                if ret != 'ok':
+                    return
+                else:
+                    break
+
+            else:
+                success, error_msg = testsettings(*values)
+                if success:
+                    console.msgbox(
                             TITLE,
                             'SMTP connection test successful.\n\n'
                             'Ready to configure Postfix.')
-                break
+                    break
 
-            else:
-                console.msgbox(
+                else:
+                    console.msgbox(
                             TITLE,
-                            'Could not connect with supplied parameters.\n'
-                            'Error code:\n  {}\nMessage:\n  {}\n\nPlease'
+                            'Could not connect with supplied parameters.\n\n'
+                            'Error code: {}\n\nMessage:\n\n  {}\n\nPlease'
                             ' check config and try again.'.format(*error_msg))
-                return
+                    return
 
         proc = subprocess.run([cmd, host, port, login, password],
                               encoding=sys.stdin.encoding,

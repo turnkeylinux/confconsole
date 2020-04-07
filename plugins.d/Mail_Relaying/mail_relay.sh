@@ -1,6 +1,7 @@
 #!/bin/bash -ex
 
 fatal() { echo "fatal [$(basename $0)]: $@" 1>&2; exit 1; }
+warning() { echo "warning [$(basename $0)]: $@" ; }
 info() { echo "info [$(basename $0)]: $@"; }
 
 usage() {
@@ -19,18 +20,31 @@ pwdfile=/etc/postfix/sasl_passwd
 options=( relayhost smtp_sasl_auth_enable smtp_sasl_password_maps smtp_sasl_security_options smtp_tls_security_level header_size_limit )
 
 configure_postfix() {
-    info $FUNCNAME $@
     host=$1
     port=$2
     username=$3
     password=$4
+    if [[ -n "$password" ]]; then
+        _pass='************'
+    fi
+    info "$FUNCNAME: $host $port $username $_pass"
 
     hostport="[$host]:$port"
-    values=( $hostport yes hash:/etc/postfix/sasl_passwd noanonymous may 4096000 )
+    if [[ -n "$password" ]]; then
+        info $FUNCNAME "Configuring authenticated SMTP relay - please wait..."
+        values=( $hostport yes hash:/etc/postfix/sasl_passwd noanonymous may 4096000 )
+    else
+        warning $FUNCNAME "Configuring unauthenticated, unencrypted relay - please wait..."
+        values=( $hostport no NULL NULL NULL 4096000 )
+    fi
 
     echo >> $cfgfile
     for (( i = 0; i < ${#options[@]}; i++ )); do
-        sed -i "/${options[$i]}/d; \$a${options[i]} = ${values[i]}" $cfgfile
+        _value=${values[i]}
+        if [[ "$_value" == "NULL" ]]; then
+            _value=
+        fi
+        sed -i "/${options[$i]}/d; \$a${options[i]} = ${_value}" $cfgfile
     done
 
     cat << EOF > $pwdfile
@@ -62,4 +76,3 @@ else
 fi
 
 sleep 10
-
