@@ -110,9 +110,6 @@ def run():
             retcode, values = console.form(TITLE, FORMNOTE, fields)
             host, port, login, password = tuple(values)
 
-            with open('/usr/lib/confconsole/plugins.d/mail.log', 'w') as fob:
-                fob.write('retcode: {}\nvalues: {}\n'.format(retcode, values))
-
             if retcode is not 'ok':
                 console.msgbox(TITLE,
                                'You have cancelled the configuration process.'
