@@ -72,7 +72,6 @@ def run():
             if proc.returncode != 0:
                 console.msgbox(TITLE,
                                '{} ({})'.format(out.decode('utf8'), "reloading postfix"))
-                continue
             console.msgbox(TITLE,
                            'Hostname updated successfully. Some applications'
                            ' may require restart before the settings are'
