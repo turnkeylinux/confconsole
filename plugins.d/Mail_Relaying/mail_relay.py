@@ -2,9 +2,11 @@
 
 import ssl
 import socket
+import sys
 from smtplib import SMTP, SMTP_SSL, SMTPException
 import os
 import subprocess
+from subprocess import PIPE
 
 TITLE = 'Mail Relay'
 
@@ -23,18 +25,27 @@ FORMNOTE = ("Please enter the settings below.\n\n"
 
 
 def testsettings(host, port, login, password):
-    host = host.encode('utf-8')
+
+    encoding = sys.stdin.encoding
+
+    # login username and password must be string
+    def bytes2string(string):
+        if type(string) is bytes:
+            return string.decode(encoding)
+        return string
+
+    host = host.encode(encoding)
     port = int(port)
-    login = login.encode('utf-8')
-    password = password.encode('utf-8')
+    login = bytes2string(login)
+    password = bytes2string(password)
 
     try:  # SSL
         smtp = SMTP_SSL(host, port)
-        ret, _ = smtp.login(login, password)
+        ret, msg = smtp.login(login, password)
         smtp.quit()
 
         if ret is 235:  # 2.7.0 Authentication successful
-            return True
+            return True, None
     except (ssl.SSLError, SMTPException):
         pass
 
@@ -42,15 +53,16 @@ def testsettings(host, port, login, password):
         smtp = SMTP(host, port)
         smtp.starttls()
         smtp.ehlo()
-        ret, _ = smtp.login(login, password)
+        ret, msg = smtp.login(login, password)
         smtp.quit()
 
         if ret is 235:
-            return True
-    except SMTPException:
+            return True, None
+    except SMTPException as e:
+        ret, msg = e.args[0], e.args[1].decode(encoding)
         pass
 
-    return False
+    return False, (ret, msg)
 
 
 def run():
@@ -69,7 +81,13 @@ def run():
 
     if choice:
         if choice == 'Deconfigure':
-            proc = subprocess.check_ouput([cmd, 'deconfigure'])
+            proc = subprocess.run([cmd, 'deconfigure'],
+                                  encoding=sys.stdin.encoding,
+                                  stderr=PIPE)
+            if proc.returncode != 0:
+                console.msgbox('Error', proc.stderr)
+                return
+
             console.msgbox(TITLE,
                            'The mail relay settings were succesfully erased.'
                            ' No relaying will take place from now on.')
@@ -83,13 +101,14 @@ def run():
 
         while 1:
             fields = [
-                ('Host', host, field_width, field_limit),
-                ('Port', port, field_width, field_limit),
-                ('Login', login, field_width, field_limit),
-                ('Password', password, field_width, field_limit)
+                ('Host', 1, 0, host, 1, 10, field_width, field_limit),
+                ('Port', 2, 0, port, 2, 10, field_width, field_limit),
+                ('Login', 3, 0, login, 3, 10, field_width, field_limit),
+                ('Password', 4, 0, password, 4, 10, field_width, field_limit)
             ]
 
             retcode, values = console.form(TITLE, FORMNOTE, fields)
+            host, port, login, password = tuple(values)
 
             if retcode is not 'ok':
                 console.msgbox(TITLE,
@@ -97,13 +116,36 @@ def run():
                                ' No relaying of mail will be performed.')
                 return
 
-            host, port, login, password = tuple(values)
+            elif not login:
+                ret = console.yesno(
+                        'No login username provided. Unable to test'
+                        ' SMTP connection before configuring.\n\nAre you sure'
+                        ' you want to configure SMTP forwarding with no login'
+                        ' credentials?', autosize=True)
+                if ret != 'ok':
+                    return
+                else:
+                    break
 
-            if testsettings(*values):
-                break
             else:
-                console.msgbox(TITLE,
-                               'Could not connect with supplied parameters.'
-                               ' Please check config and try again.')
+                success, error_msg = testsettings(*values)
+                if success:
+                    console.msgbox(
+                            TITLE,
+                            'SMTP connection test successful.\n\n'
+                            'Ready to configure Postfix.')
+                    break
 
-        proc = subprocess.check_output([cmd, host, port, login, password])
+                else:
+                    console.msgbox(
+                            TITLE,
+                            'Could not connect with supplied parameters.\n\n'
+                            'Error code: {}\n\nMessage:\n\n  {}\n\nPlease'
+                            ' check config and try again.'.format(*error_msg))
+                    return
+
+        proc = subprocess.run([cmd, host, port, login, password],
+                              encoding=sys.stdin.encoding,
+                              stderr=PIPE)
+        if proc.returncode != 0:
+            console.msgbox('Error', proc.stderr)
