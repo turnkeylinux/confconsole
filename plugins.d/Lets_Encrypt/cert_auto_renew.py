@@ -34,7 +34,7 @@ def run():
         msg = '''Automatic certificate renewal is currently {}'''
         r = console._wrapper('yesno', msg.format(status), 10, 30,
                              yes_label='Toggle', no_label='Ok')
-        while r == 0:
+        while r == 'ok':
             if enabled:
                 disable_cron()
             else:
