@@ -1,0 +1,43 @@
+#!/bin/bash -e
+# Simple auto starter script for confconsole
+#
+# To enable every login:
+#    - set "autostart true" in /etc/confconsole/confconsole.conf
+#
+# To enable next login only:
+#    - set "autostart once" in /etc/confconsole/confconsole.conf; or
+#
+# To disable autostart:
+#    - set "autostart false" /etc/confconsole/confconsole.conf; or
+#    - comment out or remove "autostart" in /etc/confconsole/confconsole.conf
+#    - make this script non-executable
+# 
+# Note that if this script is non-executable, confconsole will NOT autostart,
+# regardless of "autostart" value in /etc/confconsole/confconsole.conf.
+
+
+# if "dumb" terminal (e.g. scp or others) exit straight away
+if [ "$TERM" = "dumb" ]; then
+    return
+fi
+
+conf=/etc/confconsole/confconsole.conf
+autostart=$(grep "^autostart" $conf | tail -1 | cut -d' ' -f2)
+while true; do
+    case "$autostart" in
+        once)
+            sed -i "s|^autostart.*|autostart false|g" $conf
+            break;;
+        true)
+            break;;
+        *)
+            return;;
+    esac
+done
+
+# if not root use sudo (support for sudoadmin)
+if [ "$(whoami)" != "root" ]; then
+    SUDO=sudo
+fi
+
+$SUDO confconsole
