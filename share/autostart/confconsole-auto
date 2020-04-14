@@ -12,7 +12,8 @@
 #    - comment out or remove "autostart" in /etc/confconsole/confconsole.conf
 #    - make this script non-executable
 # 
-# Note that if this script is non-executable, confconsole will NOT autostart,
+# Note that if this script is non-executable, or not located in ~/.bashrc.d/
+# of a root or a sudo user account, confconsole will NOT autostart,
 # regardless of "autostart" value in /etc/confconsole/confconsole.conf.
 
 
@@ -26,6 +27,7 @@ autostart=$(grep "^autostart" $conf | tail -1 | cut -d' ' -f2)
 while true; do
     case "$autostart" in
         once)
+            # disable autostart if set to "once"
             sed -i "s|^autostart.*|autostart false|g" $conf
             break;;
         true)
