@@ -151,7 +151,7 @@ clean_finish() {
     # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
     # You have been warned...
     EXIT_CODE=$1
-    if [ "$(check_80)" = "python" ]; then
+    if [ "$(check_80)" = "python" ] || [ "$(check_80)" = "python3" ]; then
         warning "Python is still listening on port 80"
         info "attempting to kill add-water server"
         systemctl stop add-water
@@ -261,9 +261,9 @@ if [ -n "$WEBSERVER" ]; then
                 fatal "An unknown Java app is listening on port 80";
             fi;
             stop_server $WEBSERVER;;
-        python )
+        python|python3 )
             unset WEBSERVER;
-            fatal "An unknown Python app is listening on port 80";;
+            fatal "An unknown/unexpected Python app is listening on port 80";;
         * )
             unknown="$WEBSERVER";
             unset WEBSERVER;
