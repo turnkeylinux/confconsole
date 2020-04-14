@@ -36,6 +36,8 @@ class Conf:
                     self.publicip_cmd = val
                 elif op == 'networking' and val in ('true', 'false'):
                     self.networking = True if val == 'true' else False
+                elif op == 'autostart':
+                    pass
                 else:
                     raise Error("illegal configuration line: " + line)
 
