@@ -30,7 +30,7 @@ def _str2int(ip):
 
 def _int2str(num):
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
-    return string.join(list(map(str, bytes)), '.')
+    return '.'.join(list(map(str, bytes)))
 
 
 class Error(Exception):
