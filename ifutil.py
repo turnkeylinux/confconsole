@@ -242,9 +242,9 @@ def set_dhcp(ifname):
         return str(e)
 
 
-def get_ipconf(ifname):
+def get_ipconf(ifname, error=False):
     net = InterfaceInfo(ifname)
-    return net.addr, net.netmask, net.gateway, get_nameservers(ifname)
+    return net.addr, net.netmask, net.get_gateway(error), get_nameservers(ifname)
 
 
 def get_ifmethod(ifname):
