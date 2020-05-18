@@ -25,7 +25,7 @@ import conf
 from io import StringIO
 import traceback
 import subprocess
-from subprocess import PIPE
+from subprocess import PIPE, CalledProcessError
 import shlex
 
 import plugin
@@ -497,7 +497,24 @@ class TurnkeyConsole:
                                 "" % (gateway, iprange)]
             return []
 
-        addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname)
+        try:
+            addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname, True)
+        except CalledProcessError:
+            error = '`route -n` returned non-0 exit code! unable to perform config.'
+        except netinfo.NetInfoError:
+            error = 'failed to find default gateway! (0.0.0.0) unable to perform config.'
+        else:
+            if addr is None:
+                error = 'failed to assertain current address! unable to perform config.'
+            elif netmask is None:
+                error = 'failed to assertain current netmask! unable to perform config.'
+            else:
+                error = ''
+
+        if error:
+            self.console.msgbox("Error", error)
+            return 'ifconf'
+
         input = [addr, netmask, gateway]
         input.extend(nameservers)
 
