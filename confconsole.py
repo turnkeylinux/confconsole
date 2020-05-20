@@ -497,23 +497,28 @@ class TurnkeyConsole:
                                 "" % (gateway, iprange)]
             return []
 
+        warnings = []
         try:
             addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname, True)
         except CalledProcessError:
-            error = '`route -n` returned non-0 exit code! unable to perform config.'
+            warnings.append('`route -n` returned non-0 exit code! (unable to get gateway)')
+            addr, netmask, gateway, nameservers = None, None, '', []
         except netinfo.NetInfoError:
-            error = 'failed to find default gateway! (0.0.0.0) unable to perform config.'
-        else:
-            if addr is None:
-                error = 'failed to assertain current address! unable to perform config.'
-            elif netmask is None:
-                error = 'failed to assertain current netmask! unable to perform config.'
-            else:
-                error = ''
+            warnings.append('failed to find default gateway!')
+            addr, netmask, gateway, nameservers = None, None, '', []
 
-        if error:
-            self.console.msgbox("Error", error)
-            return 'ifconf'
+        if addr is None:
+            warnings.append('failed to assertain current address!')
+            addr = ''
+        if netmask is None:
+            warnings.append('failed to assertain current netmask!')
+            netmask = ''
+
+        if warnings:
+            warnings.append('\nWill leave relevant fields blank')
+
+        if warnings:
+            self.console.msgbox("Warning", '\n'.join(warnings))
 
         input = [addr, netmask, gateway]
         input.extend(nameservers)
