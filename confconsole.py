@@ -213,8 +213,8 @@ class TurnkeyConsole:
         if defifname and defifname.startswith('br'):
                 ifnames.append(defifname)
                 bridgedif = subprocess.check_output(
-                        ['brctl', 'show', defifname]
-                        ).split('\n')[1].split('\t')[-1]
+                        ['brctl', 'show', defifname],
+                        text=True).split('\n')[1].split('\t')[-1]
                 ifnames.remove(bridgedif)
 
         ifnames.sort()
