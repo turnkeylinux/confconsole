@@ -48,6 +48,8 @@ def testsettings(host, port, login, password):
             return True, None
     except (ssl.SSLError, SMTPException):
         pass
+    except socket.gaierror as e:
+        return None, e.args
 
     try:  # STARTTLS or plaintext
         smtp = SMTP(host, port)
