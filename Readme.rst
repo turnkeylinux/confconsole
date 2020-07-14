@@ -25,9 +25,10 @@ The main screen of Confconsole provides the following information:
 
 .. image:: ./docs/images/00_confconsole_core_main.png
 
-The Configuration Console will be invoked automatically on a new vt (by
-its init script) unless the boot paramater 'noconfconsole' is present 
-on /proc/cmdline. 
+As of v2.x (default in v16.x TurnKey appliances), Configuration Console
+will be invoked automatically on first log in. It will also automatically
+start on firstboot; but without the "Advanced Menu" available (log in is
+required to access "Advanced").
 
 The Configuration Console (confconsole) may be executed manually as
 well:
@@ -39,18 +40,17 @@ well:
 Advanced
 --------
 
-For version v1.0.0 (default in TurnKey v14.2+), Confconsole has been
-significantly refactored and includes some long overdue additional
-functionality. The additional functionality is provided by way of a
-"`Plugin`_ system. To navigate to the new plugins, please enter the
-"advanced" menu.
+Additional Confconsole functionality is provided by way of a
+"`Plugin`_" system. To navigate to the plugins, please enter the
+"Advanced" menu.
 
 The advanced menu:
 
 .. image:: ./docs/images/01_confconsole_core_advanced.png
 
-As of v1.0.0 the Advanced menu provides the following functionality
-(some items have additional docs avaialble via clickable headings):
+The Advanced menu provides the below functionality in all appliances
+(some items have additional docs available via clickable headings).
+Note that some appliances may include additional (or modified) plugins.
 
 - `Networking`_:
 
@@ -92,39 +92,40 @@ Installation
 Confconsole is installed by default in all `TurnKey Linux Appliances`_
 so no installation should be required for TurnKey users.
 
-For users of TurnKey Linux v14.0 & v14.1, please see below for how to
-upgrade to the latest version.
+For users of TurnKey Linux v15.x, bugs related to Let's Encrypt require you
+to manually update - please carefully follow the `v1.1.2 Release notes`_.
 
-In theory it should be compatible with vanilla Debian Jessie (and 
-possibly vanilla Ubuntu of a similar age version too). However, 
-currently it depends on a legacy version of `python-dialog`_ (which
-is packaged in the TurnKey apt repo).
+For v16.x (Confconsole v2.0.x) users, the Let's Encrypt bug has been resolved
+and it should "just work". However, if you wish to ensure that you are running
+the latest, please see below for how to upgrade to the latest version.
 
-At some point we hope to rewrite it to rely on the default
-python-dialog.
+As of v2.x, Confconsole should be compatible with vanilla Debian Buster (and
+possibly vanilla Ubuntu of a similar age version too). It does have some
+specific TurnKey dependencies, but now uses default Debian python3-dialog.
 
-Upgrade to v1.0.0+
-------------------
+Upgrade Confconsole
+-------------------
 
-Confconsole v1.0.0 is installed by default in TurnKey Linux v14.2+.
-However it is also possible to upgrade to the current version on
-other v14.x releases.
+If you are running TurnKey v15.x - with Confconsole v1.1.x - these instructions
+do not apply. v15.x users need to carefully follow the `v1.1.2 Release notes`_.
+If you have problems or questions, please post on our `support forums`_
+(requires free website user account).
 
-To upgrade your instance of Confsole on v14.0 & v14.1, including 
-support for Let's Encrypt, please do the following:
+Confconsole v2.0.x is installed by default in TurnKey Linux v16.0+. However,
+to ensure that you are running the latest version, you can upgrade via apt:
 
 .. code-block:: bash
 
     apt-get update
-    apt-get install confconsole python-bottle authbind dehydrated
+    apt-get install confconsole
 
 Plugins
 -------
 
 The plugins system allows support for additional functionality via
-simply dropping a(n appropriately coded) python plugin file within the
+simply dropping a(n appropriately coded) python3 plugin file within the
 Confconsole file hierarchy. We aim to include more new functionality via
-this in coming releases. 
+this in coming releases.
 
 Developers may be interested in reading further about the `Plugin`_ system.
 
@@ -138,4 +139,5 @@ Developers may be interested in reading further about the `Plugin`_ system.
 .. _Region config: ./docs/Region_config.rst
 .. _System settings: ./docs/System_settings.rst
 .. _TurnKey Linux Appliances: https://www.turnkeylinux.org/all
-.. _python-dialog: https://github.com/turnkeylinux/pythondialog
+.. _v1.1.2 Release notes: https://github.com/turnkeylinux/confconsole/releases/tag/v1.1.2
+.. _support forums: https://www.turnkeylinux.org/forum/support
