@@ -73,6 +73,8 @@ class Console:
         self.console.add_persistent_args(["--ok-label", "Select"])
         self.console.add_persistent_args(["--cancel-label", "Back"])
         self.console.add_persistent_args(["--colors"])
+        if conf.Conf().copy_paste:
+            self.console.add_persistent_args(["--no-mouse"])
         if title:
             self.console.add_persistent_args(["--backtitle", title])
 

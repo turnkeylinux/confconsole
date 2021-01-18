@@ -1,4 +1,5 @@
-# Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+# Copyright (c) 2008-2019 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+# Copyright (c) 2020 TurnKey GNU/Linux <admin@turnkeylinux.org> - all rights reserved
 
 import re
 import os
@@ -38,6 +39,8 @@ class Conf:
                     self.networking = True if val == 'true' else False
                 elif op == 'autostart':
                     pass
+                elif op == 'copy_paste' and val.lower() in ('true', 'false'):
+                    self.copy_paste = True if val.lower() == 'true' else False
                 else:
                     raise Error("illegal configuration line: " + line)
 
@@ -45,6 +48,7 @@ class Conf:
         self.default_nic = None
         self.publicip_cmd = None
         self.networking = True
+        self.copy_paste = True
         self.conf_file = path("confconsole.conf")
         self._load_conf()
 
