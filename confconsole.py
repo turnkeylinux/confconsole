@@ -730,5 +730,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        os.system('stty sane')
+        subprocess.run(['stty', 'sane'])
         traceback.print_exc()
