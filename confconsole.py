@@ -170,7 +170,7 @@ class Installer:
         if not self.available:
             raise Error("installer is not available to be executed")
 
-        os.system(self.path)
+        subprocess.run([self.path])
 
 
 class TurnkeyConsole:
