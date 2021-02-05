@@ -160,11 +160,8 @@ class Installer:
         if not os.path.exists(self.path):
             return False
 
-        with open('/proc/cmdline') as fh:
-            cmdline = fh.readline()
-
-        for cmd in cmdline.split():
-            if cmd == "boot=casper" or cmd == "boot=live":
+        with open('/proc/cmdline') as fob:
+            if "boot=live" in fob.readline().split():
                 return True
 
         return False
