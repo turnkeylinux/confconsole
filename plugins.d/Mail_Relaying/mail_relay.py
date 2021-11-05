@@ -44,7 +44,7 @@ def testsettings(host, port, login, password):
         ret, msg = smtp.login(login, password)
         smtp.quit()
 
-        if ret is 235:  # 2.7.0 Authentication successful
+        if ret == 235:  # 2.7.0 Authentication successful
             return True, None
     except (ssl.SSLError, SMTPException):
         pass
@@ -58,7 +58,7 @@ def testsettings(host, port, login, password):
         ret, msg = smtp.login(login, password)
         smtp.quit()
 
-        if ret is 235:
+        if ret == 235:
             return True, None
     except SMTPException as e:
         ret, msg = e.args[0], e.args[1].decode(encoding)
@@ -112,7 +112,7 @@ def run():
             retcode, values = console.form(TITLE, FORMNOTE, fields)
             host, port, login, password = tuple(values)
 
-            if retcode is not 'ok':
+            if retcode != 'ok':
                 console.msgbox(TITLE,
                                'You have cancelled the configuration process.'
                                ' No relaying of mail will be performed.')
