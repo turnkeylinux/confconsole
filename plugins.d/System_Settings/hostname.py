@@ -66,8 +66,16 @@ def run():
                 for line in lines:
                     fob.write(
                         re.sub(r'myhostname =.*',
-                               'myhostname = {}'.format(new_hostname), line))
-
+                               f'myhostname = {new_hostname}',
+                               line))
+            with open('/etc/network/interfaces', 'r') as fob:
+                lines = fob.readlines()
+            with open('/etc/network/interfaces', 'w') as fob:
+                for line in lines:
+                    fob.write(re.sub(r'hostname .*',
+                                     f'hostname {new_hostname}',
+                                     line))
+            proc = subprocess.run(['systemctl', 'restart', 'networking'])
             proc = subprocess.run(['postfix', 'reload'], stderr=PIPE)
             if proc.returncode != 0:
                 console.msgbox(TITLE,
