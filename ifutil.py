@@ -5,6 +5,7 @@ from time import sleep
 
 import subprocess
 from netinfo import InterfaceInfo
+from netinfo import get_hostname
 
 
 class Error(Exception):
@@ -57,11 +58,25 @@ class EtcNetworkInterfaces:
                 for line in ifconf.splitlines()
                 if line.strip().split()[0] in iface_opts]
 
+    def _get_bridge_opts(self, ifname):
+        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio', 'bridge_fd', 'bridge_gcinit', 'bridge_hello', 'bridge_hw', 'bridge_maxage', 'bridge_maxwait', 'bridge_pathcost', 'bridge_portprio', 'bridge_stp', 'bridge_waitport')
+        if ifname not in self.conf:
+            return []
+
+        ifconf = self.conf[ifname]
+        return [ line.strip()
+                 for line in ifconf.splitlines()
+                 if line.strip().split()[0] in bridge_opts ]
+
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
             raise Error("refusing to write to %s\nheader not found: %s" %
                         (self.CONF_FILE, self.HEADER_UNCONFIGURED))
+
+        # carry over previously defined bridge options
+        ifconf += "\n" + "\n".join([ "    " + opt
+                                   for opt in self._get_bridge_opts(ifname) ])
 
         # carry over previously defined interface options
         ifconf += "\n" + "\n".join(["    " + opt
@@ -83,7 +98,13 @@ class EtcNetworkInterfaces:
                 fob.write(self.conf[c] + '\n')
 
     def set_dhcp(self, ifname):
-        ifconf = "auto %s\niface %s inet dhcp" % (ifname, ifname)
+        hostname = get_hostname()
+        ifconf = ["auto %s\niface %s inet dhcp" % (ifname, ifname)]
+
+        if hostname:
+            ifconf.append("    hostname %s" % hostname)
+
+        ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
