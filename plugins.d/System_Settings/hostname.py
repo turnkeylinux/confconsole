@@ -75,11 +75,20 @@ def run():
                     fob.write(re.sub(r'hostname .*',
                                      f'hostname {new_hostname}',
                                      line))
-            proc = subprocess.run(['systemctl', 'restart', 'networking'])
-            proc = subprocess.run(['postfix', 'reload'], stderr=PIPE)
-            if proc.returncode != 0:
-                console.msgbox(TITLE,
-                               '{} ({})'.format(out.decode('utf8'), "reloading postfix"))
+            should_restart = console.yesno(
+                    "Networking must be restarted to apply these changes. "
+                    "However restarting networking may close your ssh "
+                    "connection as hostname changes may effect the address "
+                    "allocated to you by DHCP. Not restarting may have other "
+                    "adverse effects in other software.\n\nDo you want to "
+                    "restart networking?", True) == 'ok'
+
+            if should_restart:
+                proc = subprocess.run(['systemctl', 'restart', 'networking'])
+                proc = subprocess.run(['postfix', 'reload'], stderr=PIPE)
+                if proc.returncode != 0:
+                    console.msgbox(TITLE,
+                                   '{} ({})'.format(out.decode('utf8'), "reloading postfix"))
             console.msgbox(TITLE,
                            'Hostname updated successfully. Some applications'
                            ' may require restart before the settings are'
