@@ -139,7 +139,7 @@ class PluginDir(object):
                 self.module_name.capitalize(),
                 self.module_name.capitalize()+'\n', items, no_cancel=False)
 
-        if retcode is not 'ok':
+        if retcode != 'ok':
             if not hasattr(self, 'parent'):
                 return 'advanced'
             else:
