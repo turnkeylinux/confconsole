@@ -62,9 +62,11 @@ echo "$@"
 cat<<EOF
 Syntax: $APP [--force|-f] [-r|--register] [--log-info|-i] [--help|-h]
 
-Wrapper script for dehydrated on TurnKey Linux.
-Provides a clean way to get SSL certs from Let's Encrypt's ACME server,
-regardless of which webserver is being used or how it is configured.
+TurnKey Linux wrapper script for dehydrated.
+
+Provides an easy and reliable way to get SSL/TLS certificates from an ACME
+provider (Let's Encrypt by default), regardless of which webserver is being
+used or how it is configured.
 
 This file is part of confconsole.
 

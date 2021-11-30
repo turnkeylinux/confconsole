@@ -160,12 +160,8 @@ class Installer:
         if not os.path.exists(self.path):
             return False
 
-        with open('/proc/cmdline') as fh:
-            cmdline = fh.readline()
-
-        for cmd in cmdline.split():
-            if cmd == "boot=casper" or cmd == "boot=live":
-                return True
+        with open('/proc/cmdline') as fob:
+            return ' boot=live' in fob.readline()
 
         return False
 
@@ -173,7 +169,7 @@ class Installer:
         if not self.available:
             raise Error("installer is not available to be executed")
 
-        os.system(self.path)
+        subprocess.run([self.path])
 
 
 class TurnkeyConsole:
@@ -730,5 +726,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        os.system('stty sane')
+        subprocess.run(['stty', 'sane'])
         traceback.print_exc()
