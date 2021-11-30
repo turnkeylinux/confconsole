@@ -6,12 +6,20 @@ Confconsole - Let's Encrypt
 Overview
 --------
 
-Confconsole Let's Encrypt plugin provides a simple way to get free
-legitimate SSL certs via Let's Encrypt. It uses a custom mini 
-webserver to host the challenges required by Let's Encrypt (to prove
-your ownership of the domain name). That means that the same tool
-will work with any webserver included with any TurnKey appliance, 
-regardless of webserver configuration.
+Confconsole Let's Encrypt plugin provides a simple way to get free, valid
+SSL/TLS certificates via Let's Encrypt. It leverages the dehydrated_ tool to
+interact with ACME SSL/TLS providers and uses a custom mini-webserver (named
+`add-water`) to host the challenges required to prove your ownership of the
+domain name.
+
+To use this tool, you must already have configured DNS 'A' record(s) to point
+your server's public IP. A static IP is recommended, although so long as an
+'A' record points to your server when you `Get certificate`_.
+
+Because it uses it's own built-in mini-server (`add-water`), this tool will
+work with any webserver included with any TurnKey appliance (or even no
+webserver), regardless of webserver configuration. This can be extended fairly
+easily to work with other servers if required.
 
 .. image:: ./images/03_confconsole_lets_encrypt.png
 
@@ -25,24 +33,22 @@ Currently support webservers are:
 Cert auto renew
 ---------------
 
-Selecting this option makes the default SSL certificate renewal cron
-job (`/etc/cron.daily/confconsole-dehydrated`) executable (or not).
-Only executable files within /etc/cron.daily are triggered automatically
-by cron.
+Selecting this option makes the default SSL/TLS certificate renewal cron job
+(`/etc/cron.daily/confconsole-dehydrated`) executable (or not). Only
+executable files within /etc/cron.daily are triggered automatically by cron.
 
-**Note:** Until you get your initial certificate (which also
-configures dehydrated), the cron job doesn't exist in the cron.daily
-directory. This ensures that the cron job can't be enabled until the
-dehydrated-wrapper has been run (and hopefully a Let's Encrypt SSL
-cert has been generated).
+Do not run this until you have received your initial certificate. The cron job
+doesn't exist in the cron.daily directory until you `Get certificate`_. This
+ensures that the cron job can't be enabled until a valid SSL/TLS cert has been
+generated.
 
 **Note:** TurnKey Let's Encrypt integration **does not** currently
 support wildcard certificates. That requires the DNS validation
-method, which is not currently an option. If you need wildcard
+method, which is not currently an option by default. If you need wildcard
 certificates, you will need to either use Dehydrated directly (with
 an appropriate hook script to make the required DNS records), or
 use an alternate tool (that supports the `DNS-01` validation method)
-to get your Let's Encrypt certificates.
+to get your SSL/TLS certificates.
 
 For more info about what the cron job actually does, please see `Cron
 job details`_ below.
@@ -63,12 +69,12 @@ than one certificate, manual configuration is required. Please see
 `Advanced - create multiple certificates (&/or more than 5 domains)`_
 below.
 
-**Note:** Before you attempt to retreive a certificate, please ensure
-that you have your Domain nameservers correctly configured to resolve
-all of your selected domains to the server you are running
-confconsole. Failure to do so will cause the Let's Encrypt challenges
-to fail (so you won't get a certificate). Repeated failures may cause
-your server to be blocked (for a week) from further attempts.
+**Note:** Before you attempt to retrieve a certificate, you must have your
+domain's nameservers correctly configured with 'A' records which resolve all
+of your selected domains to the server you are running confconsole. Failure
+to do so will cause the Let's Encrypt challenges to fail (so you won't get a
+certificate). Repeated failures may cause your server to be blocked (for up to
+a week - perhaps longer) from further attempts.
 
 Getting a certificate - Behind the scenes
 -----------------------------------------
@@ -127,13 +133,13 @@ certificate from being updated in time.
 Advanced - custom maintence message
 -----------------------------------
 
-As noted, whilst it is serving the challenges, add-water will
-redirect all other urls to the web root. By default it will display
-a simple "Maintenance" message via a basic index.html file.
+As noted, whilst it is serving the challenges, `add-water` will redirect all
+other urls to the web root. By default it will display a simple "Maintenance"
+message via a basic index.html file.
 
-If you wish to display a custom message, then you can add a custom
-index.html file to /var/lib/confconsole/letsencrypt/. E.g. to copy 
-across the default and then tweak it:
+If you wish to display a custom message, then you can add a custom index.html
+file to /var/lib/confconsole/letsencrypt/. E.g. to copy across the default and
+then tweak it:
 
 .. code-block:: bash
 
@@ -141,12 +147,12 @@ across the default and then tweak it:
     cp /usr/share/confconsole/letsencrypt/index.html \
       /var/lib/confconsole/letsencrypt/index.html
 
-add-water will serve /var/lib/confconsole/letsencrypt/index.html
-if it exists, or otherwise will fall back to the default.
+`add-water` will serve /var/lib/confconsole/letsencrypt/index.html if it
+exists, or otherwise will fall back to the default.
 
 **Note:** The custom file must be named `index.html` and contain only
 valid HTML, which may contain inline CSS and/or JavaScript. PHP or
-other server side scripting languages are not supported.
+other server side scripting languages are **not** supported.
 
 Advanced - create multiple certificates (&/or more than 5 domains)
 ------------------------------------------------------------------
@@ -159,25 +165,38 @@ multiple individual certificates.
 For every line in `/etc/dehydrated/confconsole.domains.txt` which is
 not commented (i.e. doesn't start with `#`), dehydrated will attempt
 to create a certificate. Individual domains should be space separated.
-Aditional whitespaces (e.g. spaces, tabs, empty lines, etc) are
+Additional whitespaces (e.g. spaces, tabs, empty lines, etc) are
 ignored.
 
-To create a single certificate with more than 5 domains, please edit
-`/etc/dehydrated/confconsole.domains.txt` and add your additional
-domains onto the end of the current domain line. As noted, domains
-should be space separated.
+To create a single certificate with more than 5 domains, please manually edit
+`/etc/dehydrated/confconsole.domains.txt` and add your additional domains onto
+the end of the current domain line. As noted, domains should be space
+separated. If that file does not exist, first copy the emplate file,
+like this:
 
-To create an additional certificate, create a new line and add the
-space separated domains for this additional certificate there. All of
-the domains on each line will be written to a separate certificate.
+.. code-block:: bash
 
-If you add additional domains, but continue to only generate one
-certificate, no further action is required.
+   cp /usr/share/confconsole/letsencrypt/dehydrated-confconsole.domains \
+         /etc/dehydrated/confconsole.domains.txt
+
+If adding additional domains to the one line (thus generating only one
+certificate), the only additional action required is to run our
+dehydrated-wrapper script. Do that like this:
+
+.. code-block:: bash
+
+   /usr/lib/confconsole/plugins.d/Lets_Encrypt/dehydrated-wrapper \
+         --register --force
 
 Unless you wish to keep the sites completely separate (e.g. a "shared
 hosting" type arrangement) using a single certificate is recommened.
 You can still host completely different content with each domain via
-virtual-hosts, whilst using the same certificate.
+virtual-hosts, whilst using the same certificate. Using the default
+TurnKey config, all siteswill inherit the default certificate.
+
+To create an additional certificate(s); on a new line, add the domain(s)
+for the additional certificate (domains should be space separated). A
+unique certificate will be generated for each line.
 
 If you create multiple certificates, the last certificate generated
 will be the default server certificate for the main webserver, as
@@ -190,7 +209,9 @@ on each line.
 You will need to manually configure the usage of these certificates.
 Generally that will require you to explicitly state the certificate
 path to use in each virtual host (or app if not a webserver).
-Further elaboration is outside the scope of this doc.
+Further elaboration is outside the scope of this doc. Please feel free
+to seek further assistance on the `TurnKey Linux forums`_ (requires free
+website user account).
 
 - **WARNING:** If you re-run confconsole's Let's Encrypt plugin after
   reconfiguring `/etc/dehydrated/confconsole.domains.txt` with more
@@ -208,3 +229,5 @@ Further elaboration is outside the scope of this doc.
   your server temporarily blocked from accessing the Let's Encrypt
   servers.
 
+.. _Dehydrated: https://github.com/dehydrated-io/dehydrated
+.. _TurnKey Linux forums: https://www.turnkeylinux.org/forum

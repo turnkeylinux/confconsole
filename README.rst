@@ -25,13 +25,12 @@ The main screen of Confconsole provides the following information:
 
 .. image:: ./docs/images/00_confconsole_core_main.png
 
-As of v2.x (default in v16.x TurnKey appliances), Configuration Console
-will be invoked automatically on first log in. It will also automatically
-start on firstboot; but without the "Advanced Menu" available (log in is
-required to access "Advanced").
+Configuration Console will be invoked automatically on firstboot, but without
+the "Advanced Menu" available. By default it will also auto launch (with
+"Advanced Menu") on first login. Unless you enable auto-start, it will
+need to be manually invoked for subsequent use.
 
-The Configuration Console (confconsole) may be executed manually as
-well:
+Manually invoke the Configuration Console (confconsole) like this:
 
 .. code-block:: bash
 
@@ -42,7 +41,9 @@ Advanced
 
 Additional Confconsole functionality is provided by way of a
 "`Plugin`_" system. To navigate to the plugins, please enter the
-"Advanced" menu.
+"Advanced" menu. Note that only the default plugins are noted here.
+Some TurnKey GNU/Linux appliances may have additional (or modified)
+plugins.
 
 The advanced menu:
 
@@ -50,7 +51,6 @@ The advanced menu:
 
 The Advanced menu provides the below functionality in all appliances
 (some items have additional docs available via clickable headings).
-Note that some appliances may include additional (or modified) plugins.
 
 - `Networking`_:
 
@@ -78,10 +78,11 @@ Note that some appliances may include additional (or modified) plugins.
 
 - `System settings`_:
 
+  - confconsole autostart config
   - install security updates
   - update hostname
 
-- Install the system to the hard disk (only when running live)
+- Install the system to the hard disk (only available when running live)
 - Reboot the appliance
 - Shut down the appliance
 - Quit (return to commandline)
@@ -92,26 +93,14 @@ Installation
 Confconsole is installed by default in all `TurnKey Linux Appliances`_
 so no installation should be required for TurnKey users.
 
-For users of TurnKey Linux v15.x, bugs related to Let's Encrypt require you
-to manually update - please carefully follow the `v1.1.2 Release notes`_.
-
-For v16.x (Confconsole v2.0.x) users, the Let's Encrypt bug has been resolved
-and it should "just work". However, if you wish to ensure that you are running
-the latest, please see below for how to upgrade to the latest version.
-
-As of v2.x, Confconsole should be compatible with vanilla Debian Buster (and
-possibly vanilla Ubuntu of a similar age version too). It does have some
-specific TurnKey dependencies, but now uses default Debian python3-dialog.
+Confconsole should be compatible with vanilla Debian (and likely recent
+vanilla Ubuntu too). It does have some specific TurnKey dependencies,
+but most dependencies come direct from Debian.
 
 Upgrade Confconsole
 -------------------
 
-If you are running TurnKey v15.x - with Confconsole v1.1.x - these instructions
-do not apply. v15.x users need to carefully follow the `v1.1.2 Release notes`_.
-If you have problems or questions, please post on our `support forums`_
-(requires free website user account).
-
-Confconsole v2.0.x is installed by default in TurnKey Linux v16.0+. However,
+Confconsole is installed by default in `TurnKey Linux Appliances`_. However,
 to ensure that you are running the latest version, you can upgrade via apt:
 
 .. code-block:: bash
@@ -119,13 +108,16 @@ to ensure that you are running the latest version, you can upgrade via apt:
     apt-get update
     apt-get install confconsole
 
+If you have problems or questions, please post on our `support forums`_
+(requires free website user account).
+
 Plugins
 -------
 
-The plugins system allows support for additional functionality via
-simply dropping a(n appropriately coded) python3 plugin file within the
-Confconsole file hierarchy. We aim to include more new functionality via
-this in coming releases.
+The plugins system allows support for additional functionality via simply
+dropping a(n appropriately coded) python3 plugin file within the Confconsole
+file hierarchy. We aim to include more new functionality via this in coming
+releases.
 
 Developers may be interested in reading further about the `Plugin`_ system.
 
@@ -139,5 +131,4 @@ Developers may be interested in reading further about the `Plugin`_ system.
 .. _Region config: ./docs/Region_config.rst
 .. _System settings: ./docs/System_settings.rst
 .. _TurnKey Linux Appliances: https://www.turnkeylinux.org/all
-.. _v1.1.2 Release notes: https://github.com/turnkeylinux/confconsole/releases/tag/v1.1.2
 .. _support forums: https://www.turnkeylinux.org/forum/support
