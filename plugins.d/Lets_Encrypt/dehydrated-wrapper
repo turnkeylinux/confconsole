@@ -30,6 +30,9 @@ AUTHBIND80=/etc/authbind/byport/80
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
 
+# space separated list of systemd services to restart
+SERVICES_TO_RESTART="stunnel4@webmin.service stunnel4@shellinabox.service"
+
 LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
 LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
     | sed 's|^.*Service": "||; s|",$||')
@@ -169,9 +172,7 @@ clean_finish() {
         info "Cleaning backup cert & key"
         rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak $TKL_COMBINED.bak
     fi
-    STUNNEL=$(systemctl list-units --type=service --state=active \
-        | grep stunnel | cut -d' ' -f1)
-    restart_servers $WEBSERVER $STUNNEL
+    restart_servers $SERVICES_TO_RESTART
     if [ $EXIT_CODE -ne 0 ]; then
         warning "Check today's previous log entries for details of error."
     else
