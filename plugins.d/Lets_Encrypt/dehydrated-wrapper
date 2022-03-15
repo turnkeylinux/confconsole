@@ -172,7 +172,15 @@ clean_finish() {
         info "Cleaning backup cert & key"
         rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak $TKL_COMBINED.bak
     fi
-    restart_servers $SERVICES_TO_RESTART
+    if [[ "$WEBSERVER" == "tomcat"* ]]; then
+        update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
+        if [[ -x "$update_tomcat_cert" ]]; then
+            $update_tomcat_cert
+        else
+            warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
+        fi
+    fi
+    restart_servers $WEBSERVER $SERVICES_TO_RESTART
     if [ $EXIT_CODE -ne 0 ]; then
         warning "Check today's previous log entries for details of error."
     else
