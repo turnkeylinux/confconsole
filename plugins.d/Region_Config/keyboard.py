@@ -1,6 +1,6 @@
 '''Reconfigure Keyboard '''
 import subprocess
-from subprocess import check_output
+from subprocess import check_output, check_call
 
 
 def is_installed(pkg):
@@ -22,7 +22,8 @@ def run():
                 to_install.append(package)
         if to_install:
             ret = console.yesno('The following package(s) is/are required for'
-                                ' this operation:\n\n    {*to_install}\n\n'
+                                ' this operation:\n\n'
+                                f'    {" ".join(to_install)}\n\n'
                                 'Do you wish to install now?', autosize=True)
 
             if ret == 'ok':
