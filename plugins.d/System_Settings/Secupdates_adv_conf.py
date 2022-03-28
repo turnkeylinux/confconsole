@@ -21,6 +21,7 @@ allow removal of packages. This will maximise uptime of all services, but \
 conversely, may also allow services with unpatched security vulnerabilities \
 to continue running."""
 
+
 def new_link(link_path: Path, target_path: Path) -> None:
     try:
         link_path.unlink()
@@ -62,11 +63,12 @@ def button_label(current: str) -> str:
         options.remove(current)
     except ValueError:
         pass
-    
+
     other = options[0]
     msg = f"Enable '{other}'"
 
     return f"{msg:^20}"
+
 
 def get_details(choice: str) -> Union[str, None]:
     if choice == 'default':
@@ -75,6 +77,7 @@ def get_details(choice: str) -> Union[str, None]:
         return info_alternate
     else:
         return None
+
 
 def run() -> None:
     retcode, data = check_paths()
