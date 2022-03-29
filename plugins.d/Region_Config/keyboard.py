@@ -1,6 +1,6 @@
 '''Reconfigure Keyboard '''
-import os
-from subprocess import check_call, check_output, CalledProcessError
+import subprocess
+from subprocess import check_output, check_call
 
 
 def is_installed(pkg):
@@ -13,17 +13,21 @@ def is_installed(pkg):
 
 
 def run():
-    flag = ''
+    flag = []
 
     if interactive:
-        if not is_installed('keyboard-configuration'):
-            ret = console.yesno('The keyboard-configuration package is'
-                                ' required for this operation, do you wish'
-                                ' to install it now?', autosize=True)
+        to_install = []
+        for package in ['console-setup', 'keyboard-configuration']:
+            if not is_installed(package):
+                to_install.append(package)
+        if to_install:
+            ret = console.yesno('The following package(s) is/are required for'
+                                ' this operation:\n\n'
+                                f'    {" ".join(to_install)}\n\n'
+                                'Do you wish to install now?', autosize=True)
 
             if ret == 'ok':
-                check_call(['apt-get', '-y', 'install',
-                            'keyboard-configuration'])
+                check_call(['apt-get', '-y', 'install', *to_install])
             else:
                 return
 
@@ -34,7 +38,9 @@ def run():
         if ret != 0:
             return
     else:
-        flag = '-f noninteractive'
+        flag = ['-f', 'noninteractive']
 
-    os.system('dpkg-reconfigure %s keyboard-configuration' % flag)
-    os.system('service keyboard-setup restart')
+    subprocess.run(['dpkg-reconfigure', 'keyboard-configuration', *flag])
+    subprocess.run(['udevadm', 'trigger',
+                    '--subsystem-match=input', '--action=change'])
+    subprocess.run(['service', 'keyboard-setup', 'restart'])
