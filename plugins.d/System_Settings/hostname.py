@@ -24,10 +24,15 @@ def _validate_hostname(hostname):
         return None
 
 
+def _get_current_hostname():
+    with open('/etc/hostname') as fob:
+        return fob.readline().strip()
+
 def run():
     while True:
         ret, new_hostname = console.inputbox(
-                TITLE, 'Please enter the new hostname for this machine:')
+                TITLE, 'Please enter the new hostname for this machine:',
+                _get_current_hostname())
         if ret == 'ok':
             valid_hostname = _validate_hostname(new_hostname)
             if not valid_hostname:
