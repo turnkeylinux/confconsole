@@ -161,7 +161,7 @@ class Installer:
             return False
 
         with open('/proc/cmdline') as fob:
-            return ' boot=live' in fob.readline()
+            return 'boot=live' in fob.readline().split()
 
         return False
 
