@@ -114,18 +114,18 @@ class EtcNetworkInterfaces:
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
         hostname = get_hostname()
         ifconf = [f"auto {ifname}",
-                  f"iface {ifname} inet static",
-                  f"    address {addr}",
-                  f"    netmask {netmask}"]
+                  f"iface {ifname} inet static"]
 
         if hostname:
-            ifconf.insert(2, f"    hostname {hostname}")
+            ifconf.append(f"    hostname {hostname}")
+
+        ifconf.extend([f"    address {addr}",
+                       f"    netmask {netmask}"])
 
         if gateway:
             ifconf.append(f"    gateway {gateway}")
 
         if nameservers:
-
             ifconf.append(f"    dns-nameservers {' '.join(nameservers)}")
 
         ifconf = "\n".join(ifconf)
