@@ -112,16 +112,21 @@ class EtcNetworkInterfaces:
         self.write_conf(ifname, ifconf)
 
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
-        ifconf = ["auto %s" % ifname,
-                  "iface %s inet static" % ifname,
-                  "    address %s" % addr,
-                  "    netmask %s" % netmask]
+        hostname = get_hostname()
+        ifconf = [f"auto {ifname}",
+                  f"iface {ifname} inet static",
+                  f"    address {addr}",
+                  f"    netmask {netmask}"]
+
+        if hostname:
+            ifconf.insert(2, f"    hostname {hostname}")
 
         if gateway:
-            ifconf.append("    gateway %s" % gateway)
+            ifconf.append(f"    gateway {gateway}")
 
         if nameservers:
-            ifconf.append("    dns-nameservers %s" % " ".join(nameservers))
+
+            ifconf.append(f"    dns-nameservers {' '.join(nameservers)}")
 
         ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
