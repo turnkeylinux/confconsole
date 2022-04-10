@@ -1,4 +1,5 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+# Copyright (c) 2022 TurnKey GNU/Linux <admin@turnkeylinux.org>
 
 import os
 from time import sleep
@@ -59,7 +60,11 @@ class EtcNetworkInterfaces:
                 if line.strip().split()[0] in iface_opts]
 
     def _get_bridge_opts(self, ifname):
-        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio', 'bridge_fd', 'bridge_gcinit', 'bridge_hello', 'bridge_hw', 'bridge_maxage', 'bridge_maxwait', 'bridge_pathcost', 'bridge_portprio', 'bridge_stp', 'bridge_waitport')
+        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio',
+                       'bridge_fd', 'bridge_gcinit', 'bridge_hello',
+                       'bridge_hw', 'bridge_maxage', 'bridge_maxwait',
+                       'bridge_pathcost', 'bridge_portprio', 'bridge_stp',
+                       'bridge_waitport')
         if ifname not in self.conf:
             return []
 
@@ -99,16 +104,16 @@ class EtcNetworkInterfaces:
 
     def set_dhcp(self, ifname):
         hostname = get_hostname()
-        ifconf = ["auto %s\niface %s inet dhcp" % (ifname, ifname)]
+        ifconf = [f"auto {ifname}\niface {ifname} inet dhcp"]
 
         if hostname:
-            ifconf.append("    hostname %s" % hostname)
+            ifconf.append(f"    hostname {hostname}")
 
         ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
-        ifconf = "auto %s\niface %s inet manual" % (ifname, ifname)
+        ifconf = f"auto {ifname}\niface {ifname} inet manual"
         self.write_conf(ifname, ifconf)
 
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
