@@ -9,7 +9,7 @@ from netinfo import InterfaceInfo
 from netinfo import get_hostname
 
 
-class Error(Exception):
+class IfError(Exception):
     pass
 
 
@@ -76,7 +76,7 @@ class EtcNetworkInterfaces:
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
-            raise Error("refusing to write to %s\nheader not found: %s" %
+            raise IfError("refusing to write to %s\nheader not found: %s" %
                         (self.CONF_FILE, self.HEADER_UNCONFIGURED))
 
         # carry over previously defined bridge options
@@ -233,9 +233,9 @@ def unconfigure_if(ifname):
         ifdown(ifname)
         interfaces = EtcNetworkInterfaces()
         interfaces.set_manual(ifname)
-        os.system("ifconfig %s 0.0.0.0" % ifname)
+        subprocess.check_output(['ifconfig', ifname, '0.0.0.0'])
         ifup(ifname)
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         return str(e)
 
 
@@ -252,7 +252,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise Error('Error obtaining IP address\n\n%s' % output)
+            raise IfError('Error obtaining IP address\n\n%s' % output)
 
     except Exception as e:
         return str(e)
@@ -267,7 +267,7 @@ def set_dhcp(ifname):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise Error('Error obtaining IP address\n\n%s' % output)
+            raise IfError('Error obtaining IP address\n\n%s' % output)
 
     except Exception as e:
         return str(e)
