@@ -69,9 +69,9 @@ class EtcNetworkInterfaces:
             return []
 
         ifconf = self.conf[ifname]
-        return [ line.strip()
-                 for line in ifconf.splitlines()
-                 if line.strip().split()[0] in bridge_opts ]
+        return [line.strip()
+                for line in ifconf.splitlines()
+                if line.strip().split()[0] in bridge_opts]
 
     def write_conf(self, ifname, ifconf):
         self.read_conf()
@@ -80,8 +80,8 @@ class EtcNetworkInterfaces:
                           f"header not found: {self.HEADER_UNCONFIGURED}")
 
         # carry over previously defined bridge options
-        ifconf += "\n" + "\n".join([ "    " + opt
-                                   for opt in self._get_bridge_opts(ifname) ])
+        ifconf += "\n" + "\n".join(["    " + opt
+                                   for opt in self._get_bridge_opts(ifname)])
 
         # carry over previously defined interface options
         ifconf += "\n" + "\n".join(["    " + opt
@@ -275,7 +275,8 @@ def set_dhcp(ifname):
 
 def get_ipconf(ifname, error=False):
     net = InterfaceInfo(ifname)
-    return net.addr, net.netmask, net.get_gateway(error), get_nameservers(ifname)
+    return (net.addr, net.netmask,
+            net.get_gateway(error), get_nameservers(ifname))
 
 
 def get_ifmethod(ifname):
