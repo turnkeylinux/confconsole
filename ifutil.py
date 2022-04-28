@@ -1,4 +1,5 @@
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
+# Copyright (c) 2022 TurnKey GNU/Linux <admin@turnkeylinux.org>
 
 import os
 from time import sleep
@@ -8,7 +9,7 @@ from netinfo import InterfaceInfo
 from netinfo import get_hostname
 
 
-class Error(Exception):
+class IfError(Exception):
     pass
 
 
@@ -59,24 +60,28 @@ class EtcNetworkInterfaces:
                 if line.strip().split()[0] in iface_opts]
 
     def _get_bridge_opts(self, ifname):
-        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio', 'bridge_fd', 'bridge_gcinit', 'bridge_hello', 'bridge_hw', 'bridge_maxage', 'bridge_maxwait', 'bridge_pathcost', 'bridge_portprio', 'bridge_stp', 'bridge_waitport')
+        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio',
+                       'bridge_fd', 'bridge_gcinit', 'bridge_hello',
+                       'bridge_hw', 'bridge_maxage', 'bridge_maxwait',
+                       'bridge_pathcost', 'bridge_portprio', 'bridge_stp',
+                       'bridge_waitport')
         if ifname not in self.conf:
             return []
 
         ifconf = self.conf[ifname]
-        return [ line.strip()
-                 for line in ifconf.splitlines()
-                 if line.strip().split()[0] in bridge_opts ]
+        return [line.strip()
+                for line in ifconf.splitlines()
+                if line.strip().split()[0] in bridge_opts]
 
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
-            raise Error("refusing to write to %s\nheader not found: %s" %
-                        (self.CONF_FILE, self.HEADER_UNCONFIGURED))
+            raise IfError(f"refusing to write to {self.CONF_FILE}\n"
+                          f"header not found: {self.HEADER_UNCONFIGURED}")
 
         # carry over previously defined bridge options
-        ifconf += "\n" + "\n".join([ "    " + opt
-                                   for opt in self._get_bridge_opts(ifname) ])
+        ifconf += "\n" + "\n".join(["    " + opt
+                                   for opt in self._get_bridge_opts(ifname)])
 
         # carry over previously defined interface options
         ifconf += "\n" + "\n".join(["    " + opt
@@ -99,29 +104,34 @@ class EtcNetworkInterfaces:
 
     def set_dhcp(self, ifname):
         hostname = get_hostname()
-        ifconf = ["auto %s\niface %s inet dhcp" % (ifname, ifname)]
+        ifconf = [f"auto {ifname}\niface {ifname} inet dhcp"]
 
         if hostname:
-            ifconf.append("    hostname %s" % hostname)
+            ifconf.append(f"    hostname {hostname}")
 
         ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
-        ifconf = "auto %s\niface %s inet manual" % (ifname, ifname)
+        ifconf = f"auto {ifname}\niface {ifname} inet manual"
         self.write_conf(ifname, ifconf)
 
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
-        ifconf = ["auto %s" % ifname,
-                  "iface %s inet static" % ifname,
-                  "    address %s" % addr,
-                  "    netmask %s" % netmask]
+        hostname = get_hostname()
+        ifconf = [f"auto {ifname}",
+                  f"iface {ifname} inet static"]
+
+        if hostname:
+            ifconf.append(f"    hostname {hostname}")
+
+        ifconf.extend([f"    address {addr}",
+                       f"    netmask {netmask}"])
 
         if gateway:
-            ifconf.append("    gateway %s" % gateway)
+            ifconf.append(f"    gateway {gateway}")
 
         if nameservers:
-            ifconf.append("    dns-nameservers %s" % " ".join(nameservers))
+            ifconf.append(f"    dns-nameservers {' '.join(nameservers)}")
 
         ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
@@ -223,9 +233,9 @@ def unconfigure_if(ifname):
         ifdown(ifname)
         interfaces = EtcNetworkInterfaces()
         interfaces.set_manual(ifname)
-        os.system("ifconfig %s 0.0.0.0" % ifname)
+        subprocess.check_output(['ifconfig', ifname, '0.0.0.0'])
         ifup(ifname)
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         return str(e)
 
 
@@ -242,7 +252,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise Error('Error obtaining IP address\n\n%s' % output)
+            raise IfError('Error obtaining IP address\n\n%s' % output)
 
     except Exception as e:
         return str(e)
@@ -257,7 +267,7 @@ def set_dhcp(ifname):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise Error('Error obtaining IP address\n\n%s' % output)
+            raise IfError('Error obtaining IP address\n\n%s' % output)
 
     except Exception as e:
         return str(e)
@@ -265,7 +275,8 @@ def set_dhcp(ifname):
 
 def get_ipconf(ifname, error=False):
     net = InterfaceInfo(ifname)
-    return net.addr, net.netmask, net.get_gateway(error), get_nameservers(ifname)
+    return (net.addr, net.netmask,
+            net.get_gateway(error), get_nameservers(ifname))
 
 
 def get_ifmethod(ifname):
