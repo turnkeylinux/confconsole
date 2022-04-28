@@ -76,8 +76,8 @@ class EtcNetworkInterfaces:
     def write_conf(self, ifname, ifconf):
         self.read_conf()
         if not self.unconfigured:
-            raise IfError("refusing to write to %s\nheader not found: %s" %
-                        (self.CONF_FILE, self.HEADER_UNCONFIGURED))
+            raise IfError(f"refusing to write to {self.CONF_FILE}\n"
+                          f"header not found: {self.HEADER_UNCONFIGURED}")
 
         # carry over previously defined bridge options
         ifconf += "\n" + "\n".join([ "    " + opt
