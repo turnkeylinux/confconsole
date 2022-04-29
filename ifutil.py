@@ -126,7 +126,7 @@ class EtcNetworkInterfaces:
                     or _line.startswith('dns-nameserver')):
                 continue
             else:
-                raise IfError(f'Unexpect config line: {line}')
+                raise IfError(f'Unexpected config line: {line}')
         return new_lines
 
     def set_dhcp(self, ifname: str) -> None:
