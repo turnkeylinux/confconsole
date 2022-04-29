@@ -89,44 +89,63 @@ class EtcNetworkInterfaces:
 
         with open(self.CONF_FILE, "w") as fob:
             fob.write(self.HEADER_UNCONFIGURED+'\n')
-            fob.write("# remove the above line if you edit this file\n\n")
+            fob.write("# remove the above line if you edit this file")
 
-            fob.write("auto lo\n")
-            fob.write("iface lo inet loopback\n\n")
+            for iface in self.conf.keys():
+                if iface:
+                    fob.write('\n\n')
+                    if iface == ifname:
+                        fob.writelines(ifconf.rstrip())
+                    else:
+                        fob.writelines(self.conf[iface].rstrip())
+            fob.write('\n')
 
-            fob.write(ifconf+'\n')
-
-            for c in self.conf:
-                if c in ('lo', ifname):
+    @staticmethod
+    def _preproc_if(ifname_conf):
+        lines = ifname_conf.splitlines()
+        if len(lines) == 2:
+            return lines
+        new_lines = []
+        hostname = get_hostname()
+        for line in lines:
+            _line = line.lstrip()
+            if (_line.startswith('allow-hotplug')
+                    or _line.startswith('auto')
+                    or _line.startswith('iface')
+                    or _line.startswith('wpa-conf')):
+                new_lines.append(line)
+            elif _line.startswith('hostname'):
+                if hostname:
+                    new_lines.append(f'    hostname {hostname}')
+                else:
                     continue
-
-                fob.write(self.conf[c] + '\n')
+            elif (_line.startswith('address')
+                    or _line.startswith('netmask')
+                    or _line.startswith('gateway')
+                    or _line.startswith('dns-nameserver')):
+                continue
+            else:
+                raise Error(f'Unexpect config line: {line}')
+        return new_lines
 
     def set_dhcp(self, ifname):
-        hostname = get_hostname()
-        ifconf = [f"auto {ifname}\niface {ifname} inet dhcp"]
-
-        if hostname:
-            ifconf.append(f"    hostname {hostname}")
+        ifconf = self._preproc_if(self.conf[ifname])
+        ifconf[1] = f'iface {ifname} inet dhcp'
 
         ifconf = "\n".join(ifconf)
         self.write_conf(ifname, ifconf)
 
     def set_manual(self, ifname):
-        ifconf = f"auto {ifname}\niface {ifname} inet manual"
+        ifconf = self._preproc_if(self.conf[ifname])
+        ifconf[1] = f'iface {ifname} inet manual'
         self.write_conf(ifname, ifconf)
 
     def set_static(self, ifname, addr, netmask, gateway=None, nameservers=[]):
-        hostname = get_hostname()
-        ifconf = [f"auto {ifname}",
-                  f"iface {ifname} inet static"]
-
-        if hostname:
-            ifconf.append(f"    hostname {hostname}")
+        ifconf = self._preproc_if(self.conf[ifname])
+        ifconf[1] = f'iface {ifname} inet static'
 
         ifconf.extend([f"    address {addr}",
                        f"    netmask {netmask}"])
-
         if gateway:
             ifconf.append(f"    gateway {gateway}")
 
