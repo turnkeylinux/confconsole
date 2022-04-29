@@ -29,7 +29,7 @@ class EtcNetworkInterfaces:
         self.read_conf()
 
     def read_conf(self) -> None:
-        self.conf = {}
+        self.conf: dict[str, str] = {}
         self.unconfigured = False
 
         ifname = None
@@ -143,7 +143,7 @@ class EtcNetworkInterfaces:
         self.write_conf(ifname, ifconf_str)
 
     def set_static(self, ifname: str, addr: str, netmask: str,
-                   gateway: str = None, nameservers: list = []
+                   gateway: str = None, nameservers: list = None
                    ) -> None:
         ifconf = self._preproc_if(self.conf[ifname])
         ifconf[1] = f'iface {ifname} inet static'
