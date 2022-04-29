@@ -3,8 +3,8 @@
 
 import os
 from time import sleep
-
 import subprocess
+
 from netinfo import InterfaceInfo
 from netinfo import get_hostname
 
@@ -148,7 +148,6 @@ class EtcNetworkInterfaces:
                        f"    netmask {netmask}"])
         if gateway:
             ifconf.append(f"    gateway {gateway}")
-
         if nameservers:
             ifconf.append(f"    dns-nameservers {' '.join(nameservers)}")
 
@@ -271,7 +270,7 @@ def set_static(ifname, addr, netmask, gateway, nameservers):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise IfError('Error obtaining IP address\n\n%s' % output)
+            raise IfError(f'Error obtaining IP address\n\n{output}')
 
     except Exception as e:
         return str(e)
@@ -286,7 +285,7 @@ def set_dhcp(ifname):
 
         net = InterfaceInfo(ifname)
         if not net.addr:
-            raise IfError('Error obtaining IP address\n\n%s' % output)
+            raise IfError(f'Error obtaining IP address\n\n{output}')
 
     except Exception as e:
         return str(e)
@@ -294,8 +293,8 @@ def set_dhcp(ifname):
 
 def get_ipconf(ifname, error=False):
     net = InterfaceInfo(ifname)
-    return (net.addr, net.netmask,
-            net.get_gateway(error), get_nameservers(ifname))
+    return (net.addr, net.netmask, net.get_gateway(error),
+            get_nameservers(ifname)
 
 
 def get_ifmethod(ifname):
