@@ -42,7 +42,7 @@ class EtcNetworkInterfaces:
                 if not line or line.startswith("#"):
                     continue
 
-                if line.startswith("auto"):
+                if line.startswith("auto") or line.startswith("allow-hotplug"):
                     ifname = line.split()[1]
                     self.conf[ifname] = line + "\n"
                 elif ifname:
