@@ -1,5 +1,6 @@
-plugins.d/  /usr/lib/confconsole/
-*.py        /usr/lib/confconsole/
-conf/*      /etc/confconsole/
-share/*     /usr/share/confconsole/
-add-water/* /lib/systemd/system
+plugins.d/      /usr/lib/confconsole/
+*.py            /usr/lib/confconsole/
+libconfconsole/ /usr/lib/python3/dist-packages/
+conf/*          /etc/confconsole/
+share/*         /usr/share/confconsole/
+add-water/*     /lib/systemd/system
