@@ -57,8 +57,9 @@ class IP(int):
     def __repr__(self):
         return "IP(%r)" % str(self)
 
-    def _numeric_method(method):
-        def f(self, other):
+    @staticmethod
+    def _numeric_method(method: str):
+        def f(self, other: str):
             return IP(getattr(int, method)(self, other))
 
         return f
