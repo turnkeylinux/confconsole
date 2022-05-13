@@ -4,7 +4,7 @@
 import os
 from time import sleep
 import subprocess
-from typing import Optional
+from typing import Optional, Callable
 
 from netinfo import InterfaceInfo
 from netinfo import get_hostname
@@ -299,7 +299,8 @@ def set_dhcp(ifname: str) -> Optional[str]:
 
 
 def get_ipconf(ifname: str, error: bool = False
-               ) -> tuple[str, str, str, list[str]]:
+               ) -> tuple[Callable[[], Optional[str]],
+                          Optional[str], Optional[str], list[str]]:
     net = InterfaceInfo(ifname)
     return (net.addr, net.netmask, net.get_gateway(error),
             get_nameservers(ifname))

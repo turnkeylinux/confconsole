@@ -13,21 +13,17 @@ Options:
 import os
 import sys
 import dialog
-import ipaddr
 from string import Template
-
-import ifutil
-import netinfo
 import getopt
-
-import conf
-
 from io import StringIO
 import traceback
 import subprocess
 from subprocess import PIPE, CalledProcessError
 import shlex
 
+import netinfo
+
+from libconfconsole import ipaddr, ifutil, conf
 import plugin
 
 PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),

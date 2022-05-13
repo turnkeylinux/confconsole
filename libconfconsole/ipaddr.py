@@ -6,7 +6,7 @@ import socket
 import math
 
 
-def is_legal_ip(ip):
+def is_legal_ip(ip: str) -> bool:
     try:
         if len([octet for octet in ip.split(".")
                 if 255 >= int(octet) >= 0]) != 4:
@@ -22,23 +22,23 @@ def is_legal_ip(ip):
     return True
 
 
-def _str2int(ip):
+def _str2int(ip: str) -> str:
     bytes = list(map(int, ip.split('.')))
     ip, = struct.unpack("!L", struct.pack("BBBB", *bytes))
     return ip
 
 
-def _int2str(num):
+def _int2str(num: int) -> str:
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
     return '.'.join(list(map(str, bytes)))
 
 
-class Error(Exception):
+class IpError(Exception):
     pass
 
 
 class IP(int):
-    def __new__(cls, arg):
+    def __new__(cls, arg: str) -> IP:
         if isinstance(arg, IP):
             return int.__new__(cls, int(arg))
 
@@ -47,18 +47,19 @@ class IP(int):
 
         else:
             if not is_legal_ip(arg):
-                raise Error("illegal ip (%s)" % arg)
+                raise IpError(f"illegal ip ({arg})")
 
             return int.__new__(cls, _str2int(arg))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return _int2str(self)
 
-    def __repr__(self):
-        return "IP(%r)" % str(self)
+    def __repr__(self) -> str:
+        return f"IP({str(self)})"
 
-    def _numeric_method(method):
-        def f(self, other):
+    @staticmethod
+    def _numeric_method(method: str):
+        def f(self, other: str):
             return IP(getattr(int, method)(self, other))
 
         return f
@@ -72,25 +73,25 @@ class IP(int):
 
 class IPRange:
     @classmethod
-    def from_cidr(cls, arg):
+    def from_cidr(cls, arg: str) -> IPRange:
         address, cidr = arg.split('/')
         netmask = 2 ** 32 - (2 ** (32 - int(cidr)))
         return cls(address, netmask)
 
-    def __init__(self, ip, netmask):
+    def __init__(self, ip: str, netmask: str):
         self.ip = IP(ip)
         self.netmask = IP(netmask)
         self.network = self.ip & self.netmask
         self.broadcast = self.network + 2 ** 32 - self.netmask - 1
         self.cidr = int(32 - math.log(2 ** 32 - self.netmask, 2))
 
-    def __contains__(self, ip):
+    def __contains__(self, ip: str) -> bool:
         return self.network < IP(ip) < self.broadcast
 
-    def __repr__(self):
-        return "IPRange('%s', '%s')" % (self.ip, self.netmask)
+    def __repr__(self) -> str:
+        return f"IPRange('{self.ip}', '{self.netmask}')"
 
-    def fmt_cidr(self):
-        return "%s/%d" % (self.ip, self.cidr)
+    def fmt_cidr(self) -> str:
+        return f"{self.ip}/{self.cidr}"
 
     __str__ = fmt_cidr
