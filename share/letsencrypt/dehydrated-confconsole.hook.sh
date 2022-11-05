@@ -37,7 +37,7 @@ function deploy_cert {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}" TIMESTAMP="${6}"
 
     hook_log success "Cert request successful. Writing relevant files for $DOMAIN."
-    hook_log info "fullchain: $FULLCHAIN"
+    hook_log info "fullchain: $FULLCHAINFILE"
     hook_log info "keyfile: $KEYFILE"
     cat "$KEYFILE" > $TKL_KEYFILE
     cat "$FULLCHAINFILE" > $TKL_CERTFILE
