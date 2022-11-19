@@ -5,7 +5,8 @@ import sys
 import subprocess
 from subprocess import PIPE
 from os import path, remove
-from shutil import copyfile
+from shutil import copyfile, which
+from get_dns_providers import get_providers
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -73,6 +74,10 @@ def invalid_domains(domains):
                 return ('Error in {}: Domain names must not exceed 254'
                         ' characters'.format(domain))
             for part in domain.split('.'):
+                if not len(domain.split('.')) > 1:
+                    return ('Error in {}: Domain may not have less'
+                            ' than 2 segments'
+                            ''.format(domain))
                 if not 0 < len(part) < 64:
                     return ('Error in {}: Domain segments may not be larger'
                             ' than 63 characters or less than 1'
@@ -146,6 +151,51 @@ def run():
 
     values = domains
 
+    ret, challenge = console.menu('Challenge type',
+                                  'Select challenge type to use', [
+        ('http-01', 'Requires public web access to this system'),
+        ('dns-01', 'Requires your DNS provider to provide an API')
+    ])
+    if ret != 'ok':
+        return
+
+    if challenge == 'dns-01':
+        ret = console.yesno(
+            'Is lexicon already configured for your desired DNS provider?\n\n'
+            'You can follow configuration reference at:\n'
+            'https://dns-lexicon.readthedocs.io/\n\n'
+            'Do you wish to continue?',
+            autosize=True
+        )
+        if ret != 'ok':
+            return
+
+        providers, err = get_providers()
+        if err:
+            console.msgbox('Error', err, autosize=True)
+            return
+
+        ret, provider = console.menu('DNS providers list',
+                                     'Select DNS provider you\'d like to use',
+                                     providers)
+        if ret != 'ok':
+            return
+        elif provider == 'auto' and not which('nslookup'):
+            ret = console.yesno(
+                'nslookup tool is required to use dns-01 challenge with auto provider.\n\n'
+                'Would you like to install it now?',
+                autosize=True
+            )
+            if ret != 'ok':
+                return
+
+            apt = subprocess.run(['apt', '-y', 'install', 'dnsutils'],
+                                 encoding=sys.stdin.encoding,
+                                 capture_output=True)
+            if apt.returncode != 0:
+                console.msgbox('Error', apt.stderr.strip(), autosize=True)
+                return
+
     while True:
         while True:
             fields = [
@@ -179,10 +229,13 @@ def run():
 
         # User has accepted ToS as part of this process, so pass '--register'
         # switch to Dehydrated wrapper
-        proc = subprocess.run(
-                    ['bash', path.join(
-                        path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                     '--register'],
+        dehydrated_bin = ['bash', path.join(
+                            path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
+                          '--register', '--challenge', challenge]
+        if challenge == 'dns-01':
+            dehydrated_bin.append('--provider')
+            dehydrated_bin.append(provider)
+        proc = subprocess.run(dehydrated_bin,
                     encoding=sys.stdin.encoding,
                     stderr=PIPE)
         if proc.returncode == 0:
