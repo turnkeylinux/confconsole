@@ -5,8 +5,8 @@
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
 
 export PROVIDER_UPDATE_DELAY=${PROVIDER_UPDATE_DELAY:-"30"}
-#provider 'auto' can be used once all appliances are upgraded to Debian 11.
-#export PROVIDER=${PROVIDER:-"auto"}
+#provider 'auto' can be used since roughly v3.3.13 of lexicon.
+export PROVIDER=${PROVIDER:-"auto"}
 
 function hook_log {
     default="[$(date "+%Y-%m-%d %H:%M:%S")] $(basename $0):"
@@ -23,14 +23,12 @@ for var in PROVIDER LEXICON_CONFIG_DIR TKL_KEYFILE TKL_CERTFILE TKL_COMBINED TKL
 done
 
 function deploy_challenge {
-    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}" PWD=$(pwd)
+    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
     hook_log info "Deploying challenge for $DOMAIN."
     hook_log info "Creating a TXT challenge-record with $PROVIDER."
-    cd $LEXICON_CONFIG_DIR #this crutch can be potentially replaced with --config-dir argument starting with v3.1.6 of lexicon
-    lexicon $PROVIDER create ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
+    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER create ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
       --content="${TOKEN_VALUE}"
-    cd $PWD
 
     local DELAY_COUNTDOWN=$PROVIDER_UPDATE_DELAY
     while [ $DELAY_COUNTDOWN -gt 0 ]; do
@@ -47,14 +45,12 @@ function invalid_challenge() {
 }
 
 function clean_challenge {
-    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}" PWD=$(pwd)
+    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
     hook_log info "Clean challenge for ${DOMAIN}."
 
-    cd $LEXICON_CONFIG_DIR #this crutch can be potentially replaced with --config-dir argument starting with v3.1.6 of lexicon
-    lexicon $PROVIDER delete ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
+    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER delete ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
     --content="${TOKEN_VALUE}"
-    cd $PWD
 }
 
 function deploy_cert {
@@ -75,8 +71,10 @@ function unchanged_cert {
     hook_log info "cert for $DOMAIN is unchanged - nothing to do"
 }
 
-[ $(which nslookup) ] || hook_log fatal "nslookup not installed."
-[ $(which lexicon) ] || hook_log fatal "lexicon not installed."
+[ $(which lexicon) ] || hook_log fatal "lexicon is not installed."
+if [ "$PROVIDER" = "auto" ]; then
+    [ $(which nslookup) ] || hook_log fatal "nslookup is not installed(provided by dnsutils package)."
+fi
 
 HANDLER="$1"; shift
 case "$HANDLER" in
