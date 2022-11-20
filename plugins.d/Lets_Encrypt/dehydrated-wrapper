@@ -309,7 +309,7 @@ else
 fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
-systemctl start add-water
+[ "$CTYPE" != "dns-01" ] && systemctl start add-water
 info "running dehydrated"
 if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
     dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
