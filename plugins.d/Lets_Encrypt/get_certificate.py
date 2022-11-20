@@ -107,7 +107,7 @@ def run():
 
     ret = console.yesno(
         'DNS must be configured before obtaining certificates. '
-        'Incorrectly configured dns and excessive attempts could '
+        'Incorrectly configured DNS and excessive attempts could '
         'lead to being temporarily blocked from requesting '
         'certificates.\n\nDo you wish to continue?',
         autosize=True
@@ -136,20 +136,6 @@ def run():
             autosize=True
         )
         return
-
-    domains = load_domains()
-    m = invalid_domains(domains)
-
-    if m:
-        ret = console.yesno(
-                (str(m) + '\n\nWould you like to ignore and overwrite data?'))
-        if ret == 'ok':
-            remove(domain_path)
-            domains = load_domains()
-        else:
-            return
-
-    values = domains
 
     ret, challenge = console.menu('Challenge type',
                                   'Select challenge type to use', [
@@ -195,6 +181,20 @@ def run():
             if apt.returncode != 0:
                 console.msgbox('Error', apt.stderr.strip(), autosize=True)
                 return
+
+    domains = load_domains()
+    m = invalid_domains(domains)
+
+    if m:
+        ret = console.yesno(
+                (str(m) + '\n\nWould you like to ignore and overwrite data?'))
+        if ret == 'ok':
+            remove(domain_path)
+            domains = load_domains()
+        else:
+            return
+
+    values = domains
 
     while True:
         while True:
