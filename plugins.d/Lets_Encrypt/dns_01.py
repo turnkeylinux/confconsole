@@ -2,8 +2,47 @@
 import sys
 import subprocess
 from subprocess import PIPE
+from os import path
 from shutil import which
 import re
+
+LEXICON_CONF = '/usr/share/confconsole/letsencrypt/lexicon.yml'
+
+LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dns-lexicon.readthedocs.io/
+# Note that documentation began around v.3.3.28 of lexicon. Therefore not all of
+# the features might be available to you!
+'''
+
+LEXICON_CONF_MAX_LINES = 7
+
+def load_config():
+    ''' Loads lexicon config if present '''
+    config = []
+    if not path.isfile(LEXICON_CONF):
+        while len(config) < LEXICON_CONF_MAX_LINES:
+            config.append('')
+        return config
+    else:
+        with open(LEXICON_CONF, 'r') as fob:
+            for line in fob:
+                line = line.rstrip()
+                if line and not line.startswith('#'):
+                    config.append(line)
+
+        while len(config) > LEXICON_CONF_MAX_LINES:
+            config.pop()
+        while len(config) < LEXICON_CONF_MAX_LINES:
+            config.append('')
+        return config
+
+def save_config(config):
+    ''' Saves lexicon configuration '''
+    with open(LEXICON_CONF, 'w') as fob:
+        fob.write(LEXICON_CONF_NOTE)
+        for line in config:
+            line = line.rstrip()
+            if line:
+                fob.write(line + '\n')
 
 def get_providers():
     lexicon_bin = which('lexicon')

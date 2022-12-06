@@ -6,7 +6,7 @@ import subprocess
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
-from get_dns_providers import get_providers
+import dns_01
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -147,17 +147,29 @@ def run():
             return
 
     if challenge == 'dns-01':
-        ret = console.yesno(
-            'Is lexicon already configured for your desired DNS provider?\n\n'
-            'You can follow configuration reference at:\n'
-            'https://dns-lexicon.readthedocs.io/\n\n'
-            'Do you wish to continue?',
-            autosize=True
-        )
+        config = dns_01.load_config()
+        fields = [
+            ('', 1, 0, config[0], 1, 10, field_width, 255),
+            ('', 2, 0, config[1], 2, 10, field_width, 255),
+            ('', 3, 0, config[2], 3, 10, field_width, 255),
+            ('', 4, 0, config[3], 4, 10, field_width, 255),
+            ('', 5, 0, config[4], 5, 10, field_width, 255),
+            ('', 6, 0, config[5], 6, 10, field_width, 255),
+            ('', 7, 0, config[6], 7, 10, field_width, 255),
+        ]
+        ret, values = console.form('Lexicon configuration',
+                                   'Review and adjust current lexicon '
+                                   'configuration as necessary.\n\n'
+                                   'You can follow configuration reference at:\n'
+                                   'https://dns-lexicon.readthedocs.io/',
+                                   fields, autosize=True)
         if ret != 'ok':
             return
 
-        providers, err = get_providers()
+        if config != values:
+            dns_01.save_config(values)
+        
+        providers, err = dns_01.get_providers()
         if err:
             console.msgbox('Error', err, autosize=True)
             return
