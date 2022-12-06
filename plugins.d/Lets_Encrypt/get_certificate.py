@@ -73,11 +73,11 @@ def invalid_domains(domains):
             if len(domain) > 254:
                 return ('Error in {}: Domain names must not exceed 254'
                         ' characters'.format(domain))
+            if domain.count('.') < 1:
+                return ('Error in {}: Domain may not have less'
+                        ' than 2 segments'
+                        ''.format(domain))
             for part in domain.split('.'):
-                if not len(domain.split('.')) > 1:
-                    return ('Error in {}: Domain may not have less'
-                            ' than 2 segments'
-                            ''.format(domain))
                 if not 0 < len(part) < 64:
                     return ('Error in {}: Domain segments may not be larger'
                             ' than 63 characters or less than 1'
@@ -103,16 +103,6 @@ def run():
         msg = 'Data error, no value found for "terms-of-service"'
     if not tos_url:
         console.msgbox('Error', msg, autosize=True)
-        return
-
-    ret = console.yesno(
-        'DNS must be configured before obtaining certificates. '
-        'Incorrectly configured DNS and excessive attempts could '
-        'lead to being temporarily blocked from requesting '
-        'certificates.\n\nDo you wish to continue?',
-        autosize=True
-    )
-    if ret != 'ok':
         return
 
     ret = console.yesno(
@@ -145,6 +135,17 @@ def run():
     if ret != 'ok':
         return
 
+    if challenge == 'http-01':
+        ret = console.yesno(
+            'DNS must be configured before obtaining certificates. '
+            'Incorrectly configured DNS and excessive attempts could '
+            'lead to being temporarily blocked from requesting '
+            'certificates.\n\nDo you wish to continue?',
+            autosize=True
+        )
+        if ret != 'ok':
+            return
+
     if challenge == 'dns-01':
         ret = console.yesno(
             'Is lexicon already configured for your desired DNS provider?\n\n'
@@ -169,15 +170,15 @@ def run():
         elif provider == 'auto' and not which('nslookup'):
             ret = console.yesno(
                 'nslookup tool is required to use dns-01 challenge with auto provider.\n\n'
-                'Would you like to install it now?',
+                'Do you wish to install it now?',
                 autosize=True
             )
             if ret != 'ok':
                 return
 
-            apt = subprocess.run(['apt', '-y', 'install', 'dnsutils'],
+            apt = subprocess.run(['apt-get', '-y', 'install', 'dnsutils'],
                                  encoding=sys.stdin.encoding,
-                                 capture_output=True)
+                                 stderr=PIPE)
             if apt.returncode != 0:
                 console.msgbox('Error', apt.stderr.strip(), autosize=True)
                 return

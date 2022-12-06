@@ -11,15 +11,15 @@ def get_providers():
         ret = console.yesno(
             'lexicon tool is required to use dns-01 challenge, '
             'however it is not found on your system.\n\n'
-            'Would you like to install it now?',
+            'Do you wish to install it now?',
             autosize=True
         )
         if ret != 'ok':
             return None, 'Please install lexicon to use dns-01 challenge.'
 
-        apt = subprocess.run(['apt', '-y', 'install', 'lexicon'],
+        apt = subprocess.run(['apt-get', '-y', 'install', 'lexicon'],
                              encoding=sys.stdin.encoding,
-                             capture_output=True)
+                             stderr=PIPE)
         if apt.returncode != 0:
             return None, apt.stderr.strip()
 
