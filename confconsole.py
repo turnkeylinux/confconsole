@@ -13,6 +13,7 @@ Options:
 import os
 import sys
 import dialog
+from dialog import DialogError
 import ipaddr
 from string import Template
 
@@ -93,7 +94,18 @@ class Console:
             raise Error("dialog not supported: " + dialog)
 
         while 1:
-            ret = method("\n" + text, *args, **kws)
+            try:
+                ret = method("\n" + text, *args, **kws)
+            except DialogError as e:
+                if "Can't make new window" in e.message:
+                    self.console.msgbox(
+                        "Terminal too small for UI, resize terminal and press OK",
+                        ok_label='OK'
+                    )
+                    continue
+                else:
+                    raise
+
             if type(ret) is str:
                 retcode = ret
             else:
