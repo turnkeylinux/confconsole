@@ -110,7 +110,6 @@ def run():
             ]
 
             retcode, values = console.form(TITLE, FORMNOTE, fields)
-            host, port, login, password = tuple(values)
 
             if retcode != 'ok':
                 console.msgbox(TITLE,
@@ -118,7 +117,9 @@ def run():
                                ' No relaying of mail will be performed.')
                 return
 
-            elif not login:
+            host, port, login, password = tuple(values)
+
+            if not login:
                 ret = console.yesno(
                         'No login username provided. Unable to test'
                         ' SMTP connection before configuring.\n\nAre you sure'
