@@ -3,9 +3,11 @@
 import requests
 import sys
 import subprocess
+
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
+
 import dns_01
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'

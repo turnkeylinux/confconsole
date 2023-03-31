@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 import sys
 import subprocess
+import re
+
 from subprocess import PIPE
 from os import path
 from shutil import which
-import re
 
 LEXICON_CONF = '/usr/share/confconsole/letsencrypt/lexicon.yml'
 
