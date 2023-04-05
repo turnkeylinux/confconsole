@@ -1,0 +1,5 @@
+====================
+v2.1.0 Release Notes
+====================
+
+* implemented support for dns-01 challenge in Let's Encrypt plugin.

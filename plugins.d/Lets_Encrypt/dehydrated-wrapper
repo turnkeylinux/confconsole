@@ -1,12 +1,12 @@
 #!/bin/bash -e
 
-# Copyright (c) 2016-2020 TurnKey GNU/Linux - https://www.turnkeylinux.org
+# Copyright (c) 2016-2022 TurnKey GNU/Linux - https://www.turnkeylinux.org
 #
 # dehyrdated-wrapper - A wrapper script for the Dehydrated
 #                      Let's Encrypt client
-# 
+#
 # This file is part of Confconsole.
-# 
+#
 # Confconsole is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License as published by the
 # Free Software Foundation; either version 3 of the License, or (at your
@@ -39,8 +39,10 @@ LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
 SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
+SH_HOOK_DNS=$SHARE/dehydrated-confconsole.hook-dns.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
 SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
+export LEXICON_CONFIG_DIR=$SHARE
 
 export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
@@ -63,7 +65,7 @@ chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
 usage() {
 echo "$@"
 cat<<EOF
-Syntax: $APP [--force|-f] [-r|--register] [--log-info|-i] [--help|-h]
+Syntax: $APP [--force|-f] [--register|-r] [--challenge|-c <type>] [--provider|-p <name>] [--log-info|-i] [--help|-h]
 
 TurnKey Linux wrapper script for dehydrated.
 
@@ -82,23 +84,31 @@ Environment variables:
 
 Options:
 
-    --force|-f     - pass force switch to dehydrated
+    --force|-f            - Pass --force switch to dehydrated.
 
-                     This will force dehydrated to update certs regardless of
-                     expiry. The included cron job does this by default (after
-                     checking the expiry of /etc/ssl/private/cert.pem)
+                            This will force dehydrated to update certs
+                            regardless of expiry. The included cron job does
+                            this by default (after checking the expiry of
+                            /etc/ssl/private/cert.pem).
 
-    --register|-r  - Accept Terms of Service (ToS) and register a Let's Encrypt
-                     account. (Note if an LE account already registered, this
-                     option makes no difference so is safe to always use).
+    --register|-r         - Accept Terms of Service (ToS) and register a
+                            Let's Encrypt account. (Note if an LE account
+                            already registered, this option makes no difference
+                            so is safe to always use).
 
-                     Let's Encrypt ToS can currently be found here:
-                     $LICENSE
+                            Let's Encrypt ToS can currently be found here:
+                            $LICENSE
 
-    --log-info|-i  - INFO will be logged (default logging is WARNING & FATAL
-                     only)
+    --challenge|-c <type> - Instruct dehydrated to use specific challenge type.
 
-    --help|-h      - print this information and exit
+    --provider|-p <name> -  Specify DNS provider name to use with dns-01
+                            challenge. Refer to lexicon documentation for the
+                            list of supported providers.
+
+    --log-info|-i         - INFO will be logged (default logging is
+                            WARNING & FATAL only).
+
+    --help|-h             - Print this information and exit.
 
 For more info on advanced usage, please see
 
@@ -209,6 +219,14 @@ while [[ $# -gt 0 ]]; do
     case $arg in
         -f|--force)     args="$args --force";;
         -r|--register)  REGISTER=y;;
+        -c|--challenge) if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+                            CTYPE=${2,,}
+                            shift
+                        fi;;
+        -p|--provider)  if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+                            export PROVIDER=${2,,}
+                            shift
+                        fi;;
         -i|--log-info)  LOG_INFO=y;;
         -h|--help)      usage;;
         *)              usage "FATAL: unsupported or unknown argument: $1";;
@@ -235,7 +253,13 @@ copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 [ -z "$HOOK" ] && fatal "hook script not defined in $CONFIG"
 [ "$HOOK" != "$CC_HOOK" ] && warning "$CONFIG is not using $CC_HOOK"
 
-copy_if_not_found "$HOOK" "$SH_HOOK"
+case $CTYPE in
+    http-01) cp "$SH_HOOK" "$HOOK"
+             sed -i 's/^CHALLENGETYPE.*/CHALLENGETYPE=\"http-01\"/' "$CONFIG";;
+    dns-01)  cp "$SH_HOOK_DNS" "$HOOK"
+             sed -i 's/^CHALLENGETYPE.*/CHALLENGETYPE=\"dns-01\"/' "$CONFIG";;
+    *)       copy_if_not_found "$HOOK" "$SH_HOOK";;
+esac
 
 chmod +x $HOOK
 
@@ -285,7 +309,7 @@ else
 fi
 
 [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
-systemctl start add-water
+[ "$CTYPE" != "dns-01" ] && systemctl start add-water
 info "running dehydrated"
 if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
     dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG

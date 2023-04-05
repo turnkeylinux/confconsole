@@ -3,9 +3,12 @@
 import requests
 import sys
 import subprocess
+
 from subprocess import PIPE
 from os import path, remove
-from shutil import copyfile
+from shutil import copyfile, which
+
+import dns_01
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -72,6 +75,10 @@ def invalid_domains(domains):
             if len(domain) > 254:
                 return ('Error in {}: Domain names must not exceed 254'
                         ' characters'.format(domain))
+            if domain.count('.') < 1:
+                return ('Error in {}: Domain may not have less'
+                        ' than 2 segments'
+                        ''.format(domain))
             for part in domain.split('.'):
                 if not 0 < len(part) < 64:
                     return ('Error in {}: Domain segments may not be larger'
@@ -101,16 +108,6 @@ def run():
         return
 
     ret = console.yesno(
-        'DNS must be configured before obtaining certificates. '
-        'Incorrectly configured dns and excessive attempts could '
-        'lead to being temporarily blocked from requesting '
-        'certificates.\n\nDo you wish to continue?',
-        autosize=True
-    )
-    if ret != 'ok':
-        return
-
-    ret = console.yesno(
         "Before getting a Let's Encrypt certificate, you must agree"
         ' to the current Terms of Service.\n\n'
         'You can find the current Terms of Service here:\n\n'
@@ -131,6 +128,74 @@ def run():
             autosize=True
         )
         return
+
+    ret, challenge = console.menu('Challenge type',
+                                  'Select challenge type to use', [
+        ('http-01', 'Requires public web access to this system'),
+        ('dns-01', 'Requires your DNS provider to provide an API')
+    ])
+    if ret != 'ok':
+        return
+
+    if challenge == 'http-01':
+        ret = console.yesno(
+            'DNS must be configured before obtaining certificates. '
+            'Incorrectly configured DNS and excessive attempts could '
+            'lead to being temporarily blocked from requesting '
+            'certificates.\n\nDo you wish to continue?',
+            autosize=True
+        )
+        if ret != 'ok':
+            return
+
+    if challenge == 'dns-01':
+        config = dns_01.load_config()
+        fields = [
+            ('', 1, 0, config[0], 1, 10, field_width, 255),
+            ('', 2, 0, config[1], 2, 10, field_width, 255),
+            ('', 3, 0, config[2], 3, 10, field_width, 255),
+            ('', 4, 0, config[3], 4, 10, field_width, 255),
+            ('', 5, 0, config[4], 5, 10, field_width, 255),
+            ('', 6, 0, config[5], 6, 10, field_width, 255),
+            ('', 7, 0, config[6], 7, 10, field_width, 255),
+        ]
+        ret, values = console.form('Lexicon configuration',
+                                   'Review and adjust current lexicon '
+                                   'configuration as necessary.\n\n'
+                                   'You can follow configuration reference at:\n'
+                                   'https://dns-lexicon.readthedocs.io/',
+                                   fields, autosize=True)
+        if ret != 'ok':
+            return
+
+        if config != values:
+            dns_01.save_config(values)
+        
+        providers, err = dns_01.get_providers()
+        if err:
+            console.msgbox('Error', err, autosize=True)
+            return
+
+        ret, provider = console.menu('DNS providers list',
+                                     'Select DNS provider you\'d like to use',
+                                     providers)
+        if ret != 'ok':
+            return
+        elif provider == 'auto' and not which('nslookup'):
+            ret = console.yesno(
+                'nslookup tool is required to use dns-01 challenge with auto provider.\n\n'
+                'Do you wish to install it now?',
+                autosize=True
+            )
+            if ret != 'ok':
+                return
+
+            apt = subprocess.run(['apt-get', '-y', 'install', 'dnsutils'],
+                                 encoding=sys.stdin.encoding,
+                                 stderr=PIPE)
+            if apt.returncode != 0:
+                console.msgbox('Error', apt.stderr.strip(), autosize=True)
+                return
 
     domains = load_domains()
     m = invalid_domains(domains)
@@ -179,10 +244,13 @@ def run():
 
         # User has accepted ToS as part of this process, so pass '--register'
         # switch to Dehydrated wrapper
-        proc = subprocess.run(
-                    ['bash', path.join(
-                        path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                     '--register'],
+        dehydrated_bin = ['bash', path.join(
+                            path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
+                          '--register', '--challenge', challenge]
+        if challenge == 'dns-01':
+            dehydrated_bin.append('--provider')
+            dehydrated_bin.append(provider)
+        proc = subprocess.run(dehydrated_bin,
                     encoding=sys.stdin.encoding,
                     stderr=PIPE)
         if proc.returncode == 0:
