@@ -104,7 +104,7 @@ class EtcNetworkInterfaces:
     @staticmethod
     def _preproc_if(ifname_conf: str) -> list[str]:
         lines = ifname_conf.splitlines()
-        if len(lines) == 2:
+        if len(lines) == 3:
             return lines
         new_lines = []
         hostname = get_hostname()
@@ -112,9 +112,11 @@ class EtcNetworkInterfaces:
             _line = line.lstrip()
             if (_line.startswith('allow-hotplug')
                     or _line.startswith('auto')
-                    or _line.startswith('iface')
                     or _line.startswith('wpa-conf')):
                 new_lines.append(line)
+            elif _line.startswith('iface'):
+                new_lines.append(line)
+                new_lines.append(f'    hostname {hostname}')
             elif _line.startswith('hostname'):
                 if hostname:
                     new_lines.append(f'    hostname {hostname}')
@@ -128,6 +130,7 @@ class EtcNetworkInterfaces:
             else:
                 raise IfError(f'Unexpected config line: {line}')
         return new_lines
+
 
     def set_dhcp(self, ifname: str) -> None:
         ifconf = self._preproc_if(self.conf[ifname])
