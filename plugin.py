@@ -3,6 +3,7 @@ import re
 import os
 import sys
 import imp
+import importlib.util
 from traceback import format_exc
 from collections import OrderedDict
 
@@ -65,24 +66,18 @@ class Plugin(object):
         # for weighted ordering
         self.real_name = os.path.basename(path)
         # for menu entry
-        self.name = re.sub('^[\d]*', '', self.real_name).replace('_', ' ')
+        self.name = re.sub(r'^[\d]*', '', self.real_name).replace('_', ' ')
 
         # used for imp.find_module
         self.module_name = os.path.splitext(self.real_name)[0]
 
-        # find the module
-        module_fob, module_pathname, module_description = imp.find_module(
-                self.module_name, [os.path.dirname(self.path)])
-
-        try:
-            self.module = imp.load_module(self.module_name, module_fob,
-                                          module_pathname, module_description)
-        finally:
-            module_fob.close()
+        spec = importlib.util.spec_from_file_location(self.module_name, self.path)
+        self.module = importlib.util.module_from_spec(spec)
 
         for k in module_globals:
             setattr(self.module, k, module_globals[k])
         self.module.PLUGIN_PATH = self.path
+        spec.loader.exec_module(self.module)
 
         # after module is found, it's safe to use pretty name
         self.module_name = os.path.splitext(self.name)[0]
@@ -154,16 +149,16 @@ class PluginDir(object):
 class PluginManager(object):
     ''' Object that holds various information about multiple `plugins` '''
 
-    # path_map = OrderedDict()
+    path_map = OrderedDict()
 
     def __init__(self, path, module_globals):
         path = os.path.realpath(path)  # Just in case
         path_map = {}
 
         module_globals.update({
-            'impByName': PluginManager.impByName,
-            'impByDir': PluginManager.impByDir,
-            'impByPath': PluginManager.impByPath,
+            'impByName': lambda *a, **k: self.impByName(*a, **k),
+            'impByDir': lambda *a, **k: self.impByDir(*a, **k),
+            'impByPath': lambda *a, **k: self.impByPath(*a, **k),
         })
 
         self.module_globals = module_globals
