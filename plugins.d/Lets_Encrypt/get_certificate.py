@@ -8,7 +8,7 @@ from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
 
-import dns_01
+dns_01 = impByPath('./dns_01.py')
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
