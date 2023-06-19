@@ -12,23 +12,22 @@ Options:
 
 import os
 import sys
-import dialog
-from dialog import DialogError
-import ipaddr
-from string import Template
-
-import ifutil
-import netinfo
+import subprocess
+from subprocess import CalledProcessError
 import getopt
-
-import conf
-
+import shlex
+from string import Template
 from io import StringIO
 import traceback
-import subprocess
-from subprocess import PIPE, CalledProcessError
-import shlex
 
+import dialog
+from dialog import DialogError
+import traceback
+import netinfo
+
+import ipaddr
+import ifutil
+import conf
 import plugin
 
 PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -253,8 +252,8 @@ class TurnkeyConsole:
         publicip_cmd = conf.Conf().publicip_cmd
         if publicip_cmd:
             command = subprocess.run(shlex.split(publicip_cmd),
-                                     stdout=PIPE,
-                                     encoding='utf-8')
+                                     capture_output=True,
+                                     text=True)
             if command.returncode == 0:
                 return command.stdout.strip()
 
@@ -372,12 +371,12 @@ class TurnkeyConsole:
 
         # tklbam integration
         tklbamstatus_cmd = subprocess.run(['which', 'tklbam-status'],
-                                          stdout=PIPE,
-                                          encoding='utf-8').stdout.strip()
+                                          capture_output=True,
+                                          text=True).stdout.strip()
         if tklbamstatus_cmd:
             tklbam_status = subprocess.run([tklbamstatus_cmd, "--short"],
-                                           stdout=PIPE,
-                                           encoding='utf-8').stdout
+                                           capture_output=True,
+                                           text=True).stdout
         else:
             tklbam_status = ("TKLBAM not found - please check that it's"
                              " installed.")
