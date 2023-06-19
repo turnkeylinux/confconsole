@@ -248,8 +248,7 @@ def ifup(ifname: str) -> str:
 
 
 def ifdown(ifname: str) -> str:
-    return subprocess.check_output(["ip", "link", "set", ifname, "down"],
-                                   capture_output=True, text=True)
+    return subprocess.run(["ip", "link", "set", ifname, "down"])
 
 
 def unconfigure_if(ifname: str) -> Optional[str]:
