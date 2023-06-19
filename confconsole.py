@@ -507,14 +507,19 @@ class TurnkeyConsole:
             return []
 
         warnings = []
+        addr = None
+        netmask = None
+        gateway = None
+        nameservers = None
         try:
-            addr, netmask, gateway, nameservers = ifutil.get_ipconf(self.ifname, True)
+            addr, netmask, gateway, nameservers \
+                    = ifutil.get_ipconf(self.ifname, True)
         except CalledProcessError:
             warnings.append('`route -n` returned non-0 exit code! (unable to get gateway)')
-            addr, netmask, gateway, nameservers = None, None, '', []
         except netinfo.NetInfoError:
             warnings.append('failed to find default gateway!')
-            addr, netmask, gateway, nameservers = None, None, '', []
+            addr, netmask, none, nameservers \
+                    = ifutil.get_ipconf(self.ifname, False)
 
         if addr is None:
             warnings.append('failed to assertain current address!')
@@ -522,6 +527,10 @@ class TurnkeyConsole:
         if netmask is None:
             warnings.append('failed to assertain current netmask!')
             netmask = ''
+        if gateway is None:
+            gateway = ''
+        if nameservers is None:
+            nameservers = []
 
         if warnings:
             warnings.append('\nWill leave relevant fields blank')
