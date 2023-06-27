@@ -104,8 +104,6 @@ class EtcNetworkInterfaces:
     @staticmethod
     def _preproc_if(ifname_conf: str) -> list[str]:
         lines = ifname_conf.splitlines()
-        if len(lines) == 2:
-            return lines
         new_lines = []
         hostname = get_hostname()
         for line in lines:
@@ -127,6 +125,8 @@ class EtcNetworkInterfaces:
                 continue
             else:
                 raise IfError(f'Unexpected config line: {line}')
+            if len(new_lines) == 2 and hostname:
+                new_lines.append(f'    hostname {hostname}')
         return new_lines
 
     def set_dhcp(self, ifname: str) -> None:
