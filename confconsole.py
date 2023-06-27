@@ -543,7 +543,7 @@ class TurnkeyConsole:
             warnings.append('`route -n` returned non-0 exit code! (unable to get gateway)')
         except netinfo.NetInfoError:
             warnings.append('failed to find default gateway!')
-            addr, netmask, none, nameservers \
+            addr, netmask, gateway, nameservers \
                     = ifutil.get_ipconf(self.ifname, False)
 
         if addr is None:
