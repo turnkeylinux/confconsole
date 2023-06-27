@@ -48,7 +48,7 @@ class IP(int):
 
         else:
             if not is_legal_ip(arg):
-                raise Error("illegal ip (%s)" % arg)
+                raise Error(f"illegal ip ({arg})")
 
             return int.__new__(cls, _str2int(arg))
 
@@ -56,7 +56,7 @@ class IP(int):
         return _int2str(self)
 
     def __repr__(self) -> str:
-        return "IP(%r)" % str(self)
+        return f"IP({str(self)})"
 
     def __add__(self, other: int) -> 'IP':
         return IP(int.__add__(self, other))

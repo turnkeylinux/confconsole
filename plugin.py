@@ -50,7 +50,7 @@ class EventManager(object):
         def fire() -> None:
             self.fire_event(event)
 
-        fire.__doc__ = ' Function to fire the `%s` event ' % event
+        fire.__doc__ = f' Function to fire the `{event}` event '
         return fire
 
     def add_handler(self, event: str, handler: Callable[[], None]) -> None:
@@ -74,7 +74,7 @@ class EventManager(object):
             except:
                 sys.stderr.write('An Exception has occured within an event'
                                  ' handler whilst attempting to handle event'
-                                 ' "%s"\n%s' % (event, format_exc()))
+                                 f' "{event}"\n{format_exc()}')
 
 
 class Plugin(object):

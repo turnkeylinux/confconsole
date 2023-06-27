@@ -80,7 +80,7 @@ def get_providers():
     providers = []
     for provider in match.group().split(','):
         if len(provider) > 0:
-            providers.append((provider, '%s provider' % provider))
+            providers.append((provider, f'{provider} provider'))
 
     if providers:
         return providers, None

@@ -63,4 +63,4 @@ class Conf:
         self.default_nic = ifname
 
         with open(self.conf_file, 'w') as fob:
-            fob.write("default_nic %s\n" % ifname)
+            fob.write(f"default_nic {ifname}\n")

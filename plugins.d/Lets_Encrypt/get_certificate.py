@@ -121,10 +121,9 @@ def run():
     if not path.isdir(dehydrated_conf):
         console.msgbox(
             'Error',
-            'Dehydrated not installed or %s not found, dehydrated can be'
-            ' installed with apt from the Buster repo.\n\n'
-            'More info: www.turnkeylinux.org/docs/letsencrypt'
-            '' % dehydrated_conf,
+            f'Dehydrated not installed or {dehydrated_conf} not found,'
+            ' dehydrated can be installed with apt from the Buster repo.\n\n'
+            'More info: www.turnkeylinux.org/docs/letsencrypt',
             autosize=True
         )
         return
