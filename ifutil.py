@@ -125,8 +125,8 @@ class EtcNetworkInterfaces:
                 continue
             else:
                 raise IfError(f'Unexpected config line: {line}')
-            if len(new_lines) == 2 and hostname:
-                new_lines.append(f'    hostname {hostname}')
+        if len(new_lines) == 2 and hostname:
+            new_lines.append(f'    hostname {hostname}')
         return new_lines
 
     def set_dhcp(self, ifname: str) -> None:
