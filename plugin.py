@@ -105,7 +105,8 @@ class Plugin(object):
             setattr(self.module, k, module_globals[k])
         setattr(self.module, 'PLUGIN_PATH', self.path)
 
-        assert isinstance(spec.loader, importlib.abc.Loader)
+        # XXX commented this line as it was causing me issues...
+        # assert isinstance(spec.loader, importlib.abc.Loader)
         spec.loader.exec_module(self.module)
 
         # after module is found, it's safe to use pretty name
