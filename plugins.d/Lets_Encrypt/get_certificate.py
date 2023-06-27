@@ -128,11 +128,12 @@ def run():
         )
         return
 
-    ret, challenge = console.menu('Challenge type',
-                                  'Select challenge type to use', [
-        ('http-01', 'Requires public web access to this system'),
-        ('dns-01', 'Requires your DNS provider to provide an API')
-    ])
+    ret, challenge = console.menu(
+            'Challenge type',
+            'Select challenge type to use',
+            [('http-01', 'Requires public web access to this system'),
+             ('dns-01', 'Requires your DNS provider to provide an API')
+             ])
     if ret != 'ok':
         return
 
@@ -161,15 +162,15 @@ def run():
         ret, values = console.form('Lexicon configuration',
                                    'Review and adjust current lexicon '
                                    'configuration as necessary.\n\n'
-                                   'You can follow configuration reference at:\n'
-                                   'https://dns-lexicon.readthedocs.io/',
+                                   'You can follow configuration reference at:'
+                                   '\nhttps://dns-lexicon.readthedocs.io/',
                                    fields, autosize=True)
         if ret != 'ok':
             return
 
         if config != values:
             dns_01.save_config(values)
-        
+
         providers, err = dns_01.get_providers()
         if err:
             console.msgbox('Error', err, autosize=True)
@@ -182,7 +183,8 @@ def run():
             return
         elif provider == 'auto' and not which('nslookup'):
             ret = console.yesno(
-                'nslookup tool is required to use dns-01 challenge with auto provider.\n\n'
+                'nslookup tool is required to use dns-01 challenge with auto'
+                ' provider.\n\n'
                 'Do you wish to install it now?',
                 autosize=True
             )
@@ -250,8 +252,8 @@ def run():
             dehydrated_bin.append('--provider')
             dehydrated_bin.append(provider)
         proc = subprocess.run(dehydrated_bin,
-                    encoding=sys.stdin.encoding,
-                    stderr=PIPE)
+                              encoding=sys.stdin.encoding,
+                              stderr=PIPE)
         if proc.returncode == 0:
             break
         else:

@@ -16,6 +16,7 @@ LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dn
 
 LEXICON_CONF_MAX_LINES = 7
 
+
 def load_config():
     ''' Loads lexicon config if present '''
     config = []
@@ -36,6 +37,7 @@ def load_config():
             config.append('')
         return config
 
+
 def save_config(config):
     ''' Saves lexicon configuration '''
     with open(LEXICON_CONF, 'w') as fob:
@@ -44,6 +46,7 @@ def save_config(config):
             line = line.rstrip()
             if line:
                 fob.write(line + '\n')
+
 
 def get_providers():
     lexicon_bin = which('lexicon')
@@ -66,7 +69,7 @@ def get_providers():
     lexicon_bin = which('lexicon')
     if not lexicon_bin:
         return None, 'lexicon is not found on your system, is it installed?'
-    
+
     proc = subprocess.run([lexicon_bin, '--help'],
                           encoding=sys.stdin.encoding,
                           capture_output=True)

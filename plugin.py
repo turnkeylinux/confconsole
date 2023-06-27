@@ -10,7 +10,6 @@ from collections import OrderedDict
 
 from types import ModuleType
 from typing import Callable, Any, Union, Optional, Iterable
-#from typing_extensions import TypeAlias
 import typing
 
 
@@ -31,6 +30,7 @@ class ModuleInterface(ModuleType):
 
     def doOnce(self) -> None:
         ...
+
 
 class EventManager(object):
     _handlers: dict[str, list[Callable[[], None]]]
@@ -71,7 +71,7 @@ class EventManager(object):
         for handler in self._handlers[event]:
             try:
                 handler()  # handler passed no arguments; can change if needed
-            except:
+            except:  # TODO don't use bare except!
                 sys.stderr.write('An Exception has occured within an event'
                                  ' handler whilst attempting to handle event'
                                  f' "{event}"\n{format_exc()}')
@@ -81,7 +81,7 @@ class Plugin(object):
     ''' Object that holds various information about a `plugin` '''
 
     parent: Optional[str]
-    
+
     def __init__(self, path: str, module_globals: dict[str, Any]) -> None:
         self.path = path
         # for weighted ordering
@@ -94,13 +94,12 @@ class Plugin(object):
         # used for imp.find_module
         self.module_name = os.path.splitext(self.real_name)[0]
 
-        spec = importlib.util.spec_from_file_location(self.module_name, self.path)
+        spec = importlib.util.spec_from_file_location(self.module_name,
+                                                      self.path)
         assert spec is not None
         assert spec.loader is not None
         self.module = typing.cast(ModuleInterface,
-                importlib.util.module_from_spec(spec))
-        
-
+                                  importlib.util.module_from_spec(spec))
 
         for k in module_globals:
             setattr(self.module, k, module_globals[k])
@@ -138,7 +137,7 @@ class PluginDir(object):
     def __init__(self, path: str, module_globals: dict[str, Any]):
         self.path = path
         self.real_name = os.path.basename(path)
-        self.name = re.sub('^[\d]*', '', self.real_name).replace('_', ' ')
+        self.name = re.sub(r'^[\d]*', '', self.real_name).replace('_', ' ')
 
         self.parent = None
 
@@ -188,7 +187,7 @@ class PluginDir(object):
 class PluginManager(object):
     ''' Object that holds various information about multiple `plugins` '''
 
-    path_map: OrderedDict[str, Union[Plugin, PluginDir]]  = OrderedDict()
+    path_map: OrderedDict[str, Union[Plugin, PluginDir]] = OrderedDict()
 
     def __init__(self, path: str, module_globals: dict[str, Any]) -> None:
         path = os.path.realpath(path)  # Just in case
@@ -267,8 +266,8 @@ class PluginManager(object):
         '''Return a list of python modules (from plugins excluding PluginDirs)
         matching given name'''
 
-        modules = [ x.module for x in
-                self.getByName(name) if isinstance(x, Plugin) ]
+        modules = [x.module for x in
+                   self.getByName(name) if isinstance(x, Plugin)]
 
         return filter(None, modules)
 
@@ -276,8 +275,8 @@ class PluginManager(object):
         '''Return a list of python modules (from plugins excluding PluginDirs)
         in given directory'''
 
-        modules = [ x.module for x in
-                self.getByDir(path) if isinstance(x, Plugin) ]
+        modules = [x.module for x in
+                   self.getByDir(path) if isinstance(x, Plugin)]
 
         return filter(None, modules)
 

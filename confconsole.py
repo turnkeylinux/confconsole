@@ -9,7 +9,6 @@ Options:
         --plugin=<name>  Run plugin directly
 
 """
-USAGE: str = __doc__
 
 import os
 import sys
@@ -34,6 +33,7 @@ import plugin
 from typing import NoReturn, Optional, Iterable, Any, Union
 import typing
 
+USAGE: str = __doc__
 PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                            'plugins.d')
 
@@ -47,7 +47,7 @@ def fatal(e: str) -> NoReturn:
     sys.exit(1)
 
 
-def usage(e: Optional[str]=None) -> NoReturn:
+def usage(e: Optional[str] = None) -> NoReturn:
     if e:
         print("Error:", e, file=sys.stderr)
 
@@ -56,7 +56,8 @@ def usage(e: Optional[str]=None) -> NoReturn:
     sys.exit(1)
 
 
-def format_fields(fields: Iterable[tuple[str, str, int, int]]) -> list[tuple[str, int, int, str, int, int, int, int]]:
+def format_fields(fields: Iterable[tuple[str, str, int, int]]
+                  ) -> list[tuple[str, int, int, str, int, int, int, int]]:
     '''Takes fields in format (label, field, label_length, field_length) and
     outputs fields in format (label, ly, lx, item, iy, ix, field_length,
     input_length)
@@ -67,9 +68,12 @@ def format_fields(fields: Iterable[tuple[str, str, int, int]]) -> list[tuple[str
     return out
 
 
-WrapperReturn = Union[str, tuple[str,str]]
+WrapperReturn = Union[str, tuple[str, str]]
+
+
 class Console:
-    def __init__(self, title: Optional[str]=None, width: int=60, height: int=20):
+    def __init__(self, title: Optional[str] = None,
+                 width: int = 60, height: int = 20):
         self.width = width
         self.height = height
 
@@ -91,7 +95,8 @@ class Console:
             return False
         return True
 
-    def _wrapper(self, dialog: str, text: str, *args: Any, **kws: Any) -> WrapperReturn:
+    def _wrapper(self, dialog: str, text: str, *args: Any, **kws: Any
+                 ) -> WrapperReturn:
         try:
             method = getattr(self.console, dialog)
         except AttributeError:
@@ -105,7 +110,8 @@ class Console:
             except DialogError as e:
                 if "Can't make new window" in e.message:
                     self.console.msgbox(
-                        "Terminal too small for UI, resize terminal and press OK",
+                        "Terminal too small for UI, resize terminal and"
+                        " press OK",
                         ok_label='OK'
                     )
                     continue
@@ -127,7 +133,7 @@ class Console:
         assert isinstance(v, str)
         return v
 
-    def yesno(self, text: str, autosize: bool=False) -> str:
+    def yesno(self, text: str, autosize: bool = False) -> str:
         if autosize:
             text += '\n '
             height, width = 0, 0
@@ -137,7 +143,8 @@ class Console:
         assert isinstance(v, str)
         return v
 
-    def msgbox(self, title: str, text: str, button_label: str="ok", autosize: bool=False) -> str:
+    def msgbox(self, title: str, text: str, button_label: str = "ok",
+               autosize: bool = False) -> str:
         if autosize:
             text += '\n '
             height, width = 0, 0
@@ -145,41 +152,44 @@ class Console:
             height, width = self.height, self.width
 
         v = self._wrapper("msgbox", text, height, width,
-                             title=title, ok_label=button_label)
+                          title=title, ok_label=button_label)
         assert isinstance(v, str)
         return v
 
-    def inputbox(self, title: str, text: str, init: str='', ok_label: str="OK",
-            cancel_label: str="Cancel") -> tuple[str,str]:
+    def inputbox(self, title: str, text: str, init: str = '',
+                 ok_label: str = "OK", cancel_label: str = "Cancel"
+                 ) -> tuple[str, str]:
         no_cancel = True if cancel_label == "" else False
         v = self._wrapper("inputbox", text, self.height, self.width,
-                             title=title, init=init, ok_label=ok_label,
-                             cancel_label=cancel_label, no_cancel=no_cancel)
+                          title=title, init=init, ok_label=ok_label,
+                          cancel_label=cancel_label, no_cancel=no_cancel)
         assert isinstance(v, tuple)
         return v
 
     def menu(self, title: str, text: str, choices: list[tuple[str, str]],
-            no_cancel: bool=False) -> tuple[str, str]:
+             no_cancel: bool = False) -> tuple[str, str]:
         v = self._wrapper("menu", text, self.height, self.width,
-                             menu_height=len(choices)+1,
-                             title=title, choices=choices, no_cancel=no_cancel)
+                          menu_height=len(choices)+1,
+                          title=title, choices=choices, no_cancel=no_cancel)
         assert isinstance(v, tuple)
         return v
 
     def form(self, title: str, text: str,
-            fields: list[tuple[str, int, int, str, int, int, int, int]],
-            ok_label: str="Apply",
-            cancel_label: str="Cancel", autosize: bool=False) -> tuple[str,list[str]]:
+             fields: list[tuple[str, int, int, str, int, int, int, int]],
+             ok_label: str = "Apply",
+             cancel_label: str = "Cancel",
+             autosize: bool = False) -> tuple[str, list[str]]:
         if autosize:
             text += '\n '
             height, width = 0, 0
         else:
             height, width = self.height, self.width
         v = self._wrapper("form", text, fields,
-                             height=height, width=width,
-                             form_height=len(fields)+1,
-                             title=title,
-                             ok_label=ok_label, cancel_label=cancel_label)
+                          height=height, width=width,
+                          form_height=len(fields)+1,
+                          title=title,
+                          ok_label=ok_label,
+                          cancel_label=cancel_label)
         assert isinstance(v, tuple)
         assert isinstance(v[1], list)
         return v
@@ -209,8 +219,8 @@ class TurnkeyConsole:
     CANCEL = 1
 
     def __init__(self, pluginManager: plugin.PluginManager,
-            eventManager: plugin.EventManager,
-            advanced_enabled: bool=True):
+                 eventManager: plugin.EventManager,
+                 advanced_enabled: bool = True):
         title = "TurnKey GNU/Linux Configuration Console"
         self.width = 60
         self.height = 20
@@ -243,11 +253,11 @@ class TurnkeyConsole:
         # handle bridged LXC where br0 is the default outward-facing interface
         defifname = conf.Conf().default_nic
         if defifname and defifname.startswith('br'):
-                ifnames.append(defifname)
-                bridgedif = subprocess.check_output(
+            ifnames.append(defifname)
+            bridgedif = subprocess.check_output(
                         ['brctl', 'show', defifname],
                         text=True).split('\n')[1].split('\t')[-1]
-                ifnames.remove(bridgedif)
+            ifnames.remove(bridgedif)
 
         ifnames.sort()
         return ifnames
@@ -282,8 +292,10 @@ class TurnkeyConsole:
 
         return None
 
-    def _get_advmenu(self) -> tuple[list[tuple[str, str]], dict[str,
-            Union[plugin.Plugin, plugin.PluginDir]]]:
+    def _get_advmenu(self
+                     ) -> tuple[list[tuple[str, str]],
+                                dict[str, Union[plugin.Plugin,
+                                     plugin.PluginDir]]]:
         items = []
         if conf.Conf().networking:
             items.append(("Networking", "Configure appliance networking"))
@@ -331,7 +343,7 @@ class TurnkeyConsole:
 
         return menu
 
-    def _get_ifconfmenu(self, ifname: str) -> list[tuple[str,str]]:
+    def _get_ifconfmenu(self, ifname: str) -> list[tuple[str, str]]:
         menu = []
         menu.append(("DHCP", "Configure networking automatically"))
         menu.append(("StaticIP", "Configure networking manually"))
@@ -496,7 +508,7 @@ class TurnkeyConsole:
 
     def _ifconf_staticip(self) -> str:
         def _validate(addr: str, netmask: str, gateway: str, nameservers:
-                list[str]) -> list[str]:
+                      list[str]) -> list[str]:
             """Validate Static IP form parameters. Returns an empty array on
                success, an array of strings describing errors otherwise"""
 
@@ -540,11 +552,12 @@ class TurnkeyConsole:
             addr, netmask, gateway, nameservers \
                     = ifutil.get_ipconf(self.ifname, True)
         except CalledProcessError:
-            warnings.append('`route -n` returned non-0 exit code! (unable to get gateway)')
+            warnings.append('`route -n` returned non-0 exit code! (unable to'
+                            ' get gateway)')
         except netinfo.NetInfoError:
             warnings.append('failed to find default gateway!')
-            addr, netmask, gateway, nameservers \
-                    = ifutil.get_ipconf(self.ifname, False)
+            addr, netmask, gateway, nameservers = ifutil.get_ipconf(
+                    self.ifname, False)
 
         if addr is None:
             warnings.append('failed to assertain current address!')
@@ -585,9 +598,10 @@ class TurnkeyConsole:
 
             for i in range(len(value[3:])):
                 pre_fields.append(("Name Server", value[3+i],
-                               field_width, field_limit))
+                                   field_width, field_limit))
 
-            fields: list[tuple[str, int, int, str, int, int, int, int]] = format_fields(pre_fields)
+            fields: list[tuple[str, int, int, str, int, int, int, int]
+                         ] = format_fields(pre_fields)
             text = f"Static IP configuration ({self.ifname})"
             retcode, input = self.console.form("Network settings",
                                                text, fields)
@@ -616,16 +630,16 @@ class TurnkeyConsole:
             else:
                 in_ssh = 'SSH_CONNECTION' in os.environ
                 if not in_ssh or (in_ssh and self.console.yesno(
-                        "Warning: Changing ip while an ssh session is active will"
-                        " drop said ssh session!", autosize=True) == self.OK):
-                    maybe_err: Optional[str] = ifutil.set_static(self.ifname, addr, netmask,
-                                            gateway, nameservers)
+                        "Warning: Changing ip while an ssh session is active"
+                        " will drop said ssh session!",
+                        autosize=True) == self.OK):
+                    maybe_err: Optional[str] = ifutil.set_static(
+                            self.ifname, addr, netmask, gateway, nameservers)
                     if maybe_err is None:
                         break
                     self.console.msgbox("Error", maybe_err)
                 else:
                     break
-
 
         return "ifconf"
 
@@ -684,7 +698,7 @@ class TurnkeyConsole:
     _adv_networking = networking
     quit = _adv_quit
 
-    def loop(self, dialog: str="usage") -> None:
+    def loop(self, dialog: str = "usage") -> None:
         self.running = True
         prev_dialog = dialog
         standalone = dialog != 'usage'  # no "back" for plugins
@@ -749,7 +763,7 @@ def main() -> None:
     if plugin_name:
 
         ps = list(filter(lambda x: isinstance(x, plugin.Plugin),
-                    pm.getByName(plugin_name)))
+                         pm.getByName(plugin_name)))
 
         if len(ps) > 1:
             fatal(f'plugin name ambiguous, matches all of {ps}')

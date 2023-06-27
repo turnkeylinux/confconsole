@@ -28,6 +28,7 @@ def _get_current_hostname():
     with open('/etc/hostname') as fob:
         return fob.readline().strip()
 
+
 def run():
     while True:
         ret, new_hostname = console.inputbox(
@@ -90,10 +91,11 @@ def run():
 
             if should_restart:
                 proc = subprocess.run(['systemctl', 'restart', 'networking'])
-                proc = subprocess.run(['postfix', 'reload'], stderr=PIPE)
+                proc = subprocess.run(['postfix', 'reload'],
+                                      capture_output=True, text=True)
                 if proc.returncode != 0:
                     console.msgbox(TITLE,
-                                   '{} ({})'.format(out.decode('utf8'), "reloading postfix"))
+                                   'Error reloading postfix:\n{proc.stderr}')
             console.msgbox(TITLE,
                            'Hostname updated successfully. Some applications'
                            ' may require restart before the settings are'

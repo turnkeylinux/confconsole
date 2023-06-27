@@ -4,7 +4,8 @@ from subprocess import check_output, check_call
 
 
 def is_installed(pkg):
-    for line in check_output(['apt-cache', 'policy', pkg], text=True).splitlines():
+    for line in check_output(['apt-cache', 'policy', pkg],
+                             text=True).splitlines():
         if line.startswith('  Installed'):
             key, val = line.split(':')
             if val.strip() in ('(none)', ''):

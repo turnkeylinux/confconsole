@@ -22,7 +22,9 @@ def is_legal_ip(ip: str) -> bool:
 
     return True
 
+
 AnyIP = Union[int, str, 'IP']
+
 
 def _str2int(ip: str) -> int:
     bytes = list(map(int, ip.split('.')))
@@ -33,6 +35,7 @@ def _str2int(ip: str) -> int:
 def _int2str(num: int) -> str:
     bytes = struct.unpack("BBBB", struct.pack("!L", num))
     return '.'.join(list(map(str, bytes)))
+
 
 class Error(Exception):
     pass
@@ -60,12 +63,16 @@ class IP(int):
 
     def __add__(self, other: int) -> 'IP':
         return IP(int.__add__(self, other))
+
     def __sub__(self, other: int) -> 'IP':
         return IP(int.__sub__(self, other))
+
     def __and__(self, other: int) -> 'IP':
         return IP(int.__and__(self, other))
+
     def __or__(self, other: int) -> 'IP':
         return IP(int.__or__(self, other))
+
     def __xor__(self, other: int) -> 'IP':
         return IP(int.__xor__(self, other))
 
