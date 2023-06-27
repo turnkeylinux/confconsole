@@ -25,7 +25,7 @@ class EtcNetworkInterfaces:
     CONF_FILE = '/etc/network/interfaces'
     HEADER_UNCONFIGURED = "# UNCONFIGURED INTERFACES"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.read_conf()
 
     def read_conf(self) -> None:
@@ -60,7 +60,7 @@ class EtcNetworkInterfaces:
                 for line in ifconf.splitlines()
                 if line.strip().split()[0] in iface_opts]
 
-    def _get_bridge_opts(self, ifname: str) -> list:
+    def _get_bridge_opts(self, ifname: str) -> list[str]:
         bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio',
                        'bridge_fd', 'bridge_gcinit', 'bridge_hello',
                        'bridge_hw', 'bridge_maxage', 'bridge_maxwait',
@@ -143,7 +143,8 @@ class EtcNetworkInterfaces:
         self.write_conf(ifname, ifconf_str)
 
     def set_static(self, ifname: str, addr: str, netmask: str,
-                   gateway: str = None, nameservers: list = None
+                   gateway: Optional[str] = None,
+                   nameservers: Optional[list[str]] = None
                    ) -> None:
         ifconf = self._preproc_if(self.conf[ifname])
         ifconf[1] = f'iface {ifname} inet static'
@@ -184,14 +185,14 @@ class EtcNetworkInterface:
         return []
 
     @property
-    def method(self):
+    def method(self) -> Optional[str]:
         try:
             return self._parse_attr('iface')[3]
         except IndexError:
-            return
+            return None
 
     @property
-    def dns_nameservers(self):
+    def dns_nameservers(self) -> list[str]:
         return self._parse_attr('dns-nameservers')[1:]
 
     def __getattr__(self, attrname: str) -> list[str]:
@@ -243,12 +244,16 @@ def get_nameservers(ifname: str) -> list[str]:
 
 
 def ifup(ifname: str) -> str:
-    return subprocess.check_output(["ip", "link", "set", ifname, "up"],
-                                   capture_output=True, text=True)
+    return subprocess.check_output(
+        args=["ip", "link", "set", ifname, "up"],
+        text=True
+    )
 
 
-def ifdown(ifname: str) -> str:
-    return subprocess.run(["ip", "link", "set", ifname, "down"])
+def ifdown(ifname: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        args=["ip", "link", "set", ifname, "down"]
+    )
 
 
 def unconfigure_if(ifname: str) -> Optional[str]:
@@ -277,7 +282,7 @@ def set_static(ifname: str, addr: str, netmask: str,
         output = ifup(ifname)
 
         net = InterfaceInfo(ifname)
-        if not net.addr:
+        if not net.address:
             raise IfError(f'Error obtaining IP address\n\n{output}')
         return None
     except Exception as e:
@@ -292,7 +297,7 @@ def set_dhcp(ifname: str) -> Optional[str]:
         output = ifup(ifname)
 
         net = InterfaceInfo(ifname)
-        if not net.addr:
+        if not net.address:
             raise IfError(f'Error obtaining IP address\n\n{output}')
         return None
     except Exception as e:
@@ -300,12 +305,16 @@ def set_dhcp(ifname: str) -> Optional[str]:
 
 
 def get_ipconf(ifname: str, error: bool = False
-               ) -> tuple[str, str, str, list[str]]:
+               ) -> tuple[str, str, Optional[str], list[str]]:
     net = InterfaceInfo(ifname)
-    return (net.addr, net.netmask, net.get_gateway(error),
+    assert net.address is not None
+    assert net.netmask is not None
+    gateway = net.get_gateway(error)
+
+    return (net.address, net.netmask, gateway,
             get_nameservers(ifname))
 
 
-def get_ifmethod(ifname: str) -> str:
+def get_ifmethod(ifname: str) -> Optional[str]:
     interface = EtcNetworkInterface(ifname)
     return interface.method
