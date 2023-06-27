@@ -244,16 +244,13 @@ def get_nameservers(ifname: str) -> list[str]:
 
 
 def ifup(ifname: str) -> str:
-    return subprocess.check_output(
-        args=["ip", "link", "set", ifname, "up"],
-        text=True
-    )
+    subprocess.run(["ifup", "--force", "--ignore-errors", ifname],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def ifdown(ifname: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        args=["ip", "link", "set", ifname, "down"]
-    )
+    subprocess.run(["ifdown", "--force", "--ignore-errors", ifname],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def unconfigure_if(ifname: str) -> Optional[str]:
