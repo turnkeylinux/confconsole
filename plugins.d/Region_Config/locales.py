@@ -1,5 +1,5 @@
 '''Reconfigure locales'''
-import os
+import subprocess
 
 
 def run():
@@ -9,12 +9,13 @@ def run():
             'We STRONGLY recommend you choose "None" as your default locale.',
             autosize=True)
 
-        os.system('dpkg-reconfigure locales')
+        subprocess.run(['dpkg-reconfigure', 'locales'])
     else:
         locale = os.getenv('LOCALE')
 
         if locale:
-            os.system('locale-gen %s' % locale)
-            os.system('update-locale LANG={0} LANGUAGE={0} LC_ALL={0}'
-                      ''.format(locale))
-            os.system('dpkg-reconfigure -f noninteractive locales')
+            subprocess.run(['locale-gen', locale])
+            subprocess.run(['update-locale', f'LANG={locale}',
+                            f'LANGUAGE={locale}', f'LC_ALL={locale}'])
+            subprocess.run(['dpkg-reconfigure', '-f', 'noninteractive',
+                            'locales'])

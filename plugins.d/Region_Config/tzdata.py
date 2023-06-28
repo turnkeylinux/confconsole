@@ -1,9 +1,9 @@
 '''Reconfigure TZdata '''
-import os
+import subprocess
 
 
 def run():
-    flag = ''
+    flag = []
     if not interactive:
         tz = os.getenv('TZ')
 
@@ -11,6 +11,7 @@ def run():
             with open('/etc/timezone', 'w') as f:
                 f.write(tz)
 
-        flag = '-f noninteractive'
+        flag = ['-f', 'noninteractive']
 
-    os.system('dpkg-reconfigure %s tzdata 2> /dev/null' % flag)
+    subprocess.run(['dpkg-reconfigure', *flag, 'tzdata'],
+                   stderr=subprocess.DEVNULL)

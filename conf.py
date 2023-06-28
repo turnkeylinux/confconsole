@@ -3,23 +3,30 @@
 
 import re
 import os
+from typing import Optional
 
 
 class Error(Exception):
     pass
 
 
-def path(filename):
+def path(filename: str) -> str:
     for dir in ("conf", "/etc/confconsole"):
         path = os.path.join(dir, filename)
         if os.path.exists(path):
             return path
 
-    raise Error('could not find configuration file: %s' % path)
+    raise Error(f'could not find configuration file: {filename}')
 
 
 class Conf:
-    def _load_conf(self):
+    default_nic: Optional[str]
+    publicip_cmd: Optional[str]
+    networking: bool
+    copy_paste: bool
+    conf_file: str
+
+    def _load_conf(self) -> None:
         if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
@@ -44,7 +51,7 @@ class Conf:
                 else:
                     raise Error("illegal configuration line: " + line)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.default_nic = None
         self.publicip_cmd = None
         self.networking = True
@@ -52,8 +59,8 @@ class Conf:
         self.conf_file = path("confconsole.conf")
         self._load_conf()
 
-    def set_default_nic(self, ifname):
+    def set_default_nic(self, ifname: str) -> None:
         self.default_nic = ifname
 
         with open(self.conf_file, 'w') as fob:
-            fob.write("default_nic %s\n" % ifname)
+            fob.write(f"default_nic {ifname}\n")
