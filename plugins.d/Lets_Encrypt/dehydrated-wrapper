@@ -31,7 +31,7 @@ AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
 
 # space separated list of systemd services to restart
-SERVICES_TO_RESTART="stunnel4@webmin.service stunnel4@shellinabox.service"
+SERVICES_TO_RESTART="webmin.service"
 
 LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
 LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
