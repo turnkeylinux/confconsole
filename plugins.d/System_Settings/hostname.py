@@ -95,7 +95,7 @@ def run():
                                       capture_output=True, text=True)
                 if proc.returncode != 0:
                     console.msgbox(TITLE,
-                                   'Error reloading postfix:\n{proc.stderr}')
+                                   f'Error reloading postfix:\n{proc.stderr}')
             console.msgbox(TITLE,
                            'Hostname updated successfully. Some applications'
                            ' may require restart before the settings are'
