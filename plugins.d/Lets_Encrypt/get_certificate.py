@@ -99,7 +99,7 @@ def run():
         tos_url = response.json()['meta']['termsOfService']
     except ConnectionError:
         msg = 'Connection error. Failed to connect to '+LE_INFO_URL
-    except JSONDecodeError:
+    except ValueError:
         msg = 'Data error, no JSON data found'
     except KeyError:
         msg = 'Data error, no value found for "terms-of-service"'
