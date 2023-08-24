@@ -7,6 +7,7 @@ import subprocess
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
+from json import JSONDecodeError
 
 dns_01 = impByPath('./dns_01.py')
 
