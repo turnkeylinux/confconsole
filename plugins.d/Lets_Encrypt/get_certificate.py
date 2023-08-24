@@ -248,7 +248,7 @@ def run():
         # switch to Dehydrated wrapper
         dehydrated_bin = ['bash', path.join(
                             path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                          '--register', '--challenge', challenge]
+                          '--register', '--log-info', '--challenge', challenge]
         if challenge == 'dns-01':
             dehydrated_bin.append('--provider')
             dehydrated_bin.append(provider)
