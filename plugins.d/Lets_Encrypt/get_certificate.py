@@ -183,7 +183,7 @@ def run():
         proc = subprocess.run(
                     ['bash', path.join(
                         path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                     '--register'],
+                     '--register', '--log-info'],
                     encoding=sys.stdin.encoding,
                     stderr=PIPE)
         if proc.returncode == 0:
