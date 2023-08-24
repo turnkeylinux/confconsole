@@ -6,6 +6,7 @@ import subprocess
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile
+from json import JSONDecodeError
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
