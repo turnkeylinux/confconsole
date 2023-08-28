@@ -7,6 +7,7 @@ import subprocess
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
+from json import JSONDecodeError
 
 dns_01 = impByPath('./dns_01.py')
 
@@ -247,7 +248,7 @@ def run():
         # switch to Dehydrated wrapper
         dehydrated_bin = ['bash', path.join(
                             path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                          '--register', '--challenge', challenge]
+                          '--register', '--log-info', '--challenge', challenge]
         if challenge == 'dns-01':
             dehydrated_bin.append('--provider')
             dehydrated_bin.append(provider)
