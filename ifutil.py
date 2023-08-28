@@ -303,14 +303,14 @@ def set_dhcp(ifname: str) -> Optional[str]:
 
 def get_ipconf(ifname: str, error: bool = False
                ) -> tuple[str, str, Optional[str], list[str]]:
-    net = InterfaceInfo(ifname)
-    assert net.address is not None
-    assert net.netmask is not None
-    gateway = net.get_gateway(error)
-
-    return (net.address, net.netmask, gateway,
-            get_nameservers(ifname))
-
+    for i in range(6):
+        net = InterfaceInfo(ifname)
+        if net.address is not None and net.netmask is not None:
+            gateway = net.get_gateway(error)
+            return (net.address, net.netmask, gateway, get_nameservers(ifname))
+        sleep(0.1)
+    # no interface which is up; this is ok though
+    return (None, None, net.get_gateway(error), get_nameservers(ifname))
 
 def get_ifmethod(ifname: str) -> Optional[str]:
     interface = EtcNetworkInterface(ifname)
