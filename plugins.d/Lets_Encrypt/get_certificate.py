@@ -6,6 +6,7 @@ import subprocess
 from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile
+from json import JSONDecodeError
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -182,7 +183,7 @@ def run():
         proc = subprocess.run(
                     ['bash', path.join(
                         path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
-                     '--register'],
+                     '--register', '--log-info'],
                     encoding=sys.stdin.encoding,
                     stderr=PIPE)
         if proc.returncode == 0:
