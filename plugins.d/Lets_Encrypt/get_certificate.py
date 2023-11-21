@@ -9,8 +9,6 @@ from os import path, remove
 from shutil import copyfile, which
 from json import JSONDecodeError
 
-dns_01 = impByPath('./dns_01.py')
-
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
 TITLE = 'Certificate Creation Wizard'
@@ -33,6 +31,10 @@ default_domains = '''# please use this file with confconsole or
 '''
 example_domain = 'example.com'
 # XXX Debug paths
+
+def doOnce():
+    global dns_01
+    dns_01 = impByPath('./dns_01.py')
 
 
 def load_domains():

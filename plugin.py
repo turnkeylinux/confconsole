@@ -82,7 +82,7 @@ class Plugin(object):
 
     parent: Optional[str]
 
-    def __init__(self, path: str, module_globals: dict[str, Any]) -> None:
+    def __init__(self, path: str) -> None:
         self.path = path
         # for weighted ordering
         self.real_name = os.path.basename(path)
@@ -101,8 +101,6 @@ class Plugin(object):
         self.module = typing.cast(ModuleInterface,
                                   importlib.util.module_from_spec(spec))
 
-        for k in module_globals:
-            setattr(self.module, k, module_globals[k])
         setattr(self.module, 'PLUGIN_PATH', self.path)
 
         # XXX commented this line as it was causing me issues...
@@ -111,6 +109,10 @@ class Plugin(object):
 
         # after module is found, it's safe to use pretty name
         self.module_name = os.path.splitext(self.name)[0]
+
+    def doOnce(self):
+        if hasattr(self.module, 'doOnce'):
+            self.module.doOnce()
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
         for k in newglobals:
@@ -135,7 +137,7 @@ class PluginDir(object):
     parent: Optional[str]
     plugins: list[Union[Plugin, 'PluginDir']]
 
-    def __init__(self, path: str, module_globals: dict[str, Any]):
+    def __init__(self, path: str):
         self.path = path
         self.real_name = os.path.basename(path)
         self.name = re.sub(r'^[\d]*', '', self.real_name).replace('_', ' ')
@@ -144,7 +146,7 @@ class PluginDir(object):
 
         self.module_name = self.name
 
-        self.module_globals = module_globals
+        self.module_globals = {}
 
         if os.path.isfile(os.path.join(path, 'description')):
             with open(os.path.join(path, 'description'), 'r') as fob:
@@ -154,6 +156,9 @@ class PluginDir(object):
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
         self.module_globals.update(newglobals)
+
+    def doOnce(self):
+        ...
 
     def run(self) -> Optional[str]:
         items = []
@@ -214,7 +219,7 @@ class PluginManager(object):
                 file_path = os.path.join(root, file_name)
                 if os.path.isfile(file_path):
                     if not os.stat(file_path).st_mode & 0o111 == 0:
-                        path_map[file_path] = Plugin(file_path, module_globals)
+                        path_map[file_path] = Plugin(file_path)
 
             for dir_name in dirs:
                 if dir_name == '__pycache__':
@@ -222,13 +227,14 @@ class PluginManager(object):
                 dir_path = os.path.join(root, dir_name)
 
                 if os.path.isdir(dir_path):
-                    path_map[dir_path] = PluginDir(dir_path, module_globals)
+                    path_map[dir_path] = PluginDir(dir_path)
 
         for key in path_map:
             plugin = path_map[key]
-            if isinstance(plugin, Plugin) and hasattr(plugin.module, 'doOnce'):
+            if isinstance(plugin, Plugin):
                 # Run plugin init
-                plugin.module.doOnce()
+                plugin.updateGlobals(module_globals)
+                plugin.doOnce()
         self.path_map = OrderedDict(sorted(path_map.items(),
                                            key=lambda x: x[0]))
 
