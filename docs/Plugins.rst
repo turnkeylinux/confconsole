@@ -16,25 +16,34 @@ sub-menu and every executable .py script is an entry of the parent
 directory's menu. Note ``plugins.d`` does not have a description as it is
 not chosen from a menu.
 
-For each plugin in the tree, the main body (top level) of the plugin is
-run. Because of this you should not put anything but setup related code
-here {where?} and you definitely should not rely on other plugins already 
-being setup. Note that additional variables and functions avaliable to 
-plugins are NOT avaliable at this point.
+1. Each plugin in the tree is imported.
+   The plugin's docstring is used as the description.
+
+   At this point:
+    - interacting with other plugins is undefined behaviour
+    - most extended functionality provided by the plugin manager is not
+      available
+
+2. Each plugin's ``doOnce`` function (if defined) will be called serially.
+   You should put the bulk of your setup code here rather than at the top
+   level
+
+   At this point:
+    - all plugins are loaded
+    - not all plugins are initialized
+
+3. When a plugin is selected from the confconsole menu it's ``run``
+   function will be called.
+
+   At this point:
+    - all plugins should be loaded and initialized
+
+All code that interacts with other plugins should only occur during or
+after ``doOnce`` has been called.
 
 The plugin .py file(s) docstring provides the description for the menu-
 entry in confconsole. To set a menu-entry description for a directory, 
 place a text "description" file within the directory. 
-
-Next, the ``doOnce`` function (optional) will be run once after every 
-plugin is loaded. Note that while all plugins will be loaded, not all 
-plugins will be ready at this point. However you do have the ability to 
-work with them if you so choose. {what? how?}
-
-Lastly the ``run`` function will be run whenever your plugin's menu entry
-is clicked within confconsole. If the ``run`` function is not present in 
-a plugin, then it's menu entry will not be created.
-
 
 How do I interact with the user?
 --------------------------------
