@@ -34,8 +34,7 @@ example_domain = 'example.com'
 
 def doOnce():
     global dns_01
-    dns_01 = impByPath('./dns_01.py')
-
+    dns_01 = impByPath('Lets_Encrypt/dns_01.py')
 
 def load_domains():
     ''' Loads domain conf, writes default config if non-existant. Expects

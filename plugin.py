@@ -198,6 +198,7 @@ class PluginManager(object):
     def __init__(self, path: str, module_globals: dict[str, Any]) -> None:
         path = os.path.realpath(path)  # Just in case
         path_map: dict[str, Union[Plugin, PluginDir]] = {}
+        self.plugin_path = path
 
         module_globals.update({
             'impByName': lambda *a, **k: self.impByName(*a, **k),
@@ -229,14 +230,14 @@ class PluginManager(object):
                 if os.path.isdir(dir_path):
                     path_map[dir_path] = PluginDir(dir_path)
 
+        self.path_map = OrderedDict(sorted(path_map.items(),
+                                           key=lambda x: x[0]))
         for key in path_map:
             plugin = path_map[key]
             if isinstance(plugin, Plugin):
                 # Run plugin init
                 plugin.updateGlobals(module_globals)
                 plugin.doOnce()
-        self.path_map = OrderedDict(sorted(path_map.items(),
-                                           key=lambda x: x[0]))
 
         for key in self.path_map:
             if os.path.isdir(key):
@@ -266,7 +267,7 @@ class PluginManager(object):
 
     def getByPath(self, path: str) -> Optional[Union[Plugin, PluginDir]]:
         ''' Return plugin object with exact given path or None'''
-        return self.path_map.get(path, None)
+        return self.path_map[os.path.join(self.plugin_path, path)]
 
     # -- Used by plugins
     def impByName(self, name: str) -> Iterable[ModuleInterface]:
@@ -276,7 +277,7 @@ class PluginManager(object):
         modules = [x.module for x in
                    self.getByName(name) if isinstance(x, Plugin)]
 
-        return filter(None, modules)
+        return list(filter(None, modules))
 
     def impByDir(self, path: str) -> Iterable[ModuleInterface]:
         '''Return a list of python modules (from plugins excluding PluginDirs)
@@ -285,7 +286,7 @@ class PluginManager(object):
         modules = [x.module for x in
                    self.getByDir(path) if isinstance(x, Plugin)]
 
-        return filter(None, modules)
+        return list(filter(None, modules))
 
     def impByPath(self, path: str) -> Optional[ModuleInterface]:
         ''' Return a python module from plugin at given path or None '''
