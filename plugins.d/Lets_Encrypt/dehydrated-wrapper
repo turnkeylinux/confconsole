@@ -265,6 +265,7 @@ case $CTYPE in
              sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
     *)       fatal "Unexpected challenge type: $CTYPE"
 esac
+export CHALLENGETYPE=$CTYPE
 
 [[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
 chmod +x $HOOK

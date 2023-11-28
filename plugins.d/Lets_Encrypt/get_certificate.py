@@ -210,7 +210,7 @@ def run():
                 return
 
     domains = load_domains()
-    m = invalid_domains(domains)
+    m = invalid_domains(domains, challenge)
 
     if m:
         ret = console.yesno(
@@ -238,7 +238,7 @@ def run():
                 canceled = True
                 break
 
-            msg = invalid_domains(values)
+            msg = invalid_domains(values, challenge)
             if msg:
                 console.msgbox('Error', msg)
                 continue

@@ -5,7 +5,7 @@ import re
 
 from subprocess import PIPE
 from os import makedirs
-from os.path import join, exists, dirname
+from os.path import isfile, join, exists, dirname, realpath
 from shutil import which
 
 from typing import Optional
@@ -22,7 +22,7 @@ LEXICON_CONF_MAX_LINES = 7
 def load_config():
     ''' Loads lexicon config if present '''
     config = []
-    if not path.isfile(LEXICON_CONF):
+    if not isfile(LEXICON_CONF):
         while len(config) < LEXICON_CONF_MAX_LINES:
             config.append('')
         return config
@@ -101,11 +101,13 @@ def initial_setup() -> None:
     lexicon_bin = which('lexicon')
     venv = '/usr/local/src/venv/lexicon'
     lexicon_venv_bin = join(venv, 'bin/lexicon')
+    lexicon_venv_bin_syml = '/usr/local/bin/lexicon'
     if not lexicon_bin:
         # lexicon not found - install via venv
         install_venv = True
         msg_mid = "however it is not found on your system, so installing."
-    elif exists(lexicon_venv_bin) and lexicon_bin == lexicon_venv_bin:
+    elif (exists(lexicon_venv_bin) and exists(lexicon_venv_bin_syml)
+            and realpath(lexicon_bin) == lexicon_venv_bin):
         # lexicon venv found - seems good to go
         msg = msg_start + "lexicon appears to be installed to venv, continuing"
     elif lexicon_bin == '/usr/bin/lexicon' and check_pkg('lexicon'):
@@ -114,6 +116,8 @@ def initial_setup() -> None:
         remove_lexicon = True
         msg_mid = ("lexicon deb install noted, but we need a newer version"
                    " removing deb and install via venv.")
+    else:
+        msg_mid = "but your system is in an unexpected state"
     if not msg:
         msg = msg_start + msg_mid + msg_end
     ret = console.yesno(msg, autosize=True)
