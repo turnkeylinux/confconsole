@@ -4,6 +4,17 @@
 # It is designed to be used in conjunction with the TurnKey dehydrated-wrapper.
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
 
+fatal() { echo "FATAL: $@" >&2; exit 1; }
+
+case $CHALLENGETYPE in
+    http-01)
+        fatal "http-01 challenge enabled but dns-01 hook script in use";;
+    dns-01)
+        true;;
+    *)
+        fatal "Unrecognised challenge: $CHALLENGETYPE";;
+esac
+
 export PROVIDER_UPDATE_DELAY=${PROVIDER_UPDATE_DELAY:-"30"}
 #provider 'auto' can be used since roughly v3.3.13 of lexicon.
 export PROVIDER=${PROVIDER:-"auto"}
@@ -49,8 +60,8 @@ function clean_challenge {
 
     hook_log info "Clean challenge for ${DOMAIN}."
 
-    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER delete ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
-    --content="${TOKEN_VALUE}"
+    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER delete ${DOMAIN} TXT \
+        --name="_acme-challenge.${DOMAIN}." --content="${TOKEN_VALUE}"
 }
 
 function deploy_cert {
