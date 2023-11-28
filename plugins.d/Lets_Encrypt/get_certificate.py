@@ -18,6 +18,9 @@ DESC = """Please enter domain(s) to generate certificate for.
 To generate a single certificate for up to five domains (including subdomains),
 enter each domain into a box, one domain per box. Empty boxes will be ignored.
 
+Note that wildcard domains are supported, but only when using DNS-01 challenge
+type.
+
 To generate multiple certificates, please consult the advanced docs:
 https://www.turnkeylinux.org/docs/letsencrypt#advanced
 """
@@ -65,27 +68,28 @@ def save_domains(domains):
         fob.write(default_domains + ' '.join(domains) + '\n')
 
 
-def invalid_domains(domains):
+def invalid_domains(domains, challenge):
     ''' Validates well known limitations of domain-name specifications
     doesn't enforce when or if special characters are valid. Returns a
     string if domains are invalid explaining why otherwise returns False'''
     if domains[0] == '':
-        return ('Error: At least one domain must be provided in {} (with no'
-                ' preceeding space)'.format(domain_path))
+        return (f'Error: At least one domain must be provided in'
+                ' {domain_path} (with no preceeding space)')
     for domain in domains:
         if len(domain) != 0:
             if len(domain) > 254:
-                return ('Error in {}: Domain names must not exceed 254'
-                        ' characters'.format(domain))
+                return (f'Error in {domain}: Domain names must not exceed 254'
+                        ' characters')
             if domain.count('.') < 1:
-                return ('Error in {}: Domain may not have less'
-                        ' than 2 segments'
-                        ''.format(domain))
+                return (f'Error in {domain}: Domain may not have less'
+                        ' than 2 segments')
             for part in domain.split('.'):
                 if not 0 < len(part) < 64:
-                    return ('Error in {}: Domain segments may not be larger'
-                            ' than 63 characters or less than 1'
-                            ''.format(domain))
+                    return (f'Error in {domain}: Domain segments may not be'
+                            ' larger than 63 characters or less than 1')
+        elif domain.startswith('*') and challenge.startswith('http'):
+            return (f'Error in {domain}: Wildcard domains are only valid with'
+                    ' DNS-01 challenge')
     return False
 
 
@@ -116,7 +120,7 @@ def run():
         + tos_url + '\n\n'
         "Do you agree to the Let's Encrypt Terms of Service?",
         autosize=True
-    )
+        )
     if ret != 'ok':
         return
 
@@ -124,7 +128,7 @@ def run():
         console.msgbox(
             'Error',
             f'Dehydrated not installed or {dehydrated_conf} not found,'
-            ' dehydrated can be installed with apt from the Buster repo.\n\n'
+            ' dehydrated can be installed via apt from the Debian repos.\n\n'
             'More info: www.turnkeylinux.org/docs/letsencrypt',
             autosize=True
         )
@@ -141,16 +145,20 @@ def run():
 
     if challenge == 'http-01':
         ret = console.yesno(
-            'DNS must be configured before obtaining certificates. '
-            'Incorrectly configured DNS and excessive attempts could '
-            'lead to being temporarily blocked from requesting '
-            'certificates.\n\nDo you wish to continue?',
+            'DNS must be configured before obtaining certificates.'
+            ' Incorrectly configured DNS and excessive attempts could'
+            ' lead to being temporarily blocked from requesting'
+            ' certificates.\n\n'
+            "You can check for a valid 'A' DNS record for your domain via"
+            ' Google:   https://toolbox.googleapps.com/apps/dig/\n\n'
+            'Do you wish to continue?',
             autosize=True
         )
         if ret != 'ok':
             return
+    elif challenge == 'dns-01':
 
-    if challenge == 'dns-01':
+        dns_01.initial_setup()
         config = dns_01.load_config()
         fields = [
             ('', 1, 0, config[0], 1, 10, field_width, 255),
@@ -179,10 +187,11 @@ def run():
             return
 
         ret, provider = console.menu('DNS providers list',
-                                     'Select DNS provider you\'d like to use',
+                                     "Select DNS provider you'd like to use",
                                      providers)
         if ret != 'ok':
             return
+
         elif provider == 'auto' and not which('nslookup'):
             ret = console.yesno(
                 'nslookup tool is required to use dns-01 challenge with auto'

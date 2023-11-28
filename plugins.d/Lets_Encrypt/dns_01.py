@@ -7,6 +7,8 @@ from subprocess import PIPE
 from os import path
 from shutil import which
 
+from typing import Optional
+
 LEXICON_CONF = '/usr/share/confconsole/letsencrypt/lexicon.yml'
 
 LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dns-lexicon.readthedocs.io/
@@ -15,7 +17,6 @@ LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dn
 '''
 
 LEXICON_CONF_MAX_LINES = 7
-
 
 def load_config():
     ''' Loads lexicon config if present '''
@@ -37,8 +38,74 @@ def load_config():
             config.append('')
         return config
 
+def run_command(command: list[str]) -> tuple[int, str]:
+    proc = subprocess.run(command)
+    if proc.returncode != 0:
+        com = ' '.join(command)
+        return com.returncode,
+               "Something went wrong when running {com} '{com.stderr}'"
+    else:
+        return 0, 'success'
 
-def save_config(config):
+
+def apt_install(pkgs: list[str]) -> tuple[int, str]:
+    """Takes a list of package names, returns tuple(exit_code, message)"""
+    for command in [('apt-get', 'update'),
+                    ('apt-install', *pkgs, '-y')]:
+        exit_code, string = run_command(command)
+        if exit_code != 0:
+            return exit_code, string
+    return exit_code, string
+
+
+def check_pkg(pkg: str) -> bool:
+    """Takes a package name and returns True if installed, otherwise False"""
+    p = subprocess.run(['apt-cache', 'policy', pkg],
+                       capture_output=True, text=True)
+    for line in p.stdout.split('\n'):
+        line = line.strip()
+        if line.startswith('Installed'):
+            if not line.endswith('(none)'):
+                return (1, "exectualbe in /usr/bin/ found but lexicon package"
+                              " not installed!")
+            else:
+                return (0, "but (incompatible) Debian package detected -"
+                           " removing and installing from upstream.")
+
+
+def install_lexicon() -> tuple[int, str]:
+    """Install lexicon to venv via pip - required for v18.x
+
+    It may be possible to use the deb via apt in future"""
+    pip = which('pip')
+    pkgs = []
+    if not pip:
+        pkgs.append('pip')
+    if exists(
+        exit_code, string = apt_install(['pip'])
+        if exit_code != 0:
+            return exit_code, string
+    pip = which('pip')
+    venv = '/usr/local/src/venv/lexicon'
+    if exists(venv):
+        return 1, f"lexicon venv {venv} already exists - bailing"
+    makedirs(dirname(venv), exist_ok=True)
+    local_bin = '/usr/local/bin'
+    for command in
+            [('python3', '-m', 'venv', venv),
+             (pip, 'install', 'dns-lexicon[full]'),
+             ('ln', '-s', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"),
+             ('ln', '-s', f"{venv}/bin/tldextract", f"{local_bin}/tldextract")]
+
+        exit_code, pyvenv = run_command(command)
+        if exit_code != 0:
+            return exit_code, string
+    if which('lexicon') != '/usr/local/bin/lexicon':
+        return 1, "lexicon not found where expected"
+    return 0, 'success'
+
+
+def save_config(config: str) -> None:
     ''' Saves lexicon configuration '''
     with open(LEXICON_CONF, 'w') as fob:
         fob.write(LEXICON_CONF_NOTE)
@@ -48,17 +115,95 @@ def save_config(config):
                 fob.write(line + '\n')
 
 
-def get_providers():
+def initial_setup() -> tuple[int, str]:
+    '''Check lexicon and deps are installed and ready to go
+
+    Returns a tuple of exit code (0 = success) and message
+    '''
+    msg_start = 'lexicon tool is required for dns-01 challenge, '
+    msg_mid = ''
+    msg_end = '\n\nDo you wish to continue?'
+    msg = ''
+    remove_lexicon = False
+    install_venv = False
+
     lexicon_bin = which('lexicon')
+    venv = '/usr/local/src/venv/lexicon'
+    lexicon_venv_bin = join(venv, 'bin/lexicon')
     if not lexicon_bin:
-        ret = console.yesno(
-            'lexicon tool is required to use dns-01 challenge, '
-            'however it is not found on your system.\n\n'
-            'Do you wish to install it now?',
-            autosize=True
-        )
-        if ret != 'ok':
-            return None, 'Please install lexicon to use dns-01 challenge.'
+        # lexicon not found - install via venv
+        install_venv = True
+        msg_mid = "however it is not found on your system, so installing."
+    elif exists(lexicon_venv_bin) and lexicon_bin == lexicon_venv_bin:
+        # lexicon venv found - seems good to go
+        msg = msg_start + "lexicon appears to be installed to venv, continuing"
+    elif lexicon_bin == '/usr/bin/lexicon' and check_pkg('lexicon'):
+        # lexicon pkg installed - remove and install via venv
+        install_venv = True
+        remove_lexicon = True
+        msg_mid = ("lexicon deb install noted, but we need a newer version"
+                   " removing deb and install via venv."
+    if not msg:
+        msg = msg_start + msg_mid + msg_end
+    ret = console.yesno(msg, autosize=True)
+    if ret != 'ok':
+        return
+    if remove_lexicon:
+        exit_code, msg = run_command(['apt-get', 'remove', '-y', 'lexicon']
+        if exit_code != 0:
+            console.msgbox(
+                'Error',
+                f"Removal of lexicon package failed:\n\n{msg}")
+    if install_venv:
+        pkgs = []
+        pip = which('pip')
+        python3_venv = check_pkg('python3-venv')
+        if not pip:
+            pkgs.append('pip')
+        if not python3_venv:
+            pkg.append('python3-venv')
+        if pkgs:
+            exit_code, msg = apt_install(pkgs)
+            if exit_code != 0:
+                pkgs_l = " ".join(pkgs)
+                console.msgbox(
+                    'Error',
+                    f"Apt installing {pkgs_l] failed:\n\n{msg}")
+        pip = which('pip')
+        makedirs(dirname(venv), exist_ok=True)
+        local_bin = '/usr/local/bin'
+        for command in
+                [('python3', '-m', 'venv', venv),
+                 (pip, 'install', 'dns-lexicon[full]'),
+                 ('ln', '-s', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"),
+                 ('ln', '-s', f"{venv}/bin/tldextract", f"{local_bin}/tldextract")]:
+            exit_code, msg = run_command(command)
+            if exit_code != 0:
+                com = " ".join(command)
+                console.msgbox(
+                    'Error',
+                    f"Command '{com}' failed:\n\n{msg}")
+
+        lexicon_bin = which('lexicon')
+        lexicon_loc = '/usr/local/bin/lexicon'
+        if lexicon_bin:
+            if lexicon_bin != lexicon_loc:
+                console.msgbox(
+                    'Error',
+                    "lexicon ({lexicon_bin}) not found where expected ({lexicon_loc})?!")
+            else:
+                return
+        console.msgbox('Error', "Something went wrong... Please report to TurnKey.")
+
+
+def get_providers() -> tuple[Optional[str], Optional[str]]:
+    ret = console.yesno(
+
+        msg_start + msg_mid + msg_end,
+        autosize=True)
+    if ret != 'ok':
+        return (None, 'Please resolve the issue with lexicon to use'
+                      ' dns-01 challenge.')
 
         apt = subprocess.run(['apt-get', '-y', 'install', 'lexicon'],
                              encoding=sys.stdin.encoding,
