@@ -42,8 +42,8 @@ def run_command(command: list[str]) -> tuple[int, str]:
     proc = subprocess.run(command)
     if proc.returncode != 0:
         com = ' '.join(command)
-        return com.returncode,
-               "Something went wrong when running {com} '{com.stderr}'"
+        return (com.returncode,
+                "Something went wrong when running {com} '{com.stderr}'")
     else:
         return 0, 'success'
 
@@ -71,38 +71,6 @@ def check_pkg(pkg: str) -> bool:
             else:
                 return (0, "but (incompatible) Debian package detected -"
                            " removing and installing from upstream.")
-
-
-def install_lexicon() -> tuple[int, str]:
-    """Install lexicon to venv via pip - required for v18.x
-
-    It may be possible to use the deb via apt in future"""
-    pip = which('pip')
-    pkgs = []
-    if not pip:
-        pkgs.append('pip')
-    if exists(
-        exit_code, string = apt_install(['pip'])
-        if exit_code != 0:
-            return exit_code, string
-    pip = which('pip')
-    venv = '/usr/local/src/venv/lexicon'
-    if exists(venv):
-        return 1, f"lexicon venv {venv} already exists - bailing"
-    makedirs(dirname(venv), exist_ok=True)
-    local_bin = '/usr/local/bin'
-    for command in
-            [('python3', '-m', 'venv', venv),
-             (pip, 'install', 'dns-lexicon[full]'),
-             ('ln', '-s', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"),
-             ('ln', '-s', f"{venv}/bin/tldextract", f"{local_bin}/tldextract")]
-
-        exit_code, pyvenv = run_command(command)
-        if exit_code != 0:
-            return exit_code, string
-    if which('lexicon') != '/usr/local/bin/lexicon':
-        return 1, "lexicon not found where expected"
-    return 0, 'success'
 
 
 def save_config(config: str) -> None:
