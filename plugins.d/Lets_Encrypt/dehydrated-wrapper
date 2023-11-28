@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-# Copyright (c) 2016-2022 TurnKey GNU/Linux - https://www.turnkeylinux.org
+# Copyright (c) 2016-2023 TurnKey GNU/Linux - https://www.turnkeylinux.org
 #
 # dehyrdated-wrapper - A wrapper script for the Dehydrated
 #                      Let's Encrypt client
@@ -14,7 +14,7 @@
 
 ### initial setup of vars and functions ###
 
-[ "$DEBUG" = "y" ] && set -x
+[[ "$DEBUG" = "y" ]] && set -x
 
 APP="$(basename $0)"
 DEHYD_ETC=/etc/dehydrated
@@ -26,7 +26,7 @@ FREQ=daily
 CRON=/etc/cron.$FREQ/confconsole-dehydrated
 LOG=/var/log/confconsole/letsencrypt.log
 AUTHBIND80=/etc/authbind/byport/80
-[ -f "$AUTHBIND80" ] || touch "$AUTHBIND80"
+[[ -f "$AUTHBIND80" ]] || touch "$AUTHBIND80"
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
 
@@ -38,8 +38,8 @@ LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
     | sed 's|^.*Service": "||; s|",$||')
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
-SH_HOOK=$SHARE/dehydrated-confconsole.hook.sh
-SH_HOOK_DNS=$SHARE/dehydrated-confconsole.hook-dns.sh
+SH_HOOK_HTTP=$SHARE/dehydrated-confconsole.hook-http-01.sh
+SH_HOOK_DNS=$SHARE/dehydrated-confconsole.hook-dns-01.sh
 SH_CRON=$SHARE/dehydrated-confconsole.cron
 SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
 export LEXICON_CONFIG_DIR=$SHARE
@@ -63,8 +63,8 @@ touch $LOG
 chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
 
 usage() {
-echo "$@"
-cat<<EOF
+    echo "$@"
+    cat<<EOF
 Syntax: $APP [--force|-f] [--register|-r] [--challenge|-c <type>] [--provider|-p <name>] [--log-info|-i] [--help|-h]
 
 TurnKey Linux wrapper script for dehydrated.
@@ -115,7 +115,7 @@ For more info on advanced usage, please see
     https://www.turnkeylinux.org/docs/letsencrypt#advanced
 
 EOF
-exit 1
+    exit 1
 }
 
 fatal() {
@@ -132,23 +132,27 @@ info() {
 }
 
 copy_if_not_found() {
-    if [ ! -f "$1" ]; then
+    if [[ ! -f "$1" ]]; then
         warning "$1 not found; copying default from $2"
         cp "$2" "$1"
     fi
 }
 
-check_80() {
-    netstat -ltpn | grep ":80 " | head -1 | cut -d/ -f2 \
+check_port() {
+    case $1 in
+        80|443) local port=$1;;
+        *)      fatal "Unexpected port: $1"
+    esac
+    netstat -ltpn | grep ":$port " | head -1 | cut -d/ -f2 \
         | sed -e 's|[[:space:]].*$||; s|[^a-zA-Z0-9]||g'
 }
 
 stop_server() {
     [ -z "$@" ] && return
     info "stopping $1"
-    service $1 stop 2>&1 | tee -a $LOG
+    systemctl stop $1 2>&1 | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
-    while [ "$(check_80)" != "" ] && [ $EXIT_CODE -eq 0 ]; do
+    while [[ "$(check_port $PORT)" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
         info "waiting 1 second for $1 to stop"
         sleep 1
     done
@@ -158,7 +162,7 @@ restart_servers() {
     for servicename in $@; do
         info "(Re)starting $servicename"
         systemctl restart $servicename | tee -a $LOG
-        [ "${PIPESTATUS[0]}" -eq 0 ] || EXIT_CODE=1
+        [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
     done
 }
 
@@ -166,13 +170,13 @@ clean_finish() {
     # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
     # You have been warned...
     EXIT_CODE=$1
-    if [ "$(check_80)" = "python" ] || [ "$(check_80)" = "python3" ]; then
-        warning "Python is still listening on port 80"
+    if [[ "$(check_port $PORT)" == @(python|python3) ]]; then
+        warning "Python is still listening on port $PORT"
         info "attempting to kill add-water server"
         systemctl stop add-water
     fi
-    [ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $AUTHBIND_USR $AUTHBIND80
-    if [ $EXIT_CODE -ne 0 ]; then
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $AUTHBIND_USR $AUTHBIND80
+    if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Something went wrong, restoring original cert, key and combined files."
 
         mv $TKL_CERTFILE.bak $TKL_CERTFILE
@@ -191,7 +195,7 @@ clean_finish() {
         fi
     fi
     restart_servers $WEBSERVER $SERVICES_TO_RESTART
-    if [ $EXIT_CODE -ne 0 ]; then
+    if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Check today's previous log entries for details of error."
     else
         info "$APP completed successfully."
@@ -202,9 +206,9 @@ clean_finish() {
 
 ### some intial checks & set up trap ###
 
-[ "$EUID" = "0" ] || fatal "$APP must be run as root"
-[ $(which dehydrated) ] || fatal "Dehydrated not installed, or not in the \$PATH"
-[ $(which authbind) ] || fatal "Authbind not installed"
+[[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
+[[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
+[[ $(which authbind) ]] || fatal "Authbind not installed"
 
 for sig in INT TERM; do
     trap "clean_finish 1
@@ -234,7 +238,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
     DEBUG_LOG="$LOG"
 else
     DEBUG_LOG="/dev/null"
@@ -245,80 +249,84 @@ info "started"
 
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
-. "$CONFIG"
+source "$CONFIG"
 
 copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 
-[ "$DOMAINS_TXT" != "$CC_DOMAINS" ] && warning "$CONFIG is not using $CC_DOMAINS"
-[ -z "$HOOK" ] && fatal "hook script not defined in $CONFIG"
-[ "$HOOK" != "$CC_HOOK" ] && warning "$CONFIG is not using $CC_HOOK"
+[[ "$DOMAINS_TXT" != "$CC_DOMAINS" ]] && warning "$CONFIG is not using $CC_DOMAINS"
+[[ -z "$HOOK" ]] && fatal "hook script not defined in $CONFIG"
 
 case $CTYPE in
-    http-01) cp "$SH_HOOK" "$HOOK"
-             sed -i 's/^CHALLENGETYPE.*/CHALLENGETYPE=\"http-01\"/' "$CONFIG";;
-    dns-01)  cp "$SH_HOOK_DNS" "$HOOK"
-             sed -i 's/^CHALLENGETYPE.*/CHALLENGETYPE=\"dns-01\"/' "$CONFIG";;
-    *)       copy_if_not_found "$HOOK" "$SH_HOOK";;
+    http-01) cp "$SH_HOOK_HTTP" "$CC_HOOK"
+             PORT=80
+             sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
+    dns-01)  cp "$SH_HOOK_DNS" "$CC_HOOK"
+             PORT=443
+             sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
+    *)       fatal "Unexpected challenge type: $CTYPE"
 esac
 
+[[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
 chmod +x $HOOK
 
 copy_if_not_found "$CRON" "$SH_CRON"
 
-if [ "$REGISTER" = 'y' ]; then
+if [[ "$REGISTER" = 'y' ]]; then
     DEHYDRATED_REGISTER="dehydrated --register --accept-terms --config $CONFIG"
-    if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+    if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
         $DEHYDRATED_REGISTER 2>&1 | tee -a $DEBUG_LOG
         EXIT_CODE=${PIPESTATUS[0]}
     else
         ($DEHYDRATED_REGISTER 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
         EXIT_CODE=${PIPESTATUS[0]}
     fi
-    [ $EXIT_CODE -eq 0 ] || fatal "dehydrated failed to register account."
+    [[ $EXIT_CODE -eq 0 ]] || fatal "dehydrated failed to register account."
 fi
 
 ### main script ###
 
-WEBSERVER="$(check_80)"
-if [ -n "$WEBSERVER" ]; then
-    info "found $WEBSERVER listening on port 80"
-    case $WEBSERVER in
-        apache2 | lighttpd | nginx )
-            stop_server $WEBSERVER;;
-        java )
-            TOMCAT=/etc/init.d/tomcat;
-            if [ -x "${TOMCAT}8" ]; then
-                WEBSERVER=tomcat8;
-            elif [ -f "/lib/systemd/system/tomcat9.service" ]; then
-                WEBSERVER=tomcat9;
-            else
+WEBSERVER=$(check_port $PORT)
+if [[ -n "$WEBSERVER" ]]; then
+    info "found $WEBSERVER listening on port $PORT"
+    if [[ "$CTYPE" == 'http-01' ]]; then
+        case $WEBSERVER in
+            apache2 | lighttpd | nginx )
+                stop_server $WEBSERVER;;
+            java )
+                TOMCAT=/etc/init.d/tomcat;
+                if [[ -x "${TOMCAT}8" ]]; then
+                    WEBSERVER=tomcat8;
+                elif [[ -f "/lib/systemd/system/tomcat9.service" ]]; then
+                    WEBSERVER=tomcat9;
+                else
+                    unset WEBSERVER;
+                    fatal "An unknown Java app is listening on port $PORT";
+                fi;
+                stop_server $WEBSERVER;;
+            python|python3 )
                 unset WEBSERVER;
-                fatal "An unknown Java app is listening on port 80";
-            fi;
-            stop_server $WEBSERVER;;
-        python|python3 )
-            unset WEBSERVER;
-            fatal "An unknown/unexpected Python app is listening on port 80";;
-        * )
-            unknown="$WEBSERVER";
-            unset WEBSERVER;
-            fatal "An unexpected service is listening on port 80: $unknown";;
-    esac
+                fatal "An unknown/unexpected Python app is listening on port $PORT";;
+            * )
+                unknown="$WEBSERVER";
+                unset WEBSERVER;
+                fatal "An unexpected service is listening on port $PORT: $unknown";;
+        esac
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $HTTP_USR $AUTHBIND80
+    fi
 else
-    info "No process found listening on port 80; continuing"
+    info "No process found listening on port $PORT; continuing"
 fi
 
-[ "$AUTHBIND_USR" = "$HTTP_USR" ] || chown $HTTP_USR $AUTHBIND80
-[ "$CTYPE" != "dns-01" ] && systemctl start add-water
+[[ "$CTYPE" != "dns-01" ]] && systemctl start add-water
 info "running dehydrated"
-if [ "$DEBUG" = "y" ] || [ "$LOG_INFO" = "y" ]; then
+if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
     dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
     EXIT_CODE=${PIPESTATUS[0]}
 else
     (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
 fi
-if [ $EXIT_CODE -ne 0 ]; then
+if [[ $EXIT_CODE -ne 0 ]]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
