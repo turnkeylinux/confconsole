@@ -44,7 +44,7 @@ def run_command(command: list[str]) -> tuple[int, str]:
     if proc.returncode != 0:
         com = ' '.join(command)
         return (proc.returncode,
-                "Something went wrong when running {com} '{com.stderr}'")
+                f"Something went wrong when running {com} '{proc.stderr}'")
     else:
         return 0, 'success'
 
@@ -52,14 +52,14 @@ def run_command(command: list[str]) -> tuple[int, str]:
 def apt_install(pkgs: list[str]) -> tuple[int, str]:
     """Takes a list of package names, returns tuple(exit_code, message)"""
     for command in [['apt-get', 'update'],
-                    ['apt-install', *pkgs, '-y']]:
+                    ['apt-get', 'install', *pkgs, '-y']]:
         exit_code, string = run_command(command)
         if exit_code != 0:
             return exit_code, string
     return exit_code, string
 
 
-def check_pkg(pkg: str) -> tuple[int, str]:
+def check_pkg(pkg: str) -> bool:
     """Takes a package name and returns True if installed, otherwise False"""
     p = subprocess.run(['apt-cache', 'policy', pkg],
                        capture_output=True, text=True)
@@ -67,13 +67,10 @@ def check_pkg(pkg: str) -> tuple[int, str]:
         line = line.strip()
         if line.startswith('Installed'):
             if not line.endswith('(none)'):
-                return (1, "exectualbe in /usr/bin/ found but lexicon package"
-                              " not installed!")
+                return True # package installed
             else:
-                return (0, "but (incompatible) Debian package detected -"
-                           " removing and installing from upstream.")
-    return (1,
-            f"No apt policy results; package {pkg} may not be installable?")
+                return False # package probably available but not installed
+    return False # package uninstallable
 
 
 def save_config(config: str) -> None:
@@ -134,7 +131,7 @@ def initial_setup() -> None:
         pip = which('pip')
         python3_venv = check_pkg('python3-venv')
         if not pip:
-            pkgs.append('pip')
+            pkgs.append('python3-pip')
         if not python3_venv:
             pkgs.append('python3-venv')
         if pkgs:
@@ -144,15 +141,15 @@ def initial_setup() -> None:
                 console.msgbox(
                     'Error',
                     f"Apt installing {pkgs_l} failed:\n\n{msg}")
-        pip = which('pip')
         makedirs(dirname(venv), exist_ok=True)
         local_bin = '/usr/local/bin'
+        venv_pip = join(venv, 'bin/pip')
         for command in [
                 ['python3', '-m', 'venv', venv],
-                [pip, 'install', 'dns-lexicon[full]'],
-                ['ln', '-s', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"],
-                ['ln', '-s', f"{venv}/bin/tldextract", f"{local_bin}/tldextract"]
-                ]:
+                [venv_pip, 'install', 'dns-lexicon[full]'],
+                ['ln', '-sf', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"],
+                ['ln', '-sf', f"{venv}/bin/tldextract", f"{local_bin}/tldextract"]
+            ]:
             assert isinstance(command, list)
             exit_code, msg = run_command(command)
             if exit_code != 0:
@@ -160,6 +157,7 @@ def initial_setup() -> None:
                 console.msgbox(
                     'Error',
                     f"Command '{com}' failed:\n\n{msg}")
+                return None
 
         lexicon_bin = which('lexicon')
         lexicon_loc = '/usr/local/bin/lexicon'
@@ -167,10 +165,11 @@ def initial_setup() -> None:
             if lexicon_bin != lexicon_loc:
                 console.msgbox(
                     'Error',
-                    "lexicon ({lexicon_bin}) not found where expected ({lexicon_loc})?!")
+                    f"lexicon ({lexicon_bin}) not found where expected ({lexicon_loc})?!")
             else:
                 return None
         console.msgbox('Error', "Something went wrong... Please report to TurnKey.")
+        return None
 
 
 def get_providers() -> tuple[Optional[list[tuple[str, str]]], Optional[str]]:
