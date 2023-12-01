@@ -8,6 +8,7 @@ from subprocess import PIPE
 from os import path, remove
 from shutil import copyfile, which
 from json import JSONDecodeError
+from glob import glob
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -150,7 +151,7 @@ def run():
             ' lead to being temporarily blocked from requesting'
             ' certificates.\n\n'
             "You can check for a valid 'A' DNS record for your domain via"
-            ' Google:   https://toolbox.googleapps.com/apps/dig/\n\n'
+            ' Google:\n    https://toolbox.googleapps.com/apps/dig/\n\n'
             'Do you wish to continue?',
             autosize=True
         )
@@ -159,7 +160,49 @@ def run():
     elif challenge == 'dns-01':
 
         dns_01.initial_setup()
-        config = dns_01.load_config()
+        conf_possible = glob(join(LEXICON_CONF_DIR, 'lexicon_*.yml'))
+        if len(conf_possible) == 0:
+            conf = None
+        elif len(conf_possible) == 1:
+            conf = conf_possible[0]
+        elif len(conf_possible) >= 2:
+            console.msgbox('Error',
+                           "Multiple lexicon_*.yml conf files found in"
+                           f" {LEXICON_CONF_DIR}, please ensure there is only"
+                           " one",
+                           autosize=True)
+            return
+
+        if not conf:
+            providers, err = dns_01.get_providers()
+            if err:
+                console.msgbox('Error', err, autosize=True)
+                return
+
+            ret, provider = console.menu(
+                    'DNS providers list',
+                    "Select DNS provider you'd like to use",
+                    providers)
+            if ret != 'ok':
+                return
+
+            if provider == 'auto' and not which('nslookup'):
+                ret = console.yesno(
+                    'nslookup tool is required to use dns-01 challenge with'
+                    ' auto provider.\n\n'
+                    'Do you wish to install it now?',
+                    autosize=True
+                    )
+                if ret != 'ok':
+                    return
+                return_code, message = dns_01.apt_install(['dnsutils'])
+                if returncode != 0:
+                    console.msgbox('Error', message, autosize=True)
+                    return
+            if not provider:
+                console.msgbox('Error', 'No provider selected', autosize=True)
+
+        conf_file, config = dns_01.load_config(provider)
         fields = [
             ('', 1, 0, config[0], 1, 10, field_width, 255),
             ('', 2, 0, config[1], 2, 10, field_width, 255),
@@ -169,45 +212,18 @@ def run():
             ('', 6, 0, config[5], 6, 10, field_width, 255),
             ('', 7, 0, config[6], 7, 10, field_width, 255),
         ]
-        ret, values = console.form('Lexicon configuration',
-                                   'Review and adjust current lexicon '
-                                   'configuration as necessary.\n\n'
-                                   'You can follow configuration reference at:'
-                                   '\nhttps://dns-lexicon.readthedocs.io/',
-                                   fields, autosize=True)
+        ret, values = console.form(
+                'Lexicon configuration',
+                'Review and adjust current lexicon configuration as necessary.\n\n'
+                'Please see https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01',
+                fields,
+                autosize=True)
         if ret != 'ok':
             return
 
         if config != values:
-            dns_01.save_config(values)
+            dns_01.save_config(conf_file, values)
 
-        providers, err = dns_01.get_providers()
-        if err:
-            console.msgbox('Error', err, autosize=True)
-            return
-
-        ret, provider = console.menu('DNS providers list',
-                                     "Select DNS provider you'd like to use",
-                                     providers)
-        if ret != 'ok':
-            return
-
-        elif provider == 'auto' and not which('nslookup'):
-            ret = console.yesno(
-                'nslookup tool is required to use dns-01 challenge with auto'
-                ' provider.\n\n'
-                'Do you wish to install it now?',
-                autosize=True
-            )
-            if ret != 'ok':
-                return
-
-            apt = subprocess.run(['apt-get', '-y', 'install', 'dnsutils'],
-                                 encoding=sys.stdin.encoding,
-                                 stderr=PIPE)
-            if apt.returncode != 0:
-                console.msgbox('Error', apt.stderr.strip(), autosize=True)
-                return
 
     domains = load_domains()
     m = invalid_domains(domains, challenge)

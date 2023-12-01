@@ -3,57 +3,79 @@ import sys
 import subprocess
 import re
 
-from subprocess import PIPE
 from os import makedirs
 from os.path import isfile, join, exists, dirname, realpath
-from shutil import which
+from shutil import which, copy
 
 from typing import Optional
 
-LEXICON_CONF = '/usr/share/confconsole/letsencrypt/lexicon.yml'
+LEXICON_SHARE_DIR = '/usr/share/confconsole/letsencrypt'
+LEXICON_CONF_DIR = '/etc/dehydrated'
 
 LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dns-lexicon.readthedocs.io/
-# Note that documentation began around v.3.3.28 of lexicon. Therefore not all of
-# the features might be available to you!
+#
 '''
 
-LEXICON_CONF_MAX_LINES = 7
+#LEXICON_CONF_MAX_LINES = 7
 
-def load_config():
-    ''' Loads lexicon config if present '''
-    config = []
-    if not isfile(LEXICON_CONF):
-        while len(config) < LEXICON_CONF_MAX_LINES:
-            config.append('')
-        return config
+def load_config(provider: str) -> tuple[str, list[str]]:
+    ''' Loads lexicon config if present, loads example if not,
+    returns tuple(conf_file, list(config))'''
+    if provider in ['route53', 'cloudflare']:
+        example_conf = join(LEXICON_SHARE_DIR,
+                            f'lexicon-confconsole-provider_{provider}.yml')
     else:
-        with open(LEXICON_CONF, 'r') as fob:
-            for line in fob:
-                line = line.rstrip()
-                if line and not line.startswith('#'):
-                    config.append(line)
+        example_conf = join(LEXICON_SHARE_DIR,
+                            'lexicon-confconsole-provider_example.yml')
+    conf_file = join(LEXICON_CONF_DIR, f'lexicon_{provider}.yml')
+    config = []
+    if not isfile(conf_file):
+        copy(example_conf, conf_file)
+        # ensure root read/write only as file contains sensitive info
+        chown(conf_file, 0, 0) # chown root:root
+        chmod(conf_file, 0o600) # chmod 600 (owner read/write only)
+    with open(conf_file, 'r') as fob:
+        for line in fob:
+            config.append(line.rstrip())
 
-        while len(config) > LEXICON_CONF_MAX_LINES:
-            config.pop()
-        while len(config) < LEXICON_CONF_MAX_LINES:
-            config.append('')
-        return config
+    #    while len(config) > LEXICON_CONF_MAX_LINES:
+    #       config.pop()
+    #    while len(config) < LEXICON_CONF_MAX_LINES:
+    #        config.append('')
+    return conf_file, config
 
-def run_command(command: list[str]) -> tuple[int, str]:
-    proc = subprocess.run(command)
+
+def save_config(conf_file: str, config: str) -> None:
+    ''' Saves lexicon configuration '''
+    with open(conf_file, 'w') as fob:
+        fob.write(LEXICON_CONF_NOTE)
+        for line in config:
+            if line:
+                fob.write(line.rstrip() + '\n')
+    # ensure root read/write only as file contains sensitive info
+    chown(conf_file, 0, 0) # chown root:root
+    chmod(conf_file, 0o600) # chmod 600 (owner read/write only)
+
+
+def run_command(command: list[str], env: Optional[dict[str, str]] = None
+        ) -> tuple[int, str]:
+    if env is None:
+        env = {}
+    proc = subprocess.run(command, env, capture_output=True, text=True)
     if proc.returncode != 0:
         com = ' '.join(command)
         return (proc.returncode,
-                f"Something went wrong when running {com} '{proc.stderr}'")
+                f"Something went wrong when running {com}:\n\n{proc.stderr}")
     else:
         return 0, 'success'
 
 
 def apt_install(pkgs: list[str]) -> tuple[int, str]:
     """Takes a list of package names, returns tuple(exit_code, message)"""
+    env = {'DEBIAN_FRONTEND': 'noninteractive'}
     for command in [['apt-get', 'update'],
                     ['apt-get', 'install', *pkgs, '-y']]:
-        exit_code, string = run_command(command)
+        exit_code, string = run_command(command, env=env)
         if exit_code != 0:
             return exit_code, string
     return exit_code, string
@@ -73,16 +95,6 @@ def check_pkg(pkg: str) -> bool:
     return False # package uninstallable
 
 
-def save_config(config: str) -> None:
-    ''' Saves lexicon configuration '''
-    with open(LEXICON_CONF, 'w') as fob:
-        fob.write(LEXICON_CONF_NOTE)
-        for line in config:
-            line = line.rstrip()
-            if line:
-                fob.write(line + '\n')
-
-
 def initial_setup() -> None:
     '''Check lexicon and deps are installed and ready to go
 
@@ -100,26 +112,26 @@ def initial_setup() -> None:
     lexicon_venv_bin = join(venv, 'bin/lexicon')
     lexicon_venv_bin_syml = '/usr/local/bin/lexicon'
     if not lexicon_bin:
-        # lexicon not found - install via venv
+        # lexicon not found - offer to install via venv
         install_venv = True
         msg_mid = "however it is not found on your system, so installing."
     elif (exists(lexicon_venv_bin) and exists(lexicon_venv_bin_syml)
             and realpath(lexicon_bin) == lexicon_venv_bin):
-        # lexicon venv found - seems good to go
-        msg = msg_start + "lexicon appears to be installed to venv, continuing"
+        # lexicon venv found - seems good to go - no message required
+        msg = None
     elif lexicon_bin == '/usr/bin/lexicon' and check_pkg('lexicon'):
-        # lexicon pkg installed - remove and install via venv
+        # lexicon pkg installed - offer to remove and install via venv
         install_venv = True
         remove_lexicon = True
         msg_mid = ("lexicon deb install noted, but we need a newer version"
                    " removing deb and install via venv.")
     else:
         msg_mid = "but your system is in an unexpected state"
-    if not msg:
+    if msg is not None:
         msg = msg_start + msg_mid + msg_end
-    ret = console.yesno(msg, autosize=True)
-    if ret != 'ok':
-        return
+        ret = console.yesno(msg, autosize=True)
+        if ret != 'ok':
+            return
     if remove_lexicon:
         exit_code, msg = run_command(['apt-get', 'remove', '-y', 'lexicon'])
         if exit_code != 0:
