@@ -258,6 +258,15 @@ def run():
         d_conf = initial_load_conf(provider)
         write_conf(d_conf)
         conf_file, config = dns_01.load_config(provider)
+        if len(config) > 12:
+            console.msgbox(
+                    'Error',
+                    "Config file too big - needs to be 12 lines or less",
+                    autosize=True)
+            return
+        elif len(config) < 12:
+            for i in range(12 - len(config)):
+                config.append('')
         fields = [
             ('', 1, 0, config[0], 1, 10, field_width, 255),
             ('', 2, 0, config[1], 2, 10, field_width, 255),
@@ -266,6 +275,12 @@ def run():
             ('', 5, 0, config[4], 5, 10, field_width, 255),
             ('', 6, 0, config[5], 6, 10, field_width, 255),
             ('', 7, 0, config[6], 7, 10, field_width, 255),
+            ('', 8, 0, config[7], 8, 10, field_width, 255),
+            ('', 9, 0, config[8], 9, 10, field_width, 255),
+            ('', 10, 0, config[9], 10, 10, field_width, 255),
+            ('', 11, 0, config[10], 11, 10, field_width, 255),
+            ('', 12, 0, config[11], 12, 10, field_width, 255),
+
         ]
         ret, values = console.form(
                 'Lexicon configuration',

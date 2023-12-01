@@ -1,5 +1,4 @@
-# For more info, please see:
-# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+# uncomment relevant lines and replace example value(s)
 
 # AWS Route53 example:
 #auth_access_key: YOUR_AWS_ACCESS_KEY
