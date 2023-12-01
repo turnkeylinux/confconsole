@@ -1,0 +1,8 @@
+# For more info, please see:
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+
+# AWS Route53 example:
+#auth_access_key: YOUR_AWS_ACCESS_KEY
+#auth_access_secret: YOUR_AWS_ACCESS_SECRET
+#private_zone: False # generally you'll always want public zone
+#zone_id: YOUR_ZONE_ID

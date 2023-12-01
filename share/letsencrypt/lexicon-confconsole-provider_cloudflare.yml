@@ -1,0 +1,15 @@
+# For more info, please see:
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+
+# uncomment relevant lines and replace example value(s)
+
+# Cloudflare example 1 - using global api key
+#auth_username: YOUR_CF_USERNAME
+#auth_token: YOUR_CF_API_TOKEN
+
+# Cloudflare example 2 - using unscoped API token
+#auth_token: YOUR_CF_UNSCOPED_API_TOKEN
+
+# Cloudflare example 3 - using scoped API token
+#auth_token: YOUR_CF_SCOPED_API_TOKEN
+#zone_id: YOUR_CF_ZONE_ID

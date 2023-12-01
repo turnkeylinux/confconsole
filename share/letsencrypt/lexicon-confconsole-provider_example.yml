@@ -1,0 +1,6 @@
+# For more info, please see:
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+
+# Your relevant provider config here
+#config_key_1: config_value_1
+#config_key_2: config_value_2
