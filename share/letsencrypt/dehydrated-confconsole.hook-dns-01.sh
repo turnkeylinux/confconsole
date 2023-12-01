@@ -4,16 +4,7 @@
 # It is designed to be used in conjunction with the TurnKey dehydrated-wrapper.
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
 
-fatal() { echo "FATAL: $@" >&2; exit 1; }
-
-case $CHALLENGETYPE in
-    http-01)
-        fatal "http-01 challenge enabled but dns-01 hook script in use";;
-    dns-01)
-        true;;
-    *)
-        fatal "Unrecognised challenge: $CHALLENGETYPE";;
-esac
+# DNS-01 Hook Script
 
 export PROVIDER_UPDATE_DELAY=${PROVIDER_UPDATE_DELAY:-"30"}
 #provider 'auto' can be used since roughly v3.3.13 of lexicon.

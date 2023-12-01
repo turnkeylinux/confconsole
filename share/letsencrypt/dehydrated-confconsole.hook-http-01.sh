@@ -4,16 +4,7 @@
 # It is designed to be used in conjunction with the TurnKey dehydrated-wrapper.
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
 
-fatal() { echo "FATAL: $@" >&2; exit 1; }
-
-case $CHALLENGETYPE in
-    http-01)
-        true;;
-    dns-01)
-        fatal "dns-01 challenge enabled but http-01 hook script in use";;
-    *)
-        fatal "Unrecognised challenge: $CHALLENGETYPE";;
-esac
+# HTTP-01 Hook Script
 
 function hook_log {
     default="[$(date "+%Y-%m-%d %H:%M:%S")] $(basename $0):"

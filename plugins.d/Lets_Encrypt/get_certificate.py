@@ -73,6 +73,18 @@ def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     write_conf(new_conf)
     return new_conf
 
+def get_conf_value(conf: list[str], key: str) -> str:
+    """Given a list of config lines and a key, returns the (first) corresponding
+    value (non case sensititive). If nothing found, returns empty string.
+    """
+    for line in conf:
+        if line is None:
+            continue
+        if '=' in line and not line.startswith('#'):
+            if key.lower() == line.split('=', 1)[0].lower:
+                return line.split('=', 1)[1].strip('"').strip("'")
+    return ''
+
 def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     """Create or update Dehydrated conf file, if not passed provider, assumes
     http-01 challenge, otherwise assume dns-01. Also returns conf as list of
@@ -210,15 +222,15 @@ def run():
             return
         d_conf = initial_load_conf()
         write_conf(d_conf)
-    elif challenge == 'dns-01':
 
+    elif challenge == 'dns-01':
         dns_01.initial_setup()
-        conf_possible = glob(path.join(dns_01.LEXICON_CONF_DIR, 'lexicon_*.yml'))
-        if len(conf_possible) == 0:
+        l_conf_possible = glob(path.join(dns_01.LEXICON_CONF_DIR, 'lexicon_*.yml'))
+        if len(l_conf_possible) == 0:
             conf = None
-        elif len(conf_possible) == 1:
-            conf = conf_possible[0]
-        elif len(conf_possible) >= 2:
+        elif len(l_conf_possible) == 1:
+            conf = l_conf_possible[0]
+        elif len(l_conf_possible) >= 2:
             console.msgbox('Error',
                            "Multiple lexicon_*.yml conf files found in"
                            f" {LEXICON_CONF_DIR}, please ensure there is only"
@@ -226,7 +238,9 @@ def run():
                            autosize=True)
             return
 
-        if not conf:
+        if conf:
+            provider = path.basename(conf).split('_', 1)[1][:-4]
+        else:
             providers, err = dns_01.get_providers()
             if err:
                 console.msgbox('Error', err, autosize=True)
@@ -255,8 +269,8 @@ def run():
             if not provider:
                 console.msgbox('Error', 'No provider selected', autosize=True)
 
+        print(f'{provider=}\n{d_conf=}')
         d_conf = initial_load_conf(provider)
-        write_conf(d_conf)
         conf_file, config = dns_01.load_config(provider)
         if len(config) > 12:
             console.msgbox(
