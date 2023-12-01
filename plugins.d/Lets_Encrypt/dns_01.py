@@ -3,7 +3,7 @@ import sys
 import subprocess
 import re
 
-from os import makedirs
+from os import makedirs, chmod, chown
 from os.path import isfile, join, exists, dirname, realpath
 from shutil import which, copy
 
@@ -61,7 +61,7 @@ def run_command(command: list[str], env: Optional[dict[str, str]] = None
         ) -> tuple[int, str]:
     if env is None:
         env = {}
-    proc = subprocess.run(command, env, capture_output=True, text=True)
+    proc = subprocess.run(command, env=env, capture_output=True, text=True)
     if proc.returncode != 0:
         com = ' '.join(command)
         return (proc.returncode,
@@ -117,7 +117,7 @@ def initial_setup() -> None:
         msg_mid = "however it is not found on your system, so installing."
     elif (exists(lexicon_venv_bin) and exists(lexicon_venv_bin_syml)
             and realpath(lexicon_bin) == lexicon_venv_bin):
-        # lexicon venv found - seems good to go - no message required
+        # lexicon venv found - no message required
         msg = None
     elif lexicon_bin == '/usr/bin/lexicon' and check_pkg('lexicon'):
         # lexicon pkg installed - offer to remove and install via venv

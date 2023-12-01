@@ -9,6 +9,7 @@ from os import path, remove
 from shutil import copyfile, which
 from json import JSONDecodeError
 from glob import glob
+from typing import Optional
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
@@ -27,7 +28,9 @@ https://www.turnkeylinux.org/docs/letsencrypt#advanced
 """
 
 dehydrated_conf = '/etc/dehydrated'
-domain_path = '/'.join([dehydrated_conf, 'confconsole.domains.txt'])
+domain_path = path.join(dehydrated_conf, 'confconsole.domains.txt')
+d_conf_path = path.join(dehydrated_conf, 'confconsole.config')
+d_conf_example = '/usr/share/confconsole/letsencrypt/dehydrated-confconsole.config'
 
 default_domains = '''# please use this file with confconsole or
 # alternatively use dehydrated with it's appropriate
@@ -39,6 +42,54 @@ example_domain = 'example.com'
 def doOnce():
     global dns_01
     dns_01 = impByPath('Lets_Encrypt/dns_01.py')
+
+def read_conf(path: str) -> list[str]:
+    """Read config from path and return as a list (line to an item)"""
+    lines = []
+    with open(path) as fob:
+        line = fob.read()
+        lines.append(line.rstrip())
+    return lines
+
+def write_conf(conf: list[str]) -> None:
+    """Writes (list of) config lines to dehydated conf path"""
+    with open(d_conf_path, 'w') as fob:
+        for line in conf:
+            fob.write(line.rstrip() + '\n')
+
+def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
+    """Given a list of conf lines, lines which match keys from new_values
+    {K: V} will be updated to 'K=V' - if K does not exist, will be ingored"""
+    new_conf = []
+    keys = list(new_values.keys())
+    for line in conf:
+        if line is None:
+            continue
+        if '=' in line and not line.startswith('#'):
+            key = line.split('=', 1)[0]
+            if key in keys:
+                line = f'{key}="{new_values["key"]}"'
+        new_conf.append(line)
+    write_conf(new_conf)
+    return new_conf
+
+def initial_load_conf(provider: Optional[str] = None) -> list[str]:
+    """Create or update Dehydrated conf file, if not passed provider, assumes
+    http-01 challenge, otherwise assume dns-01. Also returns conf as list of
+    lines"""
+    src = d_conf_path
+    if not path.exists(d_conf_path):
+        src = d_conf_example
+    conf = read_conf(src)
+    if provider is None:  # assume http-01
+        new_conf = {'CHALLENGETYPE': 'http-01'}
+    else: # assume dns-01
+        new_conf = {'CHALLENGETYPE': 'dns-01',
+                    'PROVIDER': provider}
+    conf = update_conf(conf, new_conf)
+    write_conf(conf)
+    return conf
+
 
 def load_domains():
     ''' Loads domain conf, writes default config if non-existant. Expects
@@ -157,10 +208,12 @@ def run():
         )
         if ret != 'ok':
             return
+        d_conf = initial_load_conf()
+        write_conf(d_conf)
     elif challenge == 'dns-01':
 
         dns_01.initial_setup()
-        conf_possible = glob(join(LEXICON_CONF_DIR, 'lexicon_*.yml'))
+        conf_possible = glob(path.join(dns_01.LEXICON_CONF_DIR, 'lexicon_*.yml'))
         if len(conf_possible) == 0:
             conf = None
         elif len(conf_possible) == 1:
@@ -202,6 +255,8 @@ def run():
             if not provider:
                 console.msgbox('Error', 'No provider selected', autosize=True)
 
+        d_conf = initial_load_conf(provider)
+        write_conf(d_conf)
         conf_file, config = dns_01.load_config(provider)
         fields = [
             ('', 1, 0, config[0], 1, 10, field_width, 255),
