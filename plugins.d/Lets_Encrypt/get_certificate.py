@@ -45,10 +45,8 @@ def doOnce():
 
 def read_conf(path: str) -> list[str]:
     """Read config from path and return as a list (line to an item)"""
-    lines = []
     with open(path) as fob:
-        line = fob.read()
-        lines.append(line.rstrip())
+        lines = fob.read().split('\n')
     return lines
 
 def write_conf(conf: list[str]) -> None:
@@ -61,14 +59,14 @@ def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     """Given a list of conf lines, lines which match keys from new_values
     {K: V} will be updated to 'K=V' - if K does not exist, will be ingored"""
     new_conf = []
-    keys = list(new_values.keys())
+    new_val_keys = list(new_values.keys())
     for line in conf:
         if line is None:
             continue
         if '=' in line and not line.startswith('#'):
             key = line.split('=', 1)[0]
-            if key in keys:
-                line = f'{key}="{new_values["key"]}"'
+            if key in new_val_keys:
+                line = f'{key}="{new_values[key]}"'
         new_conf.append(line)
     write_conf(new_conf)
     return new_conf
@@ -269,7 +267,6 @@ def run():
             if not provider:
                 console.msgbox('Error', 'No provider selected', autosize=True)
 
-        print(f'{provider=}\n{d_conf=}')
         d_conf = initial_load_conf(provider)
         conf_file, config = dns_01.load_config(provider)
         if len(config) > 12:
