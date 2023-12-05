@@ -46,8 +46,7 @@ def doOnce():
 def read_conf(path: str) -> list[str]:
     """Read config from path and return as a list (line to an item)"""
     with open(path) as fob:
-        lines = fob.read().split('\n')
-    return lines
+        return fob.read().split('\n')
 
 def write_conf(conf: list[str]) -> None:
     """Writes (list of) config lines to dehydated conf path"""
@@ -57,7 +56,7 @@ def write_conf(conf: list[str]) -> None:
 
 def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     """Given a list of conf lines, lines which match keys from new_values
-    {K: V} will be updated to 'K=V' - if K does not exist, will be ingored"""
+    {K: V} will be updated to 'K=V' - if K does not exist, will be ignored"""
     new_conf = []
     new_val_keys = list(new_values.keys())
     for line in conf:

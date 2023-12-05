@@ -12,10 +12,6 @@ from typing import Optional
 LEXICON_SHARE_DIR = '/usr/share/confconsole/letsencrypt'
 LEXICON_CONF_DIR = '/etc/dehydrated'
 
-LEXICON_CONF_NOTE = '''# Configure according to lexicon documentation https://dns-lexicon.readthedocs.io/
-#
-'''
-
 #LEXICON_CONF_MAX_LINES = 7
 
 def load_config(provider: str) -> tuple[str, list[str]]:
@@ -48,7 +44,6 @@ def load_config(provider: str) -> tuple[str, list[str]]:
 def save_config(conf_file: str, config: str) -> None:
     ''' Saves lexicon configuration '''
     with open(conf_file, 'w') as fob:
-        fob.write(LEXICON_CONF_NOTE)
         for line in config:
             if line:
                 fob.write(line.rstrip() + '\n')
@@ -65,7 +60,7 @@ def run_command(command: list[str], env: Optional[dict[str, str]] = None
     if proc.returncode != 0:
         com = ' '.join(command)
         return (proc.returncode,
-                f"Something went wrong when running {com}:\n\n{proc.stderr}")
+                f"Something went wrong when running '{com}':\n\n{proc.stderr}")
     else:
         return 0, 'success'
 
@@ -133,6 +128,7 @@ def initial_setup() -> None:
         if ret != 'ok':
             return
     if remove_lexicon:
+        print("Please wait while lexicon package is removed")
         exit_code, msg = run_command(['apt-get', 'remove', '-y', 'lexicon'])
         if exit_code != 0:
             console.msgbox(
@@ -147,6 +143,7 @@ def initial_setup() -> None:
         if not python3_venv:
             pkgs.append('python3-venv')
         if pkgs:
+            print("Please wait while required packages are installed")
             exit_code, msg = apt_install(pkgs)
             if exit_code != 0:
                 pkgs_l = " ".join(pkgs)
@@ -156,13 +153,16 @@ def initial_setup() -> None:
         makedirs(dirname(venv), exist_ok=True)
         local_bin = '/usr/local/bin'
         venv_pip = join(venv, 'bin/pip')
-        for command in [
-                ['python3', '-m', 'venv', venv],
-                [venv_pip, 'install', 'dns-lexicon[full]'],
-                ['ln', '-sf', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"],
-                ['ln', '-sf', f"{venv}/bin/tldextract", f"{local_bin}/tldextract"]
+        for comment_command in [
+                ("venv is set up", ['/usr/bin/python3', '-m', 'venv', venv]),
+                ("lexicon is installed (into venv)", [venv_pip, 'install', 'dns-lexicon[full]']),
+                (None, ['/usr/bin/ln', '-sf', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"]),
+                (None, ['/usr/bin/ln', '-sf', f"{venv}/bin/tldextract", f"{local_bin}/tldextract"])
             ]:
+            comment, command = comment_command
             assert isinstance(command, list)
+            if comment:
+                print(f"Please wait while {comment}")
             exit_code, msg = run_command(command)
             if exit_code != 0:
                 com = " ".join(command)
