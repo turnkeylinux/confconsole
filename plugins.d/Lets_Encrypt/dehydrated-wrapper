@@ -299,12 +299,14 @@ if [[ -n "$WEBSERVER" ]]; then
                     WEBSERVER=tomcat8;
                 elif [[ -f "/lib/systemd/system/tomcat9.service" ]]; then
                     WEBSERVER=tomcat9;
+                elif [[ -f "/lib/systemd/system/tomcat10.service" ]]; then
+                    WEBSERVER=tomcat10;
                 else
                     unset WEBSERVER;
                     fatal "An unknown Java app is listening on port $PORT";
                 fi;
                 stop_server $WEBSERVER;;
-            python|python3 )
+            python | python3 )
                 unset WEBSERVER;
                 fatal "An unknown/unexpected Python app is listening on port $PORT";;
             * )
