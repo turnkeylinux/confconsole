@@ -39,7 +39,7 @@ default_domains = '''# please use this file with confconsole or
 example_domain = 'example.com'
 # XXX Debug paths
 
-def doOnce():
+def doOnce() -> None:
     global dns_01
     dns_01 = impByPath('Lets_Encrypt/dns_01.py')
 
@@ -100,7 +100,7 @@ def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     return conf
 
 
-def load_domains():
+def load_domains() -> list[str]:
     ''' Loads domain conf, writes default config if non-existant. Expects
     "/etc/dehydrated" to exist '''
     if not path.isfile(domain_path):
@@ -123,13 +123,13 @@ def load_domains():
         return domains
 
 
-def save_domains(domains):
+def save_domains(domains) -> None:
     ''' Saves domain configuration '''
     with open(domain_path, 'w') as fob:
         fob.write(default_domains + ' '.join(domains) + '\n')
 
 
-def invalid_domains(domains, challenge):
+def invalid_domains(domains: list[str], challenge: str) -> str|bool:
     ''' Validates well known limitations of domain-name specifications
     doesn't enforce when or if special characters are valid. Returns a
     string if domains are invalid explaining why otherwise returns False'''
@@ -154,7 +154,7 @@ def invalid_domains(domains, challenge):
     return False
 
 
-def run():
+def run() -> None:
     field_width = 60
     field_names = ['domain1', 'domain2', 'domain3', 'domain4', 'domain5']
 

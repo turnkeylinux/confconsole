@@ -189,6 +189,7 @@ def initial_setup() -> None:
 
 
 def get_providers() -> tuple[Optional[list[tuple[str, str]]], Optional[str]]:
+    """Get list of supported DNS providers from lexicon"""
     lexicon_bin = which('lexicon')
     if not lexicon_bin:
         return None, 'lexicon is not found on your system, is it installed?'
