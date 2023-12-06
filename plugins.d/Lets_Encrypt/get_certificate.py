@@ -21,7 +21,7 @@ To generate a single certificate for up to five domains (including subdomains),
 enter each domain into a box, one domain per box. Empty boxes will be ignored.
 
 Note that wildcard domains are supported, but only when using DNS-01 challenge
-type.
+type. See: https://www.turnkeylinux.org/docs/confconsole/letsencrypt#wildcard
 
 To generate multiple certificates, please consult the advanced docs:
 https://www.turnkeylinux.org/docs/letsencrypt#advanced
