@@ -16,7 +16,8 @@ LEXICON_CONF_DIR = '/etc/dehydrated'
 
 def load_config(provider: str) -> tuple[str, list[str]]:
     ''' Loads lexicon config if present, loads example if not,
-    returns tuple(conf_file, list(config))'''
+    returns tuple(conf_file, list(config))
+    '''
     if provider in ['route53', 'cloudflare']:
         example_conf = join(LEXICON_SHARE_DIR,
                             f'lexicon-confconsole-provider_{provider}.yml')
@@ -54,6 +55,7 @@ def save_config(conf_file: str, config: str) -> None:
 
 def run_command(command: list[str], env: Optional[dict[str, str]] = None
         ) -> tuple[int, str]:
+    '''Simple subprocess wrapper for running commands'''
     if env is None:
         env = {}
     proc = subprocess.run(command, env=env, capture_output=True, text=True)
@@ -66,7 +68,9 @@ def run_command(command: list[str], env: Optional[dict[str, str]] = None
 
 
 def apt_install(pkgs: list[str]) -> tuple[int, str]:
-    """Takes a list of package names, returns tuple(exit_code, message)"""
+    """Takes a list of package names, updates apt and installs packages,
+    returns tuple(exit_code, message)
+    """
     env = {'DEBIAN_FRONTEND': 'noninteractive'}
     for command in [['apt-get', 'update'],
                     ['apt-get', 'install', *pkgs, '-y']]:
@@ -188,7 +192,7 @@ def get_providers() -> tuple[Optional[list[tuple[str, str]]], Optional[str]]:
     lexicon_bin = which('lexicon')
     if not lexicon_bin:
         return None, 'lexicon is not found on your system, is it installed?'
-
+    print("Please wait while list of supported DNS providers is downloaded")
     proc = subprocess.run([lexicon_bin, '--help'],
                           encoding=sys.stdin.encoding,
                           capture_output=True)
