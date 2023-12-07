@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # This dehydrated hook script is packaged with Confconsole.
-# It is designed to be used in conjunction with the TurnKey dehydrated-wrapper.
+# It is designed to be used in conjunction with the TurnKey dehydrated-wrapper
+# and turnkey-lexicon wrapper, which in turn depends on lexicon installed to
+# a venv (confconsole will install if needed).
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
 
 # DNS-01 Hook Script
@@ -29,8 +31,10 @@ function deploy_challenge {
 
     hook_log info "Deploying challenge for $DOMAIN."
     hook_log info "Creating a TXT challenge-record with $PROVIDER."
-    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER create ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
-      --content="${TOKEN_VALUE}"
+    turnkey-lexicon $PROVIDER create ${DOMAIN} TXT \
+        --config-dir $LEXICON_CONFIG_DIR \
+        --name="_acme-challenge.${DOMAIN}." \
+        --content="${TOKEN_VALUE}"
 
     local DELAY_COUNTDOWN=$PROVIDER_UPDATE_DELAY
     while [ $DELAY_COUNTDOWN -gt 0 ]; do
@@ -51,8 +55,10 @@ function clean_challenge {
 
     hook_log info "Clean challenge for ${DOMAIN}."
 
-    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER delete ${DOMAIN} TXT \
-        --name="_acme-challenge.${DOMAIN}." --content="${TOKEN_VALUE}"
+    turnkey-lexicon $PROVIDER delete ${DOMAIN} TXT \
+        --config-dir $LEXICON_CONFIG_DIR \
+        --name="_acme-challenge.${DOMAIN}." \
+        --content="${TOKEN_VALUE}"
 }
 
 function deploy_cert {
@@ -73,9 +79,9 @@ function unchanged_cert {
     hook_log info "cert for $DOMAIN is unchanged - nothing to do"
 }
 
-[ $(which lexicon) ] || hook_log fatal "lexicon is not installed."
+[ $(which turnkey-lexicon) ] || hook_log fatal "turnkey-lexicon is not found."
 if [ "$PROVIDER" = "auto" ]; then
-    [ $(which nslookup) ] || hook_log fatal "nslookup is not installed(provided by dnsutils package)."
+    [ $(which nslookup) ] || hook_log fatal "nslookup is not installed (provided by dnsutils package)."
 fi
 
 HANDLER="$1"; shift
