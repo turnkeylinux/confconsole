@@ -259,7 +259,7 @@ def run() -> None:
                     )
                 if ret != 'ok':
                     return
-                return_code, message = dns_01.apt_install(['dnsutils'])
+                returncode, message = dns_01.apt_install(['dnsutils'])
                 if returncode != 0:
                     console.msgbox('Error', message, autosize=True)
                     return
