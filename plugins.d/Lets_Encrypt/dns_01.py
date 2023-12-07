@@ -102,28 +102,18 @@ def initial_setup() -> None:
     msg_start = 'lexicon tool is required for dns-01 challenge, '
     msg_mid = ''
     msg_end = '\n\nDo you wish to continue?'
-    msg = ''
-    remove_lexicon = False
+    msg: Optional[str] = ''
     install_venv = False
 
-    lexicon_bin = which('lexicon')
+    lexicon_bin = which('turnkey-lexicon')
     venv = '/usr/local/src/venv/lexicon'
-    lexicon_venv_bin = join(venv, 'bin/lexicon')
-    lexicon_venv_bin_syml = '/usr/local/bin/lexicon'
     if not lexicon_bin:
-        # lexicon not found - offer to install via venv
+        # turnkey lexicon venv wrapper not found - offer to install
         install_venv = True
         msg_mid = "however it is not found on your system, so installing."
-    elif (exists(lexicon_venv_bin) and exists(lexicon_venv_bin_syml)
-            and realpath(lexicon_bin) == lexicon_venv_bin):
-        # lexicon venv found - no message required
+    elif exists(lexicon_bin):
+        # lexicon venv wrapper found - no message required
         msg = None
-    elif lexicon_bin == '/usr/bin/lexicon' and check_pkg('lexicon'):
-        # lexicon pkg installed - offer to remove and install via venv
-        install_venv = True
-        remove_lexicon = True
-        msg_mid = ("lexicon deb install noted, but we need a newer version"
-                   " removing deb and install via venv.")
     else:
         msg_mid = "but your system is in an unexpected state"
     if msg is not None:
@@ -131,13 +121,6 @@ def initial_setup() -> None:
         ret = console.yesno(msg, autosize=True)
         if ret != 'ok':
             return
-    if remove_lexicon:
-        print("Please wait while lexicon package is removed")
-        exit_code, msg = run_command(['apt-get', 'remove', '-y', 'lexicon'])
-        if exit_code != 0:
-            console.msgbox(
-                'Error',
-                f"Removal of lexicon package failed:\n\n{msg}")
     if install_venv:
         pkgs = []
         pip = which('pip')
@@ -155,13 +138,10 @@ def initial_setup() -> None:
                     'Error',
                     f"Apt installing {pkgs_l} failed:\n\n{msg}")
         makedirs(dirname(venv), exist_ok=True)
-        local_bin = '/usr/local/bin'
         venv_pip = join(venv, 'bin/pip')
         for comment_command in [
                 ("venv is set up", ['/usr/bin/python3', '-m', 'venv', venv]),
                 ("lexicon is installed (into venv)", [venv_pip, 'install', 'dns-lexicon[full]']),
-                (None, ['/usr/bin/ln', '-sf', f"{venv}/bin/lexicon", f"{local_bin}/lexicon"]),
-                (None, ['/usr/bin/ln', '-sf', f"{venv}/bin/tldextract", f"{local_bin}/tldextract"])
             ]:
             comment, command = comment_command
             assert isinstance(command, list)
@@ -175,24 +155,21 @@ def initial_setup() -> None:
                     f"Command '{com}' failed:\n\n{msg}")
                 return None
 
-        lexicon_bin = which('lexicon')
-        lexicon_loc = '/usr/local/bin/lexicon'
-        if lexicon_bin:
-            if lexicon_bin != lexicon_loc:
-                console.msgbox(
-                    'Error',
-                    f"lexicon ({lexicon_bin}) not found where expected ({lexicon_loc})?!")
-            else:
-                return None
-        console.msgbox('Error', "Something went wrong... Please report to TurnKey.")
+        lexicon_bin = which('turnkey-lexicon')
+        if not lexicon_bin:
+            console.msgbox('Error',
+                           "Something went wrong! Please report to TurnKey.")
         return None
 
 
 def get_providers() -> tuple[Optional[list[tuple[str, str]]], Optional[str]]:
     """Get list of supported DNS providers from lexicon"""
-    lexicon_bin = which('lexicon')
+    lexicon_bin = which('turnkey-lexicon')
     if not lexicon_bin:
-        return None, 'lexicon is not found on your system, is it installed?'
+        return (
+            None,
+            'turnkey-lexicon is not found on your system, is it installed?'
+            )
     print("Please wait while list of supported DNS providers is downloaded")
     proc = subprocess.run([lexicon_bin, '--help'],
                           encoding=sys.stdin.encoding,
