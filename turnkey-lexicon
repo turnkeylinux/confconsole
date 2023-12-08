@@ -70,7 +70,7 @@ EOF
 }
 
 lexicon_bin() {
-    $VENV_BASE/lexicon/bin/activate
+    source $VENV_BASE/lexicon/bin/activate
     $VENV_BASE/lexicon/bin/lexicon $(printf '%q ' "$@")
 }
 
@@ -78,13 +78,13 @@ if [[ "$(id -u)" -ne 0 ]]; then
     echo "FATAL: $(basename $0) must be run as root, please re-run with sudo"
 fi
 
-if [[ ! -e "$VENV_BOAASE" ]]; then
+if [[ ! -e "$VENV_BASE" ]]; then
     no_venv "VENV_BASE ($VENV_BASE) does not exist"
 elif [[ ! -d "$VENV_BASE" ]]; then
     no_venv "VENV_BASE ($VENV_BASE) exists but is a file - please remove first"
-elif [[ ! -e "$VENV_BASE/lexicon" ]]; then
-    no_venv "lexicon venv ($VENV_BASE/lexicon) does not exist"
-elif [[ ! -x "$VENV_BASE/lexicon/bin/activate" ]] \
+elif [[ ! -d "$VENV_BASE/lexicon" ]]; then
+    no_venv "lexicon venv ($VENV_BASE/lexicon) does not exist (or is not a directory)"
+elif [[ ! -f "$VENV_BASE/lexicon/bin/activate" ]] \
         || [[ ! -x "$VENV_BASE/lexicon/bin/lexicon" ]]; then
     no_venv "lexicon venv executables missing"
 fi

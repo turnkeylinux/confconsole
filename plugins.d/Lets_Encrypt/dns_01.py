@@ -107,12 +107,12 @@ def initial_setup() -> None:
 
     lexicon_bin = which('turnkey-lexicon')
     venv = '/usr/local/src/venv/lexicon'
-    if not lexicon_bin:
+    if not exists(venv):
         # turnkey lexicon venv wrapper not found - offer to install
         install_venv = True
         msg_mid = "however it is not found on your system, so installing."
-    elif exists(lexicon_bin):
-        # lexicon venv wrapper found - no message required
+    elif exists(f'{venv}/bin/lexicon'):
+        # lexicon venv bin found - no message required
         msg = None
     else:
         msg_mid = "but your system is in an unexpected state"
@@ -171,7 +171,7 @@ def get_providers() -> tuple[Optional[list[tuple[str, str]]], Optional[str]]:
             'turnkey-lexicon is not found on your system, is it installed?'
             )
     print("Please wait while list of supported DNS providers is downloaded")
-    proc = subprocess.run([lexicon_bin, '--help'],
+    proc = subprocess.run([lexicon_bin, '--lexicon-help'],
                           encoding=sys.stdin.encoding,
                           capture_output=True)
     if proc.returncode != 0:
