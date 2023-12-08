@@ -170,10 +170,13 @@ clean_finish() {
     # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
     # You have been warned...
     EXIT_CODE=$1
-    if [[ "$(check_port $PORT)" == @(python|python3) ]]; then
-        warning "Python is still listening on port $PORT"
-        info "attempting to kill add-water server"
-        systemctl stop add-water
+    if [[ "$PORT" == "80" ]]; then
+        check_port_80=$(check_port 80)
+        if [[ "$check_port_80" == 'python' ]] || [[ "$check_port_80" == 'python3' ]]; then
+            warning "Python is still listening on port $PORT"
+            info "attempting to kill add-water server"
+            systemctl stop add-water
+        fi
     fi
     [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $AUTHBIND_USR $AUTHBIND80
     if [[ $EXIT_CODE -ne 0 ]]; then
