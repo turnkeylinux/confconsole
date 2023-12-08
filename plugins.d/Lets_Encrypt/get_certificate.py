@@ -275,8 +275,7 @@ def run() -> None:
                     autosize=True)
             return
         elif len(config) < 12:
-            for i in range(12 - len(config)):
-                config.append('')
+            config.extend([""] * (12 - len(config)))
         fields = [
             ('', 1, 0, config[0], 1, 10, field_width, 255),
             ('', 2, 0, config[1], 2, 10, field_width, 255),
