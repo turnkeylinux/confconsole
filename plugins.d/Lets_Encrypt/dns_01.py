@@ -42,7 +42,7 @@ def load_config(provider: str) -> tuple[str, list[str]]:
     return conf_file, config
 
 
-def save_config(conf_file: str, config: str) -> None:
+def save_config(conf_file: str, config: list[str]) -> None:
     ''' Saves lexicon configuration '''
     with open(conf_file, 'w') as fob:
         for line in config:
