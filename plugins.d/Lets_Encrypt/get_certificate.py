@@ -20,8 +20,9 @@ DESC = """Please enter domain(s) to generate certificate for.
 To generate a single certificate for up to five domains (including subdomains),
 enter each domain into a box, one domain per box. Empty boxes will be ignored.
 
-Note that wildcard domains are supported, but only when using DNS-01 challenge
-type. See: https://www.turnkeylinux.org/docs/confconsole/letsencrypt#wildcard
+Wildcard domains are supported, but only when using DNS-01 challenge. Alias
+will be auto generated, so should not be entered here. See:
+https://www.turnkeylinux.org/docs/confconsole/letsencrypt#wildcard
 
 To generate multiple certificates, please consult the advanced docs:
 https://www.turnkeylinux.org/docs/letsencrypt#advanced
@@ -100,9 +101,14 @@ def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     return conf
 
 
-def load_domains() -> list[str]:
+def gen_alias(line: str) -> str:
+    return line.split(' ')[0].replace('*', 'star').replace('.', '_')
+
+
+def load_domains() -> tuple[list[str], Optional[str]]:
     ''' Loads domain conf, writes default config if non-existant. Expects
-    "/etc/dehydrated" to exist '''
+    "/etc/dehydrated" to exist
+    returns a tuple of list(domains) and alias'''
     if not path.isfile(domain_path):
         return [example_domain, '', '', '', '']
     else:
@@ -112,7 +118,12 @@ def load_domains() -> list[str]:
         with open(domain_path, 'r') as fob:
             for line in fob:
                 line = line.strip()
+                # only read first uncommented line that contains text
                 if line and not line.startswith('#'):
+                    if '>' in line:
+                        line, alias = line.split('>', 1)
+                    if line.startswith('*') and not alias:
+                        alias = gen_alias(line)
                     domains = line.split(' ')
                     break
 
@@ -120,11 +131,23 @@ def load_domains() -> list[str]:
             domains.pop()
         while len(domains) < 5:
             domains.append('')
-        return domains
+        return domains, alias
 
 
-def save_domains(domains) -> None:
+def save_domains(domains: list[str]) -> None:
     ''' Saves domain configuration '''
+    alias = None
+    line = ' '.join(domains)
+    if '*' in line:
+        if line.startswith('*'):
+            line = f'{line} > {gen_alias(line)}')
+        else:
+            for domain in domains:
+                if domain.startswith('*'):
+                    line = f'{line} > {gen_alias(domain)}'
+                    break
+        if not alias:
+            line = f'{line} > wildcard'
     with open(domain_path, 'w') as fob:
         fob.write(default_domains + ' '.join(domains) + '\n')
 
@@ -137,6 +160,8 @@ def invalid_domains(domains: list[str], challenge: str) -> str|bool:
         return (f'Error: At least one domain must be provided in'
                 ' {domain_path} (with no preceeding space)')
     for domain in domains:
+        if '<' in domain:
+            domain, alias = map(str.strip, line.split('>', 1))
         if len(domain) != 0:
             if len(domain) > 254:
                 return (f'Error in {domain}: Domain names must not exceed 254'
@@ -304,7 +329,7 @@ def run() -> None:
             dns_01.save_config(conf_file, values)
 
 
-    domains = load_domains()
+    domains, alias = load_domains()
     m = invalid_domains(domains, challenge)
 
     if m:
@@ -312,11 +337,15 @@ def run() -> None:
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
         if ret == 'ok':
             remove(domain_path)
-            domains = load_domains()
+            domains, alias = load_domains()
         else:
             return
 
     values = domains
+    if alias:
+        values = [f"{s} > {alias}" for s in domains]
+    else:
+        values = domains
 
     while True:
         while True:
