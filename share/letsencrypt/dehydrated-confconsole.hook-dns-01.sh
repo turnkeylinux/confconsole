@@ -31,8 +31,8 @@ function deploy_challenge {
 
     hook_log info "Deploying challenge for $DOMAIN."
     hook_log info "Creating a TXT challenge-record with $PROVIDER."
-    turnkey-lexicon $PROVIDER create ${DOMAIN} TXT \
-        --config-dir $LEXICON_CONFIG_DIR \
+    turnkey-lexicon --config-dir=$LEXICON_CONFIG_DIR \
+        $PROVIDER create ${DOMAIN} TXT \
         --name="_acme-challenge.${DOMAIN}." \
         --content="${TOKEN_VALUE}"
 
@@ -55,8 +55,8 @@ function clean_challenge {
 
     hook_log info "Clean challenge for ${DOMAIN}."
 
-    turnkey-lexicon $PROVIDER delete ${DOMAIN} TXT \
-        --config-dir $LEXICON_CONFIG_DIR \
+    turnkey-lexicon --config-dir=$LEXICON_CONFIG_DIR \
+        $PROVIDER delete ${DOMAIN} TXT \
         --name="_acme-challenge.${DOMAIN}." \
         --content="${TOKEN_VALUE}"
 }
