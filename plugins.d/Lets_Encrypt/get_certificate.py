@@ -32,11 +32,8 @@ dehydrated_conf = '/etc/dehydrated'
 domain_path = path.join(dehydrated_conf, 'confconsole.domains.txt')
 d_conf_path = path.join(dehydrated_conf, 'confconsole.config')
 d_conf_example = '/usr/share/confconsole/letsencrypt/dehydrated-confconsole.config'
+d_dom_example = '/usr/share/confconsole/letsencrypt/dehydrated-confconsole.domains'
 
-default_domains = '''# please use this file with confconsole or
-# alternatively use dehydrated with it's appropriate
-# configuration directly
-'''
 example_domain = 'example.com'
 # XXX Debug paths
 
@@ -110,11 +107,13 @@ def load_domains() -> tuple[list[str], Optional[str]]:
     "/etc/dehydrated" to exist
     returns a tuple of list(domains) and alias'''
     if not path.isfile(domain_path):
-        return [example_domain, '', '', '', '']
+        copyfile(d_dom_example, domain_path)
+        return [example_domain, '', '', '', ''], None
     else:
         backup_domain_path = '.'.join([domain_path, 'bak'])
         copyfile(domain_path, backup_domain_path)
         domains = []
+        alias = None
         with open(domain_path, 'r') as fob:
             for line in fob:
                 line = line.strip()
@@ -126,7 +125,8 @@ def load_domains() -> tuple[list[str], Optional[str]]:
                         alias = gen_alias(line)
                     domains = line.split(' ')
                     break
-
+        if alias:
+            alias = alias.strip()
         while len(domains) > 5:
             domains.pop()
         while len(domains) < 5:
@@ -134,34 +134,48 @@ def load_domains() -> tuple[list[str], Optional[str]]:
         return domains, alias
 
 
-def save_domains(domains: list[str]) -> None:
+def save_domains(domains: list[str], alias: Optional[str] = None) -> None:
     ''' Saves domain configuration '''
-    alias = None
-    line = ' '.join(domains)
-    if '*' in line:
-        if line.startswith('*'):
-            line = f'{line} > {gen_alias(line)}'
-        else:
+    for index, domain in enumerate(domains):
+        if '>' in domain and not alias:
+            domains[index], alias = map(str.strip, domain.split('>', 1))
+        elif '>' in domain:
+            domains[index], rubbish = map(str.strip, domain.split('>', 1))
+    new_line = ' '.join(domains)
+    if not alias:
+        if new_line.startswith('*'):
+            alias = gen_alias(new_line)
+        elif  '*' in new_line:
             for domain in domains:
                 if domain.startswith('*'):
-                    line = f'{line} > {gen_alias(domain)}'
+                    alias = gen_alias(domain)
                     break
-        if not alias:
-            line = f'{line} > wildcard'
+    if alias:
+        new_line = f'{new_line} > {alias}'
+    with open(domain_path) as fob:
+        old_dom_file = fob.readlines()
+    found_line = False
     with open(domain_path, 'w') as fob:
-        fob.write(default_domains + ' '.join(domains) + '\n')
+        for line in old_dom_file:
+            if line.startswith('#'):
+                fob.write(line)
+            elif not found_line:
+                fob.write(new_line + '\n')
+                found_line = True
+            else:
+                fob.write(line)
 
 
 def invalid_domains(domains: list[str], challenge: str) -> str|bool:
     ''' Validates well known limitations of domain-name specifications
     doesn't enforce when or if special characters are valid. Returns a
-    string if domains are invalid explaining why otherwise returns False'''
+    string if domains are invalid explaining why, otherwise returns False'''
     if domains[0] == '':
         return (f'Error: At least one domain must be provided in'
                 ' {domain_path} (with no preceeding space)')
     for domain in domains:
-        if '<' in domain:
-            domain, alias = map(str.strip, line.split('>', 1))
+        if '>' in domain:
+            domain, alias = map(str.strip, domain.split('>', 1))
         if len(domain) != 0:
             if len(domain) > 254:
                 return (f'Error in {domain}: Domain names must not exceed 254'
@@ -342,10 +356,6 @@ def run() -> None:
             return
 
     values = domains
-    if alias:
-        values = [f"{s} > {alias}" for s in domains]
-    else:
-        values = domains
 
     while True:
         while True:
@@ -380,7 +390,7 @@ def run() -> None:
 
         # User has accepted ToS as part of this process, so pass '--register'
         # switch to Dehydrated wrapper
-        dehydrated_bin = ['bash', path.join(
+        dehydrated_bin = ['/bin/bash', path.join(
                             path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
                           '--register', '--log-info', '--challenge', challenge]
         if challenge == 'dns-01':
