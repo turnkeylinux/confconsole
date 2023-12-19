@@ -32,7 +32,7 @@ standardized way.
 
 TurKey Confconsole leverages lexicon to support Let's Encrypt
 DNS challenges, via Dehydrated. This script ensure's that lexicon is run
-within it's required virtual environment. 
+within it's required virtual environment.
 
 This wrapper script runs lexicon from a predetermined virtual environment,
 with <lexicon_args> and/or <provider>.
