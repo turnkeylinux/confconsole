@@ -140,7 +140,7 @@ def save_domains(domains: list[str]) -> None:
     line = ' '.join(domains)
     if '*' in line:
         if line.startswith('*'):
-            line = f'{line} > {gen_alias(line)}')
+            line = f'{line} > {gen_alias(line)}'
         else:
             for domain in domains:
                 if domain.startswith('*'):
