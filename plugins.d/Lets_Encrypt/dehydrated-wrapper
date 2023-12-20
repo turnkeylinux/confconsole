@@ -2,7 +2,7 @@
 
 # Copyright (c) 2016-2023 TurnKey GNU/Linux - https://www.turnkeylinux.org
 #
-# dehyrdated-wrapper - A wrapper script for the Dehydrated
+# dehydrated-wrapper - A wrapper script for the Dehydrated
 #                      Let's Encrypt client
 #
 # This file is part of Confconsole.
@@ -119,16 +119,16 @@ EOF
 }
 
 fatal() {
-    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
+    echo "[$(date "+%F %T")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
     clean_finish 1
 }
 
 warning() {
-    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: WARNING: $@" | tee -a $LOG
+    echo "[$(date "+%F %T")] $APP: WARNING: $@" | tee -a $LOG
 }
 
 info() {
-    echo "[$(date "+%Y-%m-%d %H:%M:%S")] $APP: INFO: $@" | tee -a $DEBUG_LOG
+    echo "[$(date "+%F %T")] $APP: INFO: $@" | tee -a $DEBUG_LOG
 }
 
 copy_if_not_found() {

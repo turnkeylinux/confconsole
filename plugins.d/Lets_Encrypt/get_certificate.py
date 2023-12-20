@@ -47,7 +47,7 @@ def read_conf(path: str) -> list[str]:
         return fob.read().split('\n')
 
 def write_conf(conf: list[str]) -> None:
-    """Writes (list of) config lines to dehydated conf path"""
+    """Writes (list of) config lines to dehydrated conf path"""
     with open(d_conf_path, 'w') as fob:
         for line in conf:
             fob.write(line.rstrip() + '\n')
@@ -68,17 +68,17 @@ def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     write_conf(new_conf)
     return new_conf
 
-def get_conf_value(conf: list[str], key: str) -> str:
+def get_conf_value(conf: list[str], key: str) -> Optional[str]:
     """Given a list of config lines and a key, returns the (first) corresponding
-    value (non case sensititive). If nothing found, returns empty string.
+    value (non case sensititive). If nothing found, returns None.
     """
     for line in conf:
-        if line is None:
+        if not line:
             continue
         if '=' in line and not line.startswith('#'):
-            if key.lower() == line.split('=', 1)[0].lower:
+            if key.lower() == line.split('=', 1)[0].lower():
                 return line.split('=', 1)[1].strip('"').strip("'")
-    return ''
+    return None
 
 def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     """Create or update Dehydrated conf file, if not passed provider, assumes
@@ -103,7 +103,7 @@ def gen_alias(line: str) -> str:
 
 
 def load_domains() -> tuple[list[str], Optional[str]]:
-    ''' Loads domain conf, writes default config if non-existant. Expects
+    ''' Loads domain conf, writes default config if non-existent. Expects
     "/etc/dehydrated" to exist
     returns a tuple of list(domains) and alias'''
     if not path.isfile(domain_path):
@@ -166,10 +166,10 @@ def save_domains(domains: list[str], alias: Optional[str] = None) -> None:
                 fob.write(line)
 
 
-def invalid_domains(domains: list[str], challenge: str) -> str|bool:
+def invalid_domains(domains: list[str], challenge: str) -> Optional[str]:
     ''' Validates well known limitations of domain-name specifications
     doesn't enforce when or if special characters are valid. Returns a
-    string if domains are invalid explaining why, otherwise returns False'''
+    string if domains are invalid explaining why, otherwise returns None'''
     if domains[0] == '':
         return (f'Error: At least one domain must be provided in'
                 ' {domain_path} (with no preceeding space)')
@@ -190,7 +190,7 @@ def invalid_domains(domains: list[str], challenge: str) -> str|bool:
         elif domain.startswith('*') and challenge.startswith('http'):
             return (f'Error in {domain}: Wildcard domains are only valid with'
                     ' DNS-01 challenge')
-    return False
+    return None
 
 
 def run() -> None:

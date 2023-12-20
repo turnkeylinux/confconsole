@@ -18,7 +18,13 @@ Then select:
 
   Advanced >> Let's Encrypt >> Get Certificate >> DNS-01
 
-If you encounter problems, please report to TurnKey.
+If you encounter problems, please report to TurnKey, either via our forums:
+
+    https://www.turnkeylinux.org/forum/support
+
+Or open an issue on our tracker:
+
+    https://github.com/turnkeylinux/tracker/issues
 EOF
     exit 1
 }
@@ -30,8 +36,8 @@ Syntax $(basename $0) [-h|--help] [-l|--lexicon-help] [<lexicon_args>] [<provide
 Lexicon is a tool to manipulate DNS records on various DNS providers in a
 standardized way.
 
-TurKey Confconsole leverages lexicon to support Let's Encrypt
-DNS challenges, via Dehydrated. This script ensure's that lexicon is run
+TurnKey Confconsole leverages lexicon to support Let's Encrypt
+DNS challenges, via Dehydrated. This script ensures that lexicon is run
 within it's required virtual environment.
 
 This wrapper script runs lexicon from a predetermined virtual environment,
@@ -46,7 +52,7 @@ To install/setup lexicon in venv as this wrapper expects, please run:
 
   Confconsole >> Advanced >> Let's Encrypt >> Get Certificate >> DNS-01
 
-Once lexicon is installed as expected, this wrapper can be run independant
+Once lexicon is installed as expected, this wrapper can be run independantly
 of Confconsole.
 
 Args::

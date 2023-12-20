@@ -12,7 +12,6 @@ from typing import Optional
 LEXICON_SHARE_DIR = '/usr/share/confconsole/letsencrypt'
 LEXICON_CONF_DIR = '/etc/dehydrated'
 
-#LEXICON_CONF_MAX_LINES = 7
 
 def load_config(provider: str) -> tuple[str, list[str]]:
     ''' Loads lexicon config if present, loads example if not,
@@ -35,10 +34,6 @@ def load_config(provider: str) -> tuple[str, list[str]]:
         for line in fob:
             config.append(line.rstrip())
 
-    #    while len(config) > LEXICON_CONF_MAX_LINES:
-    #       config.pop()
-    #    while len(config) < LEXICON_CONF_MAX_LINES:
-    #        config.append('')
     return conf_file, config
 
 
@@ -82,16 +77,11 @@ def apt_install(pkgs: list[str]) -> tuple[int, str]:
 
 def check_pkg(pkg: str) -> bool:
     """Takes a package name and returns True if installed, otherwise False"""
-    p = subprocess.run(['apt-cache', 'policy', pkg],
+    p = subprocess.run(['dpkg-query', '-W', pkg],
                        capture_output=True, text=True)
-    for line in p.stdout.split('\n'):
-        line = line.strip()
-        if line.startswith('Installed'):
-            if not line.endswith('(none)'):
-                return True # package installed
-            else:
-                return False # package probably available but not installed
-    return False # package uninstallable
+    if p.returncode == 0:
+        return True # package installed
+    return False # package not installed
 
 
 def initial_setup() -> None:
@@ -158,7 +148,8 @@ def initial_setup() -> None:
         lexicon_bin = which('turnkey-lexicon')
         if not lexicon_bin:
             console.msgbox('Error',
-                           "Something went wrong! Please report to TurnKey.")
+                           "Could not find 'turnkey-lexicon'? Should be"
+                           " installed with Confconsole.")
         return None
 
 
