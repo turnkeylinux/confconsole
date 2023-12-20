@@ -1,0 +1,107 @@
+#!/bin/bash -e
+
+# fallback defaults - adjust as desired
+VENV_FALLBACK=/usr/local/src/venv
+
+export VENV_BASE="${VENV_BASE:-$VENV_FALLBACK}"
+
+[[ -z "$DEBUG" ]] || set -x
+
+no_venv() {
+    cat <<EOF
+FATAL: $@
+Lexicon venv not available. To set up/install, please run:
+
+  confconsole
+
+Then select:
+
+  Advanced >> Let's Encrypt >> Get Certificate >> DNS-01
+
+If you encounter problems, please report to TurnKey, either via our forums:
+
+    https://www.turnkeylinux.org/forum/support
+
+Or open an issue on our tracker:
+
+    https://github.com/turnkeylinux/tracker/issues
+EOF
+    exit 1
+}
+
+usage() {
+    cat <<EOF
+Syntax $(basename $0) [-h|--help] [-l|--lexicon-help] [<lexicon_args>] [<provider>]
+
+Lexicon is a tool to manipulate DNS records on various DNS providers in a
+standardized way.
+
+TurnKey Confconsole leverages lexicon to support Let's Encrypt
+DNS challenges, via Dehydrated. This script ensures that lexicon is run
+within it's required virtual environment.
+
+This wrapper script runs lexicon from a predetermined virtual environment,
+with <lexicon_args> and/or <provider>.
+
+This wrapper script is shipped as part of confconsole and expects lexicon to
+already be installed via pip to a venv, located at $VENV_FALLBACK/lexicon.
+If lexicon is not already installed into the venv, then this script will
+fail.
+
+To install/setup lexicon in venv as this wrapper expects, please run:
+
+  Confconsole >> Advanced >> Let's Encrypt >> Get Certificate >> DNS-01
+
+Once lexicon is installed as expected, this wrapper can be run independantly
+of Confconsole.
+
+Args::
+------
+
+    Note that if you pass more that one argument/option to $(basename $0), all
+    args are passed directly to lexicon.
+
+    -h|--help           Display this help and exit - nothing passed to lexicon
+    -h|--help PROVIDER  Display lexicon help for PROVIDER - all args passed to lexicon
+    -l|--lexicon-help   Show lexicon -h|--help - -h|--help passed to lexicon
+
+Env vars::
+----------
+
+    VENV_BASE       Base dir to find lexicon venv dir.
+                    Default: $VENV_FALLBACK
+    DEBUG           Set to enable verbose output - useful for debugging
+EOF
+    exit 1
+}
+
+lexicon_bin() {
+    source $VENV_BASE/lexicon/bin/activate
+    $VENV_BASE/lexicon/bin/lexicon $(printf '%q ' "$@")
+}
+
+if [[ "$(id -u)" -ne 0 ]]; then
+    echo "FATAL: $(basename $0) must be run as root, please re-run with sudo"
+fi
+
+if [[ ! -e "$VENV_BASE" ]]; then
+    no_venv "VENV_BASE ($VENV_BASE) does not exist"
+elif [[ ! -d "$VENV_BASE" ]]; then
+    no_venv "VENV_BASE ($VENV_BASE) exists but is a file - please remove first"
+elif [[ ! -d "$VENV_BASE/lexicon" ]]; then
+    no_venv "lexicon venv ($VENV_BASE/lexicon) does not exist (or is not a directory)"
+elif [[ ! -f "$VENV_BASE/lexicon/bin/activate" ]] \
+        || [[ ! -x "$VENV_BASE/lexicon/bin/lexicon" ]]; then
+    no_venv "lexicon venv executables missing"
+fi
+chown -R root:root "$VENV_BASE"
+
+if [[ "$#" == 1 ]]; then
+    case $1 in
+        -h|--help)          usage;;
+        -l|--lexicon-help)  lexicon_bin --help;;
+        *)                  lexicon_bin $1;;
+    esac
+else
+    lexicon_bin $@
+fi

@@ -1,4 +1,5 @@
-# please use this file with confconsole or
-# alternatively use dehydrated with it's appropriate
-# configuration directly
+# This is confconsole's domain.txt file - please use with confconsole
+# If configuring/using Dehydrated directly, it is advised to use with
+# appropriate configuration files.
 example.com www.example.com ftp.example.com
+# Add additional custom domains below here and confconsole will ignore

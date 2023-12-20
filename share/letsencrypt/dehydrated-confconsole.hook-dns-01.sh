@@ -1,15 +1,19 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # This dehydrated hook script is packaged with Confconsole.
-# It is designed to be used in conjunction with the TurnKey dehydrated-wrapper.
+# It is designed to be used in conjunction with the TurnKey dehydrated-wrapper
+# and turnkey-lexicon wrapper, which in turn depends on lexicon installed to
+# a venv (confconsole will install if needed).
 # For more info, please see https://www.turnkeylinux.org/docs/letsencypt
+
+# DNS-01 Hook Script
 
 export PROVIDER_UPDATE_DELAY=${PROVIDER_UPDATE_DELAY:-"30"}
 #provider 'auto' can be used since roughly v3.3.13 of lexicon.
 export PROVIDER=${PROVIDER:-"auto"}
 
 function hook_log {
-    default="[$(date "+%Y-%m-%d %H:%M:%S")] $(basename $0):"
+    default="[$(date "+%F %T")] $(basename "$0"):"
     case ${1} in
         info)    echo "$default INFO: ${2}";;
         success) echo "$default SUCCESS: ${2}" >&2;;
@@ -19,7 +23,7 @@ function hook_log {
 
 for var in PROVIDER LEXICON_CONFIG_DIR TKL_KEYFILE TKL_CERTFILE TKL_COMBINED TKL_DHPARAM; do
     eval "z=\$$var"
-    [ -z $z ] && hook_log fatal "$var is not set. Exiting..."
+    [[ -z "$z" ]] && hook_log fatal "$var is not set. Exiting..."
 done
 
 function deploy_challenge {
@@ -27,11 +31,13 @@ function deploy_challenge {
 
     hook_log info "Deploying challenge for $DOMAIN."
     hook_log info "Creating a TXT challenge-record with $PROVIDER."
-    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER create ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
-      --content="${TOKEN_VALUE}"
+    turnkey-lexicon --config-dir="$LEXICON_CONFIG_DIR" \
+        "$PROVIDER" create "${DOMAIN}" TXT \
+        --name="_acme-challenge.${DOMAIN}." \
+        --content="${TOKEN_VALUE}"
 
     local DELAY_COUNTDOWN=$PROVIDER_UPDATE_DELAY
-    while [ $DELAY_COUNTDOWN -gt 0 ]; do
+    while [[ $DELAY_COUNTDOWN -gt 0 ]]; do
         echo -ne "${DELAY_COUNTDOWN}\033[0K\r"
         sleep 1
         : $((DELAY_COUNTDOWN--))
@@ -49,8 +55,10 @@ function clean_challenge {
 
     hook_log info "Clean challenge for ${DOMAIN}."
 
-    lexicon --config-dir $LEXICON_CONFIG_DIR $PROVIDER delete ${DOMAIN} TXT --name="_acme-challenge.${DOMAIN}." \
-    --content="${TOKEN_VALUE}"
+    turnkey-lexicon --config-dir="$LEXICON_CONFIG_DIR" \
+        "$PROVIDER" delete "${DOMAIN}" TXT \
+        --name="_acme-challenge.${DOMAIN}." \
+        --content="${TOKEN_VALUE}"
 }
 
 function deploy_cert {
@@ -59,9 +67,9 @@ function deploy_cert {
     hook_log success "Cert request successful. Writing relevant files for $DOMAIN."
     hook_log info "fullchain: $FULLCHAINFILE"
     hook_log info "keyfile: $KEYFILE"
-    cat "$KEYFILE" > $TKL_KEYFILE
-    cat "$FULLCHAINFILE" > $TKL_CERTFILE
-    cat $TKL_CERTFILE $TKL_KEYFILE $TKL_DHPARAM  > $TKL_COMBINED
+    cat "$KEYFILE" > "$TKL_KEYFILE"
+    cat "$FULLCHAINFILE" > "$TKL_CERTFILE"
+    cat "$TKL_CERTFILE" "$TKL_KEYFILE" "$TKL_DHPARAM"  > "$TKL_COMBINED"
     hook_log success "Files written/created for $DOMAIN: $TKL_CERTFILE - $TKL_KEYFILE - $TKL_COMBINED."
 }
 
@@ -71,9 +79,9 @@ function unchanged_cert {
     hook_log info "cert for $DOMAIN is unchanged - nothing to do"
 }
 
-[ $(which lexicon) ] || hook_log fatal "lexicon is not installed."
-if [ "$PROVIDER" = "auto" ]; then
-    [ $(which nslookup) ] || hook_log fatal "nslookup is not installed(provided by dnsutils package)."
+[[ $(which turnkey-lexicon) ]] || hook_log fatal "turnkey-lexicon is not found."
+if [[ "$PROVIDER" = "auto" ]]; then
+    [[ $(which nslookup) ]] || hook_log fatal "nslookup is not installed (provided by dnsutils package)."
 fi
 
 HANDLER="$1"; shift
