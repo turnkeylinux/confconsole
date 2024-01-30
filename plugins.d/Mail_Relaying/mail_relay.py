@@ -75,7 +75,8 @@ def run():
 
     cmd = os.path.join(os.path.dirname(__file__), 'mail_relay.sh')
 
-    retcode, choice = console.menu(TITLE, TEXT, [
+    # console is inherited so doesn't need to be defined
+    retcode, choice = console.menu(TITLE, TEXT, [  # type: ignore[not-defined]
         ('SendinBlue', "TurnKey's preferred SMTP gateway"),
         ('Custom', 'Custom mail relay configuration'),
         ('Deconfigure', 'Erase current mail relay settings')
@@ -87,10 +88,11 @@ def run():
                                   encoding=sys.stdin.encoding,
                                   stderr=PIPE)
             if proc.returncode != 0:
-                console.msgbox('Error', proc.stderr)
+                console.msgbox('Error',  # type: ignore[not-defined]
+                               proc.stderr)
                 return
 
-            console.msgbox(TITLE,
+            console.msgbox(TITLE,  # type: ignore[not-defined]
                            'The mail relay settings were succesfully erased.'
                            ' No relaying will take place from now on.')
             return
@@ -109,10 +111,12 @@ def run():
                 ('Password', 4, 0, password, 4, 10, field_width, field_limit)
             ]
 
-            retcode, values = console.form(TITLE, FORMNOTE, fields)
+            retcode, values = console.form(TITLE,  # type: ignore[not-defined]
+                                           FORMNOTE,
+                                           fields)
 
             if retcode != 'ok':
-                console.msgbox(TITLE,
+                console.msgbox(TITLE,  # type: ignore[not-defined]
                                'You have cancelled the configuration process.'
                                ' No relaying of mail will be performed.')
                 return
@@ -120,7 +124,7 @@ def run():
             host, port, login, password = tuple(values)
 
             if not login:
-                ret = console.yesno(
+                ret = console.yesno(  # type: ignore[not-defined]
                         'No login username provided. Unable to test'
                         ' SMTP connection before configuring.\n\nAre you sure'
                         ' you want to configure SMTP forwarding with no login'
@@ -133,14 +137,14 @@ def run():
             else:
                 success, error_msg = testsettings(*values)
                 if success:
-                    console.msgbox(
+                    console.msgbox(  # type: ignore[not-defined]
                             TITLE,
                             'SMTP connection test successful.\n\n'
                             'Ready to configure Postfix.')
                     break
 
                 else:
-                    console.msgbox(
+                    console.msgbox(  # type: ignore[not-defined]
                             TITLE,
                             'Could not connect with supplied parameters.\n\n'
                             'Error code: {}\n\nMessage:\n\n  {}\n\nPlease'
@@ -151,4 +155,4 @@ def run():
                               encoding=sys.stdin.encoding,
                               stderr=PIPE)
         if proc.returncode != 0:
-            console.msgbox('Error', proc.stderr)
+            console.msgbox('Error', proc.stderr)  # type: ignore[not-defined]

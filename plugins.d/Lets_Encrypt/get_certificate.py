@@ -6,6 +6,7 @@ import subprocess
 
 from subprocess import PIPE
 from os import path, remove
+from os.path import join
 from shutil import copyfile, which
 from json import JSONDecodeError
 from glob import glob
@@ -31,26 +32,32 @@ https://www.turnkeylinux.org/docs/letsencrypt#advanced
 dehydrated_conf = '/etc/dehydrated'
 domain_path = path.join(dehydrated_conf, 'confconsole.domains.txt')
 d_conf_path = path.join(dehydrated_conf, 'confconsole.config')
-d_conf_example = '/usr/share/confconsole/letsencrypt/dehydrated-confconsole.config'
-d_dom_example = '/usr/share/confconsole/letsencrypt/dehydrated-confconsole.domains'
+share = '/usr/share/confconsole'
+d_conf_example = join(share, 'letsencrypt/dehydrated-confconsole.config')
+d_dom_example = join(share, 'letsencrypt/dehydrated-confconsole.domains')
 
 example_domain = 'example.com'
 # XXX Debug paths
 
+
 def doOnce() -> None:
     global dns_01
-    dns_01 = impByPath('Lets_Encrypt/dns_01.py')
+    # impByPath inherited so doesn't need to be defined
+    dns_01 = impByPath('Lets_Encrypt/dns_01.py')  # type: ignore[not-defined]
+
 
 def read_conf(path: str) -> list[str]:
     """Read config from path and return as a list (line to an item)"""
     with open(path) as fob:
         return fob.read().split('\n')
 
+
 def write_conf(conf: list[str]) -> None:
     """Writes (list of) config lines to dehydrated conf path"""
     with open(d_conf_path, 'w') as fob:
         for line in conf:
             fob.write(line.rstrip() + '\n')
+
 
 def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     """Given a list of conf lines, lines which match keys from new_values
@@ -68,9 +75,10 @@ def update_conf(conf: list[str], new_values: dict[str, str]) -> list[str]:
     write_conf(new_conf)
     return new_conf
 
+
 def get_conf_value(conf: list[str], key: str) -> Optional[str]:
-    """Given a list of config lines and a key, returns the (first) corresponding
-    value (non case sensititive). If nothing found, returns None.
+    """Given a list of config lines and a key, returns the (first)
+    corresponding value (non case sensititive). If nothing found, returns None.
     """
     for line in conf:
         if not line:
@@ -79,6 +87,7 @@ def get_conf_value(conf: list[str], key: str) -> Optional[str]:
             if key.lower() == line.split('=', 1)[0].lower():
                 return line.split('=', 1)[1].strip('"').strip("'")
     return None
+
 
 def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     """Create or update Dehydrated conf file, if not passed provider, assumes
@@ -90,7 +99,7 @@ def initial_load_conf(provider: Optional[str] = None) -> list[str]:
     conf = read_conf(src)
     if provider is None:  # assume http-01
         new_conf = {'CHALLENGETYPE': 'http-01'}
-    else: # assume dns-01
+    else:  # assume dns-01
         new_conf = {'CHALLENGETYPE': 'dns-01',
                     'PROVIDER': provider}
     conf = update_conf(conf, new_conf)
@@ -145,7 +154,7 @@ def save_domains(domains: list[str], alias: Optional[str] = None) -> None:
     if not alias:
         if new_line.startswith('*'):
             alias = gen_alias(new_line)
-        elif  '*' in new_line:
+        elif '*' in new_line:
             for domain in domains:
                 if domain.startswith('*'):
                     alias = gen_alias(domain)
@@ -200,6 +209,7 @@ def run() -> None:
     canceled = False
 
     tos_url = None
+    msg = ''
     try:
         response = requests.get(LE_INFO_URL)
         tos_url = response.json()['meta']['termsOfService']
@@ -210,10 +220,11 @@ def run() -> None:
     except KeyError:
         msg = 'Data error, no value found for "terms-of-service"'
     if not tos_url:
-        console.msgbox('Error', msg, autosize=True)
+        console.msgbox('Error',  # type: ignore[not-defined]
+                       msg, autosize=True)
         return
 
-    ret = console.yesno(
+    ret = console.yesno(  # type: ignore[not-defined]
         "Before getting a Let's Encrypt certificate, you must agree"
         ' to the current Terms of Service.\n\n'
         'You can find the current Terms of Service here:\n\n'
@@ -225,7 +236,7 @@ def run() -> None:
         return
 
     if not path.isdir(dehydrated_conf):
-        console.msgbox(
+        console.msgbox(  # type: ignore[not-defined]
             'Error',
             f'Dehydrated not installed or {dehydrated_conf} not found,'
             ' dehydrated can be installed via apt from the Debian repos.\n\n'
@@ -234,7 +245,7 @@ def run() -> None:
         )
         return
 
-    ret, challenge = console.menu(
+    ret, challenge = console.menu(  # type: ignore[not-defined]
             'Challenge type',
             'Select challenge type to use',
             [('http-01', 'Requires public web access to this system'),
@@ -244,7 +255,7 @@ def run() -> None:
         return
 
     if challenge == 'http-01':
-        ret = console.yesno(
+        ret = console.yesno(  # type: ignore[not-defined]
             'DNS must be configured before obtaining certificates.'
             ' Incorrectly configured DNS and excessive attempts could'
             ' lead to being temporarily blocked from requesting'
@@ -261,16 +272,18 @@ def run() -> None:
 
     elif challenge == 'dns-01':
         dns_01.initial_setup()
-        l_conf_possible = glob(path.join(dns_01.LEXICON_CONF_DIR, 'lexicon_*.yml'))
+        conf = ''
+        l_conf_possible = glob(
+                path.join(dns_01.LEXICON_CONF_DIR, 'lexicon_*.yml'))
         if len(l_conf_possible) == 0:
             conf = None
         elif len(l_conf_possible) == 1:
             conf = l_conf_possible[0]
         elif len(l_conf_possible) >= 2:
-            console.msgbox('Error',
+            console.msgbox('Error',  # type: ignore[not-defined]
                            "Multiple lexicon_*.yml conf files found in"
-                           f" {LEXICON_CONF_DIR}, please ensure there is only"
-                           " one",
+                           f" {dns_01.LEXICON_CONF_DIR}, please ensure there"
+                           " is only one",
                            autosize=True)
             return
 
@@ -279,10 +292,11 @@ def run() -> None:
         else:
             providers, err = dns_01.get_providers()
             if err:
-                console.msgbox('Error', err, autosize=True)
+                console.msgbox('Error',  # type: ignore[not-defined]
+                               err, autosize=True)
                 return
 
-            ret, provider = console.menu(
+            ret, provider = console.menu(  # type: ignore[not-defined]
                     'DNS providers list',
                     "Select DNS provider you'd like to use",
                     providers)
@@ -290,7 +304,7 @@ def run() -> None:
                 return
 
             if provider == 'auto' and not which('nslookup'):
-                ret = console.yesno(
+                ret = console.yesno(  # type: ignore[not-defined]
                     'nslookup tool is required to use dns-01 challenge with'
                     ' auto provider.\n\n'
                     'Do you wish to install it now?',
@@ -300,15 +314,17 @@ def run() -> None:
                     return
                 returncode, message = dns_01.apt_install(['dnsutils'])
                 if returncode != 0:
-                    console.msgbox('Error', message, autosize=True)
+                    console.msgbox('Error',  # type: ignore[not-defined]
+                                   message, autosize=True)
                     return
             if not provider:
-                console.msgbox('Error', 'No provider selected', autosize=True)
+                console.msgbox('Error',  # type: ignore[not-defined]
+                               'No provider selected', autosize=True)
 
         d_conf = initial_load_conf(provider)
         conf_file, config = dns_01.load_config(provider)
         if len(config) > 12:
-            console.msgbox(
+            console.msgbox(  # type: ignore[not-defined]
                     'Error',
                     "Config file too big - needs to be 12 lines or less",
                     autosize=True)
@@ -330,10 +346,11 @@ def run() -> None:
             ('', 12, 0, config[11], 12, 10, field_width, 255),
 
         ]
-        ret, values = console.form(
+        ret, values = console.form(  # type: ignore[not-defined]
                 'Lexicon configuration',
-                'Review and adjust current lexicon configuration as necessary.\n\n'
-                'Please see https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01',
+                'Review and adjust current lexicon configuration as'
+                'necessary.\n\n Please see https://www.turnkeylinux.org/docs/'
+                'confconsole/letsencrypt#dns-01',
                 fields,
                 autosize=True)
         if ret != 'ok':
@@ -342,12 +359,11 @@ def run() -> None:
         if config != values:
             dns_01.save_config(conf_file, values)
 
-
     domains, alias = load_domains()
     m = invalid_domains(domains, challenge)
 
     if m:
-        ret = console.yesno(
+        ret = console.yesno(  # type: ignore[not-defined]
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
         if ret == 'ok':
             remove(domain_path)
@@ -366,7 +382,8 @@ def run() -> None:
                 ('Domain 4', 4, 0, values[3], 4, 10, field_width, 255),
                 ('Domain 5', 5, 0, values[4], 5, 10, field_width, 255),
             ]
-            ret, values = console.form(TITLE, DESC, fields, autosize=True)
+            ret, values = console.form(TITLE,  # type: ignore[not-defined]
+                                       DESC, fields, autosize=True)
 
             if ret != 'ok':
                 canceled = True
@@ -374,11 +391,11 @@ def run() -> None:
 
             msg = invalid_domains(values, challenge)
             if msg:
-                console.msgbox('Error', msg)
+                console.msgbox('Error', msg)  # type: ignore[not-defined]
                 continue
 
             if ret == 'ok':
-                ret2 = console.yesno(
+                ret2 = console.yesno(  # type: ignore[not-defined]
                         'This will overwrite any previous settings (saving a'
                         ' backup) and check for certificate. Continue?')
                 if ret2 == 'ok':
@@ -389,9 +406,11 @@ def run() -> None:
             break
 
         # User has accepted ToS as part of this process, so pass '--register'
-        # switch to Dehydrated wrapper
-        dehydrated_bin = ['/bin/bash', path.join(
-                            path.dirname(PLUGIN_PATH), 'dehydrated-wrapper'),
+
+        dehyd_wrapper = path.join(
+                        path.dirname(PLUGIN_PATH),  # type: ignore[not-defined]
+                        'dehydrated-wrapper')
+        dehydrated_bin = ['/bin/bash', dehyd_wrapper, '--register',
                           '--register', '--log-info', '--challenge', challenge]
         if challenge == 'dns-01':
             dehydrated_bin.append('--provider')

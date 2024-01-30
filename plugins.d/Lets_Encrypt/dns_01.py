@@ -4,7 +4,7 @@ import subprocess
 import re
 
 from os import makedirs, chmod, chown
-from os.path import isfile, join, exists, dirname, realpath
+from os.path import isfile, join, exists, dirname
 from shutil import which, copy
 
 from typing import Optional
@@ -28,8 +28,8 @@ def load_config(provider: str) -> tuple[str, list[str]]:
     if not isfile(conf_file):
         copy(example_conf, conf_file)
         # ensure root read/write only as file contains sensitive info
-        chown(conf_file, 0, 0) # chown root:root
-        chmod(conf_file, 0o600) # chmod 600 (owner read/write only)
+        chown(conf_file, 0, 0)  # chown root:root
+        chmod(conf_file, 0o600)  # chmod 600 (owner read/write only)
     with open(conf_file, 'r') as fob:
         for line in fob:
             config.append(line.rstrip())
@@ -44,12 +44,13 @@ def save_config(conf_file: str, config: list[str]) -> None:
             if line:
                 fob.write(line.rstrip() + '\n')
     # ensure root read/write only as file contains sensitive info
-    chown(conf_file, 0, 0) # chown root:root
-    chmod(conf_file, 0o600) # chmod 600 (owner read/write only)
+    chown(conf_file, 0, 0)  # chown root:root
+    chmod(conf_file, 0o600)  # chmod 600 (owner read/write only)
 
 
-def run_command(command: list[str], env: Optional[dict[str, str]] = None
-        ) -> tuple[int, str]:
+def run_command(command: list[str],
+                env: Optional[dict[str, str]] = None
+                ) -> tuple[int, str]:
     '''Simple subprocess wrapper for running commands'''
     if env is None:
         env = {}
@@ -66,6 +67,8 @@ def apt_install(pkgs: list[str]) -> tuple[int, str]:
     """Takes a list of package names, updates apt and installs packages,
     returns tuple(exit_code, message)
     """
+    string = ''
+    exit_code = 0
     env = {'DEBIAN_FRONTEND': 'noninteractive'}
     for command in [['apt-get', 'update'],
                     ['apt-get', 'install', *pkgs, '-y']]:
@@ -80,8 +83,8 @@ def check_pkg(pkg: str) -> bool:
     p = subprocess.run(['dpkg-query', '-W', pkg],
                        capture_output=True, text=True)
     if p.returncode == 0:
-        return True # package installed
-    return False # package not installed
+        return True  # package installed
+    return False  # package not installed
 
 
 def initial_setup() -> None:
@@ -108,7 +111,8 @@ def initial_setup() -> None:
         msg_mid = "but your system is in an unexpected state"
     if msg is not None:
         msg = msg_start + msg_mid + msg_end
-        ret = console.yesno(msg, autosize=True)
+        # console is inherited so doesn't need to be defined
+        ret = console.yesno(msg, autosize=True)  # type: ignore[not-defined]
         if ret != 'ok':
             return
     if install_venv:
@@ -124,15 +128,19 @@ def initial_setup() -> None:
             exit_code, msg = apt_install(pkgs)
             if exit_code != 0:
                 pkgs_l = " ".join(pkgs)
-                console.msgbox(
+                console.msgbox(  # type: ignore[not-defined]
                     'Error',
                     f"Apt installing {pkgs_l} failed:\n\n{msg}")
         makedirs(dirname(venv), exist_ok=True)
         venv_pip = join(venv, 'bin/pip')
         for comment_command in [
-                ("venv is set up", ['/usr/bin/python3', '-m', 'venv', venv]),
-                ("lexicon is installed (into venv)", [venv_pip, 'install', 'dns-lexicon[full]']),
-            ]:
+                ("venv is set up",
+                 ['/usr/bin/python3', '-m', 'venv', venv]
+                 ),
+                ("lexicon is installed (into venv)",
+                 [venv_pip, 'install', 'dns-lexicon[full]']
+                 ),
+                ]:
             comment, command = comment_command
             assert isinstance(command, list)
             if comment:
@@ -140,14 +148,14 @@ def initial_setup() -> None:
             exit_code, msg = run_command(command)
             if exit_code != 0:
                 com = " ".join(command)
-                console.msgbox(
+                console.msgbox(  # type: ignore[not-defined]
                     'Error',
                     f"Command '{com}' failed:\n\n{msg}")
                 return None
 
         lexicon_bin = which('turnkey-lexicon')
         if not lexicon_bin:
-            console.msgbox('Error',
+            console.msgbox('Error',  # type: ignore[not-defined]
                            "Could not find 'turnkey-lexicon'? Should be"
                            " installed with Confconsole.")
         return None

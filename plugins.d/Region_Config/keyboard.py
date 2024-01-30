@@ -15,26 +15,28 @@ def is_installed(pkg):
 
 def run():
     flag = []
-
-    if interactive:
+    # interactive is inherited so doesn't need to be defined
+    if interactive:  # type: ignore[not-defined]
         to_install = []
         for package in ['console-setup', 'keyboard-configuration']:
             if not is_installed(package):
                 to_install.append(package)
         if to_install:
-            ret = console.yesno('The following package(s) is/are required for'
-                                ' this operation:\n\n'
-                                f'    {" ".join(to_install)}\n\n'
-                                'Do you wish to install now?', autosize=True)
+            ret = console.yesno(  # type: ignore[not-defined]
+                    'The following package(s) is/are required for this'
+                    ' operation:\n\n'
+                    f'    {" ".join(to_install)}\n\n'
+                    'Do you wish to install now?', autosize=True)
 
             if ret == 'ok':
                 check_call(['apt-get', '-y', 'install', *to_install])
             else:
                 return
 
-        ret = console.yesno('Note: If new keyboard settings are not applied,'
-                            ' you may need to reboot your operating system.'
-                            ' Continue with configuration?', autosize=True)
+        ret = console.yesno(  # type: ignore[not-defined]
+                'Note: If new keyboard settings are not applied, you may need'
+                ' to reboot your operating system. Continue with'
+                ' configuration?', autosize=True)
 
         if ret != 0:
             return

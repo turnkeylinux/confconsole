@@ -31,14 +31,14 @@ def _get_current_hostname():
 
 def run():
     while True:
-        ret, new_hostname = console.inputbox(
+        ret, new_hostname = console.inputbox(  # type: ignore[not-defined]
                 TITLE, 'Please enter the new hostname for this machine:',
                 _get_current_hostname())
         if ret == 'ok':
             valid_hostname = _validate_hostname(new_hostname)
             if not valid_hostname:
-                console.msgbox(TITLE, '{} ({})'.format(
-                    "Invalid hostname", new_hostname))
+                console.msgbox(TITLE,  # type: ignore[not-defined]
+                               f'Invalid hostname ({new_hostname}')
                 continue
             else:
                 proc = Popen(["hostname", new_hostname], stderr=PIPE)
@@ -46,7 +46,8 @@ def run():
                 returncode = proc.returncode
 
                 if returncode:
-                    console.msgbox(TITLE, '{} ({})'.format(out, new_hostname))
+                    console.msgbox(TITLE,  # type: ignore[not-defined]
+                                   f'{out} ({new_hostname})')
                     continue
 
             new_localhost = new_hostname.split('.')[0]
@@ -55,7 +56,7 @@ def run():
                 fob.write(new_localhost + '\n')
 
             if new_localhost != new_hostname:
-                add_hosts = "{} {}".format(new_localhost, new_hostname)
+                add_hosts = f"{new_localhost} {new_hostname}"
             else:
                 add_hosts = new_hostname
             with open('/etc/hosts', 'r') as fob:
@@ -81,7 +82,7 @@ def run():
                     fob.write(re.sub(r'hostname .*',
                                      f'hostname {new_hostname}',
                                      line))
-            should_restart = console.yesno(
+            should_restart = console.yesno(  # type: ignore[not-defined]
                     "Networking must be restarted to apply these changes. "
                     "However restarting networking may close your ssh "
                     "connection as hostname changes may effect the address "
@@ -94,13 +95,12 @@ def run():
                 proc = subprocess.run(['postfix', 'reload'],
                                       capture_output=True, text=True)
                 if proc.returncode != 0:
-                    console.msgbox(TITLE,
+                    console.msgbox(TITLE,  # type: ignore[not-defined]
                                    f'Error reloading postfix:\n{proc.stderr}')
-            console.msgbox(TITLE,
+            console.msgbox(TITLE,  # type: ignore[not-defined]
                            'Hostname updated successfully. Some applications'
                            ' may require restart before the settings are'
                            ' applied.')
-
             break
         else:
             break
