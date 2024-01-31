@@ -80,7 +80,7 @@ def apt_install(pkgs: list[str]) -> tuple[int, str]:
 
 def check_pkg(pkg: str) -> bool:
     """Takes a package name and returns True if installed, otherwise False"""
-    p = subprocess.run(['dpkg-query', '-W', pkg],
+    p = subprocess.run(['dpkg', '-s', pkg],
                        capture_output=True, text=True)
     if p.returncode == 0:
         return True  # package installed
