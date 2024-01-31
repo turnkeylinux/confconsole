@@ -295,7 +295,11 @@ def run() -> None:
                 console.msgbox('Error',  # type: ignore[not-defined]
                                err, autosize=True)
                 return
-
+            if not providers:
+                console.msgbox('Error',  # type: ignore[not-defined]
+                               'No providers found, please report to TurnKey',
+                               autosize=True)
+                return
             ret, provider = console.menu(  # type: ignore[not-defined]
                     'DNS providers list',
                     "Select DNS provider you'd like to use",
