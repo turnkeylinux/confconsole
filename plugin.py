@@ -294,10 +294,3 @@ class PluginManager(object):
         if out and isinstance(out, Plugin):
             return out.module
         return None
-
-# em = EventManager()
-# pm = PluginManager('plugins.d', {'eventManager': em})
-
-# for plugin in pm.plugins:
-#     print '\nRunning:', plugin.path, '\n','-'*10
-#     plugin.module.run()

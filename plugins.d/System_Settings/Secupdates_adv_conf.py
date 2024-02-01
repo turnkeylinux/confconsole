@@ -1,11 +1,11 @@
 """Config SecUpdate behaviour"""
 
-from pathlib import Path
-from typing import List, Tuple, Union
+import os
+from os.path import exists, islink
 
-FILE_PATH = Path('/etc/cron-apt/action.d/5-install')
-CONF_DEFAULT = Path('/etc/cron-apt/action-available.d/5-install.default')
-CONF_ALT = Path('/etc/cron-apt/action-available.d/5-install.alt')
+FILE_PATH = '/etc/cron-apt/action.d/5-install'
+CONF_DEFAULT = '/etc/cron-apt/action-available.d/5-install.default'
+CONF_ALT = '/etc/cron-apt/action-available.d/5-install.alt'
 
 doc_url = 'www.turnkeylinux.org/docs/auto-secupdates#issue-res'
 
@@ -22,12 +22,12 @@ conversely, may also allow services with unpatched security vulnerabilities \
 to continue running."""
 
 
-def new_link(link_path: Path, target_path: Path) -> None:
+def new_link(link_path: str, target_path: str) -> None:
     try:
-        link_path.unlink()
+        os.unlink(link_path)
     except FileNotFoundError:
         pass
-    link_path.symlink_to(target_path)
+    os.symlink(link_path, target_path)
 
 
 def conf_default() -> None:
@@ -38,14 +38,14 @@ def conf_alternate() -> None:
     new_link(FILE_PATH, CONF_ALT)
 
 
-def check_paths() -> Tuple[int, Union[List, str]]:
-    errors = []
+def check_paths() -> tuple[int, list[str] | str]:
+    errors: list[str] = []
     for _path in [FILE_PATH, CONF_DEFAULT, CONF_ALT]:
-        if not _path.exists():
+        if not exists(_path):
             errors.append('Path not found: {}'.format(str(_path)))
     if errors:
         return 2, errors
-    if FILE_PATH.is_symlink():
+    if islink(FILE_PATH):
         _target_path = FILE_PATH.resolve()
         if _target_path == CONF_DEFAULT:
             return 0, 'default'
@@ -86,11 +86,11 @@ def run() -> None:
         for message in data:
             msg = f'{msg}\n\t{message}'
         msg = (f'{msg}\nFor more info please see\n\n{doc_url}')
-        r = console.msgbox('Error', msg)
+        r = console.msgbox('Error', msg)  # type: ignore[not-defined]
     else:
         msg = ('Current SecUpate Issue resolution strategy is:\n\n\t{}'
                '\n{}\n\nFor more info please see\n\n{}')
-        r = console._wrapper('yesno',
+        r = console._wrapper('yesno',  # type: ignore[not-defined]
                              msg.format(data, get_details(data), doc_url),
                              20, 60,
                              yes_label=button_label(data),

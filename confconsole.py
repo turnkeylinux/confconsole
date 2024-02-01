@@ -31,10 +31,10 @@ import conf
 import plugin
 
 from typing import NoReturn, Optional, Iterable, Any, Union
-import typing
 
 USAGE: str = __doc__
-PLUGIN_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+PLUGIN_PATH = os.path.join(os.path.dirname(
+                           os.path.realpath(__file__)),
                            'plugins.d')
 
 
@@ -102,7 +102,7 @@ class Console:
         except AttributeError:
             raise Error("dialog not supported: " + dialog)
 
-        ret: WrapperReturn
+        ret: WrapperReturn = ''
 
         while 1:
             try:
@@ -178,7 +178,8 @@ class Console:
              fields: list[tuple[str, int, int, str, int, int, int, int]],
              ok_label: str = "Apply",
              cancel_label: str = "Cancel",
-             autosize: bool = False) -> tuple[str, list[str]]:
+             autosize: bool = False
+             ) -> tuple[str, list[str]]:
         if autosize:
             text += '\n '
             height, width = 0, 0
@@ -192,6 +193,7 @@ class Console:
                           cancel_label=cancel_label)
         assert isinstance(v, tuple)
         assert isinstance(v[1], list)
+        assert isinstance(v[1][1], str)
         return v
 
 
@@ -231,11 +233,6 @@ class TurnkeyConsole:
         self.installer = Installer(path='/usr/bin/di-live')
 
         self.advanced_enabled = advanced_enabled
-
-        # self.eventManager = plugin.EventManager()
-        # self.pluginManager = plugin.PluginManager(
-        #     PLUGIN_PATH,
-        #     {'eventManager': self.eventManager, 'console': self.console})
 
         self.eventManager = eventManager
         self.pluginManager = pluginManager

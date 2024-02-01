@@ -1,10 +1,12 @@
 '''Reconfigure TZdata '''
 import subprocess
+import os
 
 
 def run():
     flag = []
-    if not interactive:
+    # interactive is inherited so doesn't need to be defined
+    if not interactive:  # type: ignore[not-defined]
         tz = os.getenv('TZ')
 
         if tz:

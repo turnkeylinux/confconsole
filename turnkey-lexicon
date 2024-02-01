@@ -31,7 +31,7 @@ EOF
 
 usage() {
     cat <<EOF
-Syntax $(basename $0) [-h|--help] [-l|--lexicon-help] [<lexicon_args>] [<provider>]
+Syntax $(basename "$0") [-h|--help] [-l|--lexicon-help] [<lexicon_args>] [<provider>]
 
 Lexicon is a tool to manipulate DNS records on various DNS providers in a
 standardized way.
@@ -58,7 +58,7 @@ of Confconsole.
 Args::
 ------
 
-    Note that if you pass more that one argument/option to $(basename $0), all
+    Note that if you pass more that one argument/option to $(basename "$0"), all
     args are passed directly to lexicon.
 
     -h|--help           Display this help and exit - nothing passed to lexicon
@@ -76,12 +76,12 @@ EOF
 }
 
 lexicon_bin() {
-    source $VENV_BASE/lexicon/bin/activate
-    $VENV_BASE/lexicon/bin/lexicon $(printf '%q ' "$@")
+    source "$VENV_BASE/lexicon/bin/activate"
+    "$VENV_BASE/lexicon/bin/lexicon" $(printf '%q ' "$@")
 }
 
 if [[ "$(id -u)" -ne 0 ]]; then
-    echo "FATAL: $(basename $0) must be run as root, please re-run with sudo"
+    echo "FATAL: $(basename "$0") must be run as root, please re-run with sudo"
 fi
 
 if [[ ! -e "$VENV_BASE" ]]; then
@@ -100,8 +100,10 @@ if [[ "$#" == 1 ]]; then
     case $1 in
         -h|--help)          usage;;
         -l|--lexicon-help)  lexicon_bin --help;;
-        *)                  lexicon_bin $1;;
+        *)                  lexicon_bin "$1";;
     esac
 else
-    lexicon_bin $@
+	# note: double quotes around $@ prevents globbing and word splitting of
+	# individual elements, while still expanding to multiple separate args
+    lexicon_bin "$@"
 fi

@@ -28,11 +28,13 @@ def run():
     if enabled == 'fail':
         msg = ('Cron job for dehydrated does not exist.\n'
                'Please "Get certificate" first.')
-        r = console.msgbox('Error', msg)
+        # console is inherited so doesn't need to be defined
+        r = console.msgbox('Error', msg)  # type: ignore[not-defined]
     else:
         status = 'enabled' if enabled else 'disabled'
         msg = '''Automatic certificate renewal is currently {}'''
-        r = console._wrapper('yesno', msg.format(status), 10, 30,
+        r = console._wrapper('yesno',  # type: ignore[not-defined]
+                             msg.format(status), 10, 30,
                              yes_label='Toggle', no_label='Ok')
         while r == 'ok':
             if enabled:
@@ -41,5 +43,6 @@ def run():
                 enable_cron()
             enabled = check_cron()
             status = 'enabled' if enabled else 'disabled'
-            r = console._wrapper('yesno', msg.format(status), 10, 30,
+            r = console._wrapper('yesno',  # type: ignore[not-defined]
+                                 msg.format(status), 10, 30,
                                  yes_label='Toggle', no_label='Ok')

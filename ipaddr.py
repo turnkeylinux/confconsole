@@ -1,10 +1,9 @@
 # Copyright (c) 2009 Liraz Siri <liraz@turnkeylinux.org> - all rights reserved
 
-import string
 import struct
 import socket
 import math
-from typing import Callable, Type, Union
+from typing import Type, Union
 
 
 def is_legal_ip(ip: str) -> bool:

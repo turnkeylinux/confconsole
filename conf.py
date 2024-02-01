@@ -1,5 +1,7 @@
-# Copyright (c) 2008-2019 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
-# Copyright (c) 2020 TurnKey GNU/Linux <admin@turnkeylinux.org> - all rights reserved
+# Copyright (c) 2008-2019 Alon Swartz <alon@turnkeylinux.org>
+# - all rights reserved
+# Copyright (c) 2020 TurnKey GNU/Linux <admin@turnkeylinux.org>
+# - all rights reserved
 
 import re
 import os

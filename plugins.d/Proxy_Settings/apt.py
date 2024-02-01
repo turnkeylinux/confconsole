@@ -1,7 +1,6 @@
 ''' Set APT's HTTP Proxy '''
 from re import match, sub, MULTILINE, search
 from os.path import isfile
-import urllib.parse
 from urllib.parse import urlparse
 
 CONF = '/etc/apt/apt.conf.d/80proxy'
@@ -49,14 +48,15 @@ def doOnce():
 def run():
     original_proxy = get_proxy()
     while True:
-        code, prox = console.inputbox(
+        # console is inherited so doesn't need to be defined
+        code, prox = console.inputbox(  # type: ignore[not-defined]
                 'Set proxy',
                 'Set a HTTP Proxy. Must contain scheme "http://example.com"'
                 ' but not "example.com"',
                 init=original_proxy)
         if code == 'ok':
             if prox and not validate_address(prox):
-                console.msgbox(
+                console.msgbox(  # type: ignore[not-defined]
                         'Invalid Proxy',
                         'A valid proxy address must at least have a net'
                         ' location and scheme (http://example.com) but not'
@@ -64,8 +64,9 @@ def run():
             else:
                 if not prox and original_proxy:
                     # if no proxy chosen but there WAS a proxy set previously
-                    if console.yesno('Are you sure you want to disable apt'
-                                     ' proxy?') == 'ok':
+                    if console.yesno(  # type: ignore[not-defined]
+                            'Are you sure you want to disable apt proxy?'
+                            ) == 'ok':
                         set_proxy(prox)
                 else:
                     set_proxy(prox)

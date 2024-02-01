@@ -27,11 +27,13 @@ def run():
     enabled = check_autostart()
     if enabled == 'fail':
         msg = ('Auto-start file for Confconsole does not exist.\n')
-        r = console.msgbox('Error', msg)
+        # console is inherited so doesn't need to be defined
+        r = console.msgbox('Error', msg)  # type: ignore[not-defined]
     else:
         status = 'enabled' if enabled else 'disabled'
         msg = '''Confconsole Auto start is currently {}'''
-        r = console._wrapper('yesno', msg.format(status), 10, 30,
+        r = console._wrapper('yesno',  # type: ignore[not-defined]
+                             msg.format(status), 10, 30,
                              yes_label='Toggle', no_label='Ok')
         while r == 'ok':
             if enabled:
@@ -40,5 +42,6 @@ def run():
                 enable_autostart()
             enabled = check_autostart()
             status = 'enabled' if enabled else 'disabled'
-            r = console._wrapper('yesno', msg.format(status), 10, 30,
+            r = console._wrapper('yesno',  # type: ignore[not-defined]
+                                 msg.format(status), 10, 30,
                                  yes_label='Toggle', no_label='Ok')

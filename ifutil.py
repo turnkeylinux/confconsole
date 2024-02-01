@@ -243,12 +243,12 @@ def get_nameservers(ifname: str) -> list[str]:
     return []
 
 
-def ifup(ifname: str) -> str:
+def ifup(ifname: str) -> None:
     subprocess.run(["ifup", "--force", "--ignore-errors", ifname],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def ifdown(ifname: str) -> subprocess.CompletedProcess[bytes]:
+def ifdown(ifname: str) -> None:
     subprocess.run(["ifdown", "--force", "--ignore-errors", ifname],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -302,7 +302,9 @@ def set_dhcp(ifname: str) -> Optional[str]:
 
 
 def get_ipconf(ifname: str, error: bool = False
-               ) -> tuple[str, str, Optional[str], list[str]]:
+               ) -> tuple[Optional[str], Optional[str],
+                          Optional[str], list[str]]:
+    net = InterfaceInfo(ifname)
     for i in range(6):
         net = InterfaceInfo(ifname)
         if net.address is not None and net.netmask is not None:
@@ -311,6 +313,7 @@ def get_ipconf(ifname: str, error: bool = False
         sleep(0.1)
     # no interface which is up; this is ok though
     return (None, None, net.get_gateway(error), get_nameservers(ifname))
+
 
 def get_ifmethod(ifname: str) -> Optional[str]:
     interface = EtcNetworkInterface(ifname)

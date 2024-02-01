@@ -1,10 +1,12 @@
 '''Reconfigure locales'''
 import subprocess
+import os
 
 
 def run():
-    if interactive:
-        console.msgbox(
+    # interactive & console are inherited so doesn't need to be defined
+    if interactive:  # type: ignore[not-defined]
+        console.msgbox(   # type: ignore[not-defined]
             'Locale',
             'We STRONGLY recommend you choose "None" as your default locale.',
             autosize=True)
