@@ -97,6 +97,7 @@ def initial_setup() -> None:
     msg_end = '\n\nDo you wish to continue?'
     msg: Optional[str] = ''
     install_venv = False
+    unexpected = False
 
     lexicon_bin = which('turnkey-lexicon')
     venv = '/usr/local/src/venv/lexicon'
@@ -109,13 +110,14 @@ def initial_setup() -> None:
         msg = None
     else:
         msg_mid = "but your system is in an unexpected state"
+        unexpected = True
     if msg is not None:
         msg = msg_start + msg_mid + msg_end
         # console is inherited so doesn't need to be defined
         ret = console.yesno(msg, autosize=True)  # type: ignore[not-defined]
         if ret != 'ok':
             return
-    if install_venv:
+    if install_venv or unexpected:
         pkgs = []
         pip = which('pip')
         python3_venv = check_pkg('python3-venv')
