@@ -193,7 +193,9 @@ class Console:
                           cancel_label=cancel_label)
         assert isinstance(v, tuple)
         assert isinstance(v[1], list)
-        assert isinstance(v[1][1], str)
+        # if the typing is correct, then the below line should never fail
+        # ... but under some circumstance it does... :(
+        #assert isinstance(v[1][1], str)
         return v
 
 

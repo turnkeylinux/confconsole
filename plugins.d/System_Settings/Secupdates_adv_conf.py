@@ -2,6 +2,7 @@
 
 import os
 from os.path import exists, islink
+from typing import Optional
 
 FILE_PATH = '/etc/cron-apt/action.d/5-install'
 CONF_DEFAULT = '/etc/cron-apt/action-available.d/5-install.default'
@@ -70,7 +71,7 @@ def button_label(current: str) -> str:
     return f"{msg:^20}"
 
 
-def get_details(choice: str) -> Union[str, None]:
+def get_details(choice: str) -> Optional[str]:
     if choice == 'default':
         return info_default
     elif choice == 'alternate':
