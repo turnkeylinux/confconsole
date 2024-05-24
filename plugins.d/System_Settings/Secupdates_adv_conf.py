@@ -39,23 +39,23 @@ def conf_alternate() -> None:
     new_link(FILE_PATH, CONF_ALT)
 
 
-def check_paths() -> tuple[int, list[str] | str]:
+def check_paths() -> tuple[int, list[str]]:
     errors: list[str] = []
     for _path in [FILE_PATH, CONF_DEFAULT, CONF_ALT]:
         if not exists(_path):
-            errors.append('Path not found: {}'.format(str(_path)))
+            errors.append(f'Path not found: {_path}')
     if errors:
         return 2, errors
     if islink(FILE_PATH):
         _target_path = os.readlink(FILE_PATH)
         if _target_path == CONF_DEFAULT:
-            return 0, 'default'
+            return 0, ['default']
         elif _target_path == CONF_ALT:
-            return 0, 'alternate'
+            return 0, ['alternate']
         else:
-            return 1, ['Unexpected link target: {}'.format(str(_target_path))]
+            return 1, [f'Unexpected link target: {_target_path}']
     else:
-        return 1, ['{} is not a symlink'.format(str(FILE_PATH))]
+        return 1, [f'{FILE_PATH} is not a symlink']
 
 
 def button_label(current: str) -> str:
@@ -89,12 +89,14 @@ def run() -> None:
         msg = (f'{msg}\nFor more info please see\n\n{doc_url}')
         r = console.msgbox('Error', msg)  # type: ignore[not-defined]
     else:
+        # if retcode == 0, then data == [status]
+        status = data[0]
         msg = ('Current SecUpate Issue resolution strategy is:\n\n\t{}'
                '\n{}\n\nFor more info please see\n\n{}')
         r = console._wrapper('yesno',  # type: ignore[not-defined]
-                             msg.format(data, get_details(data), doc_url),
+                             msg.format(status, get_details(status), doc_url),
                              20, 60,
-                             yes_label=button_label(data),
+                             yes_label=button_label(status),
                              no_label='Back')
         while r == 'ok':
             # Toggle was clicked
@@ -103,8 +105,11 @@ def run() -> None:
             else:
                 conf_default()
             retcode, data = check_paths()
+            status = data[0]
             r = console._wrapper('yesno',
-                                 msg.format(data, get_details(data), doc_url),
+                                 msg.format(status,
+                                            get_details(status),
+                                            doc_url),
                                  20, 60,
-                                 yes_label=button_label(data),
+                                 yes_label=button_label(status),
                                  no_label='Back')
