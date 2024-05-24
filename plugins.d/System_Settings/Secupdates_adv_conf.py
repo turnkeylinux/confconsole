@@ -47,7 +47,7 @@ def check_paths() -> tuple[int, list[str] | str]:
     if errors:
         return 2, errors
     if islink(FILE_PATH):
-        _target_path = FILE_PATH.resolve()
+        _target_path = os.readlink(FILE_PATH)
         if _target_path == CONF_DEFAULT:
             return 0, 'default'
         elif _target_path == CONF_ALT:
