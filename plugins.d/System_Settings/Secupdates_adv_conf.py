@@ -87,13 +87,13 @@ def run() -> None:
         for message in data:
             msg = f'{msg}\n\t{message}'
         msg = (f'{msg}\nFor more info please see\n\n{doc_url}')
-        r = console.msgbox('Error', msg)  # type: ignore[not-defined]
+        r = console.msgbox('Error', msg)  # type: ignore[name-defined]
     else:
         # if retcode == 0, then data == [status]
         status = data[0]
         msg = ('Current SecUpate Issue resolution strategy is:\n\n\t{}'
                '\n{}\n\nFor more info please see\n\n{}')
-        r = console._wrapper('yesno',  # type: ignore[not-defined]
+        r = console._wrapper('yesno',  # type: ignore[name-defined]
                              msg.format(status, get_details(status), doc_url),
                              20, 60,
                              yes_label=button_label(status),
@@ -106,7 +106,7 @@ def run() -> None:
                 conf_default()
             retcode, data = check_paths()
             status = data[0]
-            r = console._wrapper('yesno',
+            r = console._wrapper('yesno',  # type: ignore[name-defined]
                                  msg.format(status,
                                             get_details(status),
                                             doc_url),
