@@ -100,7 +100,7 @@ def run() -> None:
                              no_label='Back')
         while r == 'ok':
             # Toggle was clicked
-            if data == 'default':
+            if data == ['default']:
                 conf_alternate()
             else:
                 conf_default()
