@@ -48,6 +48,8 @@ def check_paths() -> tuple[int, list[str]]:
         return 2, errors
     if islink(FILE_PATH):
         _target_path = os.readlink(FILE_PATH)
+        if _target_path.startswith('../action-available.d/5-install'):
+            _target_path = _target_path.replace('..', '/etc/cron-apt')
         if _target_path == CONF_DEFAULT:
             return 0, ['default']
         elif _target_path == CONF_ALT:
