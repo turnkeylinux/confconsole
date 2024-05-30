@@ -28,7 +28,7 @@ def new_link(link_path: str, target_path: str) -> None:
         os.unlink(link_path)
     except FileNotFoundError:
         pass
-    os.symlink(link_path, target_path)
+    os.symlink(target_path, link_path)
 
 
 def conf_default() -> None:
