@@ -31,12 +31,8 @@ def new_link(link_path: str, target_path: str) -> None:
     os.symlink(target_path, link_path)
 
 
-def conf_default() -> None:
-    new_link(FILE_PATH, CONF_DEFAULT)
-
-
-def conf_alternate() -> None:
-    new_link(FILE_PATH, CONF_ALT)
+def change_link(new_path: str) -> None:
+    new_link(FILE_PATH, new_path)
 
 
 def check_paths() -> tuple[int, list[str]]:
@@ -103,9 +99,9 @@ def run() -> None:
         while r == 'ok':
             # Toggle was clicked
             if data == ['default']:
-                conf_alternate()
+                change_link(CONF_ALT)
             else:
-                conf_default()
+                change_link(CONF_DEFAULT)
             retcode, data = check_paths()
             status = data[0]
             r = console._wrapper('yesno',  # type: ignore[name-defined]
