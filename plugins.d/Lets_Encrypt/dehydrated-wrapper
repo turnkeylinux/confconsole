@@ -222,7 +222,7 @@ for sig in INT TERM; do
 done
 
 ### read args & check config - set up whats needed ###
-force=""
+force=
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
@@ -329,7 +329,7 @@ fi
 [[ "$CHALLENGETYPE" != "dns-01" ]] && systemctl start add-water
 info "running dehydrated"
 if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
-    dehydrated --cron "$force" --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    dehydrated --cron $force --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
     EXIT_CODE=${PIPESTATUS[0]}
 else
     (dehydrated --cron "$force" --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
