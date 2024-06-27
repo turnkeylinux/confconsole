@@ -16,7 +16,7 @@
 
 [[ "$DEBUG" = "y" ]] && set -x
 
-APP="$(basename $0)"
+APP="$(basename "$0")"
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
 CONFIG="$DEHYD_ETC/confconsole.config"
@@ -34,7 +34,7 @@ EXIT_CODE=0
 SERVICES_TO_RESTART="webmin.service"
 
 LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
-LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
+LICENSE=$(curl "$LE_TOS_URL" 2>/dev/null | grep termsOfService \
     | sed 's|^.*Service": "||; s|",$||')
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
@@ -119,16 +119,16 @@ EOF
 }
 
 fatal() {
-    echo "[$(date "+%F %T")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
+    echo "[$(date "+%F %T")] $APP: FATAL: $*" >&2 > >(tee -a $LOG >&2)
     clean_finish 1
 }
 
 warning() {
-    echo "[$(date "+%F %T")] $APP: WARNING: $@" | tee -a $LOG
+    echo "[$(date "+%F %T")] $APP: WARNING: $*" | tee -a $LOG
 }
 
 info() {
-    echo "[$(date "+%F %T")] $APP: INFO: $@" | tee -a $DEBUG_LOG
+    echo "[$(date "+%F %T")] $APP: INFO: $*" | tee -a "$DEBUG_LOG"
 }
 
 copy_if_not_found() {
@@ -148,20 +148,21 @@ check_port() {
 }
 
 stop_server() {
-    [ -z "$@" ] && return
+    [[ -z "$*" ]] && return
     info "stopping $1"
-    systemctl stop $1 2>&1 | tee -a $LOG
+    systemctl stop "$1" 2>&1 | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
-    while [[ "$(check_port $PORT)" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
+    while [[ "$(check_port "$PORT")" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
         info "waiting 1 second for $1 to stop"
         sleep 1
     done
 }
 
 restart_servers() {
-    for servicename in $@; do
+    # intended splitting on space
+    for servicename in "$@"; do
         info "(Re)starting $servicename"
-        systemctl restart $servicename | tee -a $LOG
+        systemctl restart "$servicename" | tee -a $LOG
         [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
     done
 }
@@ -178,7 +179,7 @@ clean_finish() {
             systemctl stop add-water
         fi
     fi
-    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $AUTHBIND_USR $AUTHBIND80
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" $AUTHBIND80
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Something went wrong, restoring original cert, key and combined files."
 
@@ -197,14 +198,14 @@ clean_finish() {
             warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
         fi
     fi
-    restart_servers $WEBSERVER $SERVICES_TO_RESTART
+    restart_servers "$WEBSERVER" $SERVICES_TO_RESTART
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Check today's previous log entries for details of error."
     else
         info "$APP completed successfully."
     fi
     systemctl stop add-water
-    exit $EXIT_CODE
+    exit "$EXIT_CODE"
 }
 
 ### some intial checks & set up trap ###
@@ -214,23 +215,21 @@ clean_finish() {
 [[ $(which authbind) ]] || fatal "Authbind not installed"
 
 for sig in INT TERM; do
-    trap "clean_finish 1
-    kill -$sig $$" $sig
+    trap 'clean_finish 1 kill -$sig $$' $sig
 done
 
 ### read args & check config - set up whats needed ###
-
-args=""
+force=""
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-        -f|--force)     args="$args --force";;
+        -f|--force)     force="--force";;
         -r|--register)  REGISTER=y;;
-        -c|--challenge) if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+        -c|--challenge) if [[ -n $2 && ! $2 =~ ^- ]]; then
                             CTYPE=${2,,}
                             shift
                         fi;;
-        -p|--provider)  if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+        -p|--provider)  if [[ -n $2 && ! $2 =~ ^- ]]; then
                             export PROVIDER=${2,,}
                             shift
                         fi;;
@@ -271,7 +270,7 @@ esac
 export CHALLENGETYPE=$CTYPE
 
 [[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
-chmod +x $HOOK
+chmod +x "$HOOK"
 
 copy_if_not_found "$CRON" "$SH_CRON"
 
@@ -295,7 +294,7 @@ if [[ -n "$WEBSERVER" ]]; then
     if [[ "$CTYPE" == 'http-01' ]]; then
         case $WEBSERVER in
             apache2 | lighttpd | nginx )
-                stop_server $WEBSERVER;;
+                stop_server "$WEBSERVER";;
             java )
                 TOMCAT=/etc/init.d/tomcat;
                 if [[ -x "${TOMCAT}8" ]]; then
@@ -326,10 +325,10 @@ fi
 [[ "$CTYPE" != "dns-01" ]] && systemctl start add-water
 info "running dehydrated"
 if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
-    dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    dehydrated --cron "$force" --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
     EXIT_CODE=${PIPESTATUS[0]}
 else
-    (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+    (dehydrated --cron "$force" --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
 fi
 if [[ $EXIT_CODE -ne 0 ]]; then
