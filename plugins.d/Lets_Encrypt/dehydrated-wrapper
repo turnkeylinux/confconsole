@@ -294,7 +294,7 @@ fi
 WEBSERVER=$(check_port $PORT)
 if [[ -n "$WEBSERVER" ]]; then
     info "found $WEBSERVER listening on port $PORT"
-    if [[ "$CTYPE" == 'http-01' ]]; then
+    if [[ "$CHALLENGETYPE" == 'http-01' ]]; then
         case $WEBSERVER in
             apache2 | lighttpd | nginx )
                 stop_server "$WEBSERVER";;
@@ -325,7 +325,7 @@ else
     info "No process found listening on port $PORT; continuing"
 fi
 
-[[ "$CTYPE" != "dns-01" ]] && systemctl start add-water
+[[ "$CHALLENGETYPE" != "dns-01" ]] && systemctl start add-water
 info "running dehydrated"
 if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
     dehydrated --cron "$force" --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
