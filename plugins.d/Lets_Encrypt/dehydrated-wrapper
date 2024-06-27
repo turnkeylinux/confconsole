@@ -100,6 +100,7 @@ Options:
                             $LICENSE
 
     --challenge|-c <type> - Instruct dehydrated to use specific challenge type.
+                            Will update CHALLENGETYPE in $CONFIG
 
     --provider|-p <name> -  Specify DNS provider name to use with dns-01
                             challenge. Refer to lexicon documentation for the
@@ -258,16 +259,18 @@ copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 [[ "$DOMAINS_TXT" != "$CC_DOMAINS" ]] && warning "$CONFIG is not using $CC_DOMAINS"
 [[ -z "$HOOK" ]] && fatal "hook script not defined in $CONFIG"
 
-case $CTYPE in
-    http-01) cp "$SH_HOOK_HTTP" "$CC_HOOK"
-             PORT=80
-             sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
-    dns-01)  cp "$SH_HOOK_DNS" "$CC_HOOK"
-             PORT=443
-             sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
-    *)       fatal "Unexpected challenge type: $CTYPE"
-esac
-export CHALLENGETYPE=$CTYPE
+if [[ -n "$CTYPE" ]]; then
+    case $CTYPE in
+        http-01) cp "$SH_HOOK_HTTP" "$CC_HOOK"
+                PORT=80
+                sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
+        dns-01)  cp "$SH_HOOK_DNS" "$CC_HOOK"
+                PORT=443
+                sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
+        *)       fatal "Unexpected challenge type: $CTYPE"
+    esac
+fi
+export CHALLENGETYPE="${CTYPE:-$CHALLENGETYPE}"
 
 [[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
 chmod +x "$HOOK"
