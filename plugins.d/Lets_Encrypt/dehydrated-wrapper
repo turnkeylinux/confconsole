@@ -161,18 +161,19 @@ stop_server() {
     done
 }
 
+# shellcheck disable=SC2317  # Errant "unreachable commands" warning because of trap
 restart_servers() {
     # intended splitting on space
     for servicename in "$@"; do
         info "(Re)starting $servicename"
-        systemctl restart "$servicename" | tee -a $LOG
+        systemctl restart "$servicename" | tee -a "$LOG"
         [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
     done
 }
 
+# shellcheck disable=SC2317  # Errant "unreachable commands" because of trap
 clean_exit() {
-    # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
-    # You have been warned...
+    # ideally do not use 'fatal' in this function
     EXIT_CODE=$1
     if [[ "$PORT" == "80" ]]; then
         check_port_80=$(check_port 80)
@@ -182,16 +183,16 @@ clean_exit() {
             systemctl stop add-water
         fi
     fi
-    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" $AUTHBIND80
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Something went wrong, restoring original cert, key and combined files."
 
-        mv $TKL_CERTFILE.bak $TKL_CERTFILE
-        mv $TKL_KEYFILE.bak $TKL_KEYFILE
-        mv $TKL_COMBINED.bak $TKL_COMBINED
+        mv "$TKL_CERTFILE.bak" "$TKL_CERTFILE"
+        mv "$TKL_KEYFILE.bak" "$TKL_KEYFILE"
+        mv "$TKL_COMBINED.bak" "$TKL_COMBINED"
     else
         info "Cleaning backup cert & key"
-        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak $TKL_COMBINED.bak
+        rm -f "$TKL_CERTFILE.bak" "$TKL_KEYFILE.bak" "$TKL_COMBINED.bak"
     fi
     if [[ "$WEBSERVER" == "tomcat"* ]]; then
         update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
@@ -201,14 +202,18 @@ clean_exit() {
             warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
         fi
     fi
-    restart_servers "$WEBSERVER" $SERVICES_TO_RESTART
+    # don't quote these service names as some values may be empty - which is anticipated
+    # shellcheck disable=SC2086
+    restart_servers $WEBSERVER $SERVICES_TO_RESTART
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Check today's previous log entries for details of error."
     else
         info "$APP completed successfully."
     fi
     systemctl stop add-water
-    exit "$EXIT_CODE"
+    # don't quote exit code as it may be empty (exit 0)
+    # shellcheck disable=SC2086
+    exit $EXIT_CODE
 }
 
 ### some intial checks & set up trap ###
@@ -254,6 +259,7 @@ info "started"
 
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
+# shellcheck source=/dev/null
 source "$CONFIG"
 
 copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
