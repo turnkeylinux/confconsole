@@ -16,10 +16,6 @@
 
 [[ "$DEBUG" = "y" ]] && set -x
 
-trap '(exit 130)' INT
-trap '(exit 143)' TERM
-trap 'clean_exit' EXIT
-
 APP="$(basename "$0")"
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
@@ -216,6 +212,10 @@ clean_exit() {
 }
 
 ### some intial checks & set up trap ###
+
+trap '(exit 130)' INT
+trap '(exit 143)' TERM
+trap 'clean_exit' EXIT
 
 [[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
 [[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
