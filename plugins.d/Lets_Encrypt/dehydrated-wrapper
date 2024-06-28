@@ -16,6 +16,10 @@
 
 [[ "$DEBUG" = "y" ]] && set -x
 
+trap '(exit 130)' INT
+trap '(exit 143)' TERM
+trap 'clean_exit' EXIT
+
 APP="$(basename "$0")"
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
@@ -123,7 +127,7 @@ EOF
 
 fatal() {
     echo "[$(date "+%F %T")] $APP: FATAL: $*" >&2 > >(tee -a $LOG >&2)
-    clean_finish 1
+    exit 1
 }
 
 warning() {
@@ -170,7 +174,7 @@ restart_servers() {
     done
 }
 
-clean_finish() {
+clean_exit() {
     # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
     # You have been warned...
     EXIT_CODE=$1
@@ -216,10 +220,6 @@ clean_finish() {
 [[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
 [[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
 [[ $(which authbind) ]] || fatal "Authbind not installed"
-
-for sig in INT TERM; do
-    trap 'clean_finish 1 kill -$sig $$' $sig
-done
 
 ### read args & check config - set up whats needed ###
 force=
@@ -339,5 +339,5 @@ if [[ $EXIT_CODE -ne 0 ]]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
-    clean_finish 0
+    exit 0
 fi
