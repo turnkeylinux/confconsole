@@ -16,7 +16,7 @@
 
 [[ "$DEBUG" = "y" ]] && set -x
 
-APP="$(basename $0)"
+APP="$(basename "$0")"
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
 CONFIG="$DEHYD_ETC/confconsole.config"
@@ -34,7 +34,7 @@ EXIT_CODE=0
 SERVICES_TO_RESTART="webmin.service"
 
 LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
-LICENSE=$(curl $LE_TOS_URL 2>/dev/null | grep termsOfService \
+LICENSE=$(curl "$LE_TOS_URL" 2>/dev/null | grep termsOfService \
     | sed 's|^.*Service": "||; s|",$||')
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
@@ -99,7 +99,10 @@ Options:
                             Let's Encrypt ToS can currently be found here:
                             $LICENSE
 
-    --challenge|-c <type> - Instruct dehydrated to use specific challenge type.
+    --challenge|-c <type> - Use specific challenge type.
+                            Valid types: http-01 | dns-01
+                            Will override and update value of CHALLENGETYPE in
+                            $CONFIG
 
     --provider|-p <name> -  Specify DNS provider name to use with dns-01
                             challenge. Refer to lexicon documentation for the
@@ -119,16 +122,16 @@ EOF
 }
 
 fatal() {
-    echo "[$(date "+%F %T")] $APP: FATAL: $@" >&2 > >(tee -a $LOG >&2)
-    clean_finish 1
+    echo "[$(date "+%F %T")] $APP: FATAL: $*" >&2 > >(tee -a $LOG >&2)
+    exit 1
 }
 
 warning() {
-    echo "[$(date "+%F %T")] $APP: WARNING: $@" | tee -a $LOG
+    echo "[$(date "+%F %T")] $APP: WARNING: $*" | tee -a $LOG
 }
 
 info() {
-    echo "[$(date "+%F %T")] $APP: INFO: $@" | tee -a $DEBUG_LOG
+    echo "[$(date "+%F %T")] $APP: INFO: $*" | tee -a "$DEBUG_LOG"
 }
 
 copy_if_not_found() {
@@ -148,27 +151,29 @@ check_port() {
 }
 
 stop_server() {
-    [ -z "$@" ] && return
+    [[ -z "$*" ]] && return
     info "stopping $1"
-    systemctl stop $1 2>&1 | tee -a $LOG
+    systemctl stop "$1" 2>&1 | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
-    while [[ "$(check_port $PORT)" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
+    while [[ "$(check_port "$PORT")" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
         info "waiting 1 second for $1 to stop"
         sleep 1
     done
 }
 
+# shellcheck disable=SC2317  # Errant "unreachable commands" warning because of trap
 restart_servers() {
-    for servicename in $@; do
+    # intended splitting on space
+    for servicename in "$@"; do
         info "(Re)starting $servicename"
-        systemctl restart $servicename | tee -a $LOG
+        systemctl restart "$servicename" | tee -a "$LOG"
         [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
     done
 }
 
-clean_finish() {
-    # warning: do NOT use 'fatal' in this func as it will cause an inescapable recursive loop
-    # You have been warned...
+# shellcheck disable=SC2317  # Errant "unreachable commands" because of trap
+clean_exit() {
+    # ideally do not use 'fatal' in this function
     EXIT_CODE=$1
     if [[ "$PORT" == "80" ]]; then
         check_port_80=$(check_port 80)
@@ -178,16 +183,16 @@ clean_finish() {
             systemctl stop add-water
         fi
     fi
-    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $AUTHBIND_USR $AUTHBIND80
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Something went wrong, restoring original cert, key and combined files."
 
-        mv $TKL_CERTFILE.bak $TKL_CERTFILE
-        mv $TKL_KEYFILE.bak $TKL_KEYFILE
-        mv $TKL_COMBINED.bak $TKL_COMBINED
+        mv "$TKL_CERTFILE.bak" "$TKL_CERTFILE"
+        mv "$TKL_KEYFILE.bak" "$TKL_KEYFILE"
+        mv "$TKL_COMBINED.bak" "$TKL_COMBINED"
     else
         info "Cleaning backup cert & key"
-        rm -f $TKL_CERTFILE.bak $TKL_KEYFILE.bak $TKL_COMBINED.bak
+        rm -f "$TKL_CERTFILE.bak" "$TKL_KEYFILE.bak" "$TKL_COMBINED.bak"
     fi
     if [[ "$WEBSERVER" == "tomcat"* ]]; then
         update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
@@ -197,6 +202,8 @@ clean_finish() {
             warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
         fi
     fi
+    # don't quote these service names as some values may be empty - which is anticipated
+    # shellcheck disable=SC2086
     restart_servers $WEBSERVER $SERVICES_TO_RESTART
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Check today's previous log entries for details of error."
@@ -204,33 +211,33 @@ clean_finish() {
         info "$APP completed successfully."
     fi
     systemctl stop add-water
+    # don't quote exit code as it may be empty (exit 0)
+    # shellcheck disable=SC2086
     exit $EXIT_CODE
 }
 
 ### some intial checks & set up trap ###
 
+trap '(exit 130)' INT
+trap '(exit 143)' TERM
+trap 'clean_exit' EXIT
+
 [[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
 [[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
 [[ $(which authbind) ]] || fatal "Authbind not installed"
 
-for sig in INT TERM; do
-    trap "clean_finish 1
-    kill -$sig $$" $sig
-done
-
 ### read args & check config - set up whats needed ###
-
-args=""
+force=
 while [[ $# -gt 0 ]]; do
     arg="$1"
     case $arg in
-        -f|--force)     args="$args --force";;
+        -f|--force)     force="--force";;
         -r|--register)  REGISTER=y;;
-        -c|--challenge) if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+        -c|--challenge) if [[ -n $2 && ! $2 =~ ^- ]]; then
                             CTYPE=${2,,}
                             shift
                         fi;;
-        -p|--provider)  if [[ ! -z $2 && ! $2 =~ ^- ]]; then
+        -p|--provider)  if [[ -n $2 && ! $2 =~ ^- ]]; then
                             export PROVIDER=${2,,}
                             shift
                         fi;;
@@ -252,6 +259,7 @@ info "started"
 
 copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
+# shellcheck source=/dev/null
 source "$CONFIG"
 
 copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
@@ -259,19 +267,20 @@ copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 [[ "$DOMAINS_TXT" != "$CC_DOMAINS" ]] && warning "$CONFIG is not using $CC_DOMAINS"
 [[ -z "$HOOK" ]] && fatal "hook script not defined in $CONFIG"
 
-case $CTYPE in
+export CHALLENGETYPE="${CTYPE:-$CHALLENGETYPE}"
+
+case $CHALLENGETYPE in
     http-01) cp "$SH_HOOK_HTTP" "$CC_HOOK"
-             PORT=80
-             sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
+            PORT=80
+            sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
     dns-01)  cp "$SH_HOOK_DNS" "$CC_HOOK"
-             PORT=443
-             sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
-    *)       fatal "Unexpected challenge type: $CTYPE"
+            PORT=443
+            sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
+    *)       fatal "Unexpected challenge type: $CHALLENGETYPE"
 esac
-export CHALLENGETYPE=$CTYPE
 
 [[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
-chmod +x $HOOK
+chmod +x "$HOOK"
 
 copy_if_not_found "$CRON" "$SH_CRON"
 
@@ -292,10 +301,10 @@ fi
 WEBSERVER=$(check_port $PORT)
 if [[ -n "$WEBSERVER" ]]; then
     info "found $WEBSERVER listening on port $PORT"
-    if [[ "$CTYPE" == 'http-01' ]]; then
+    if [[ "$CHALLENGETYPE" == 'http-01' ]]; then
         case $WEBSERVER in
             apache2 | lighttpd | nginx )
-                stop_server $WEBSERVER;;
+                stop_server "$WEBSERVER";;
             java )
                 TOMCAT=/etc/init.d/tomcat;
                 if [[ -x "${TOMCAT}8" ]]; then
@@ -323,18 +332,18 @@ else
     info "No process found listening on port $PORT; continuing"
 fi
 
-[[ "$CTYPE" != "dns-01" ]] && systemctl start add-water
+[[ "$CHALLENGETYPE" != "dns-01" ]] && systemctl start add-water
 info "running dehydrated"
 if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
-    dehydrated --cron $args --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    dehydrated --cron $force --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
     EXIT_CODE=${PIPESTATUS[0]}
 else
-    (dehydrated --cron $args --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+    (dehydrated --cron $force --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
     EXIT_CODE=${PIPESTATUS[0]}
 fi
 if [[ $EXIT_CODE -ne 0 ]]; then
     fatal "dehydrated exited with a non-zero exit code."
 else
     info "dehydrated complete"
-    clean_finish 0
+    exit 0
 fi
