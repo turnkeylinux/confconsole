@@ -31,11 +31,11 @@ configure_postfix() {
 
     hostport="[$host]:$port"
     if [[ -n "$password" ]]; then
-        info $FUNCNAME "Configuring authenticated SMTP relay - please wait..."
-        values=( $hostport yes hash:/etc/postfix/sasl_passwd noanonymous may 4096000 )
+        info "$FUNCNAME" "Configuring authenticated SMTP relay - please wait..."
+        values=( "$hostport" yes hash:/etc/postfix/sasl_passwd noanonymous may 4096000 )
     else
-        warning $FUNCNAME "Configuring unauthenticated, unencrypted relay - please wait..."
-        values=( $hostport no NULL NULL NULL 4096000 )
+        warning "$FUNCNAME" "Configuring unauthenticated, unencrypted relay - please wait..."
+        values=( "$hostport" no NULL NULL NULL 4096000 )
     fi
 
     echo >> $cfgfile
@@ -65,14 +65,14 @@ deconfigure_postfix() {
     done
 }
 
-if [[ $# < 1 || $# > 4 ]]; then
+if [[ $# -lt 1 || $# -gt 4 ]]; then
     usage
 fi
 
 if [[ $# == 1 && $1 == 'deconfigure' ]]; then
     deconfigure_postfix
 else
-    configure_postfix $@
+    configure_postfix "$@"
 fi
 
 sleep 10
