@@ -1,6 +1,6 @@
 
 TurnKey GNU/Linux Configuration Console
-===================================
+=======================================
 
 A pretty version of this readme (with screenshots and clickable links)
 is avaialble online from:
@@ -11,19 +11,18 @@ The source can be found on GitHub:
 
 https://github.com/turnkeylinux/confconsole
 
-The Configuration Console's objective is to provide the user with basic
-network configuration information and the ability to perform basic
-tasks, so as not to force the user to the command line.
+The objective of Configuration Console (aka Confconsole) is to provide the user
+with basic network configuration information and the ability to perform some
+common tasks selected via a menu, rather than command line tools.
 
-The information provided includes:
+The information provided on the inital screen - or "limited" mode - includes:
     - The binded IP address
     - The listening services the user may connect to over the network
 
-The basic tasks that the user may perform include:
+The tasks that may perform include in "full mode" include:
 
     - Networking:
-      - Setting a static IP address
-      - Requesting DHCP
+      - Setting a static IP address or enable DHCP
 
     - Let's Encrypt (see docs/Lets_encrypt.rst):
       - Enable/disable auto SSL cert update
@@ -48,17 +47,26 @@ The basic tasks that the user may perform include:
     - Rebooting the appliance
     - Shutting down the appliance
 
-The new functionality (as of v1.0.0) is provided by the plugins system. 
-For more information and/or if you wish to develop your own plugins, 
+When setting a static IP address or requesting DHCP, /etc/network/interfaces
+will be updated so the changes are permanent (unless the configuration
+
+Most confconsole functionality is provided via a plugin system.
+For more information and/or if you wish to develop your own plugins,
 please see docs/Plugins.rst
 
 When setting a static IP address or requesting DHCP, /etc/network/interfaces
 will be updated so the changes are perminent (unless the configuration
 file has been customized by the user).
 
-The Configuration Console will be invoked automatically on a new vt (by
-its init script) unless the boot paramater 'noconfconsole' is present 
-on /proc/cmdline. 
+A limited Confconsole - showing only Network info - will be invoked
+automatically on the default vt (virtual terminal). This can be disabled by
+adding 'noconfconsole' to the GRUB_CMDLINE_LINUX variable. To do that, edit
+/etc/default/grub and run 'update-grub'.
 
-The Configuration Console (confconsole) may be executed manually as well.
+The full Confconsole will be invoked on the first terminal login as 'root' (or
+'admin' on an AWS Marketplace instance). Launching on every login can be
+enable in Confconsole >> Advanced >> System Settings.
 
+Confconsole) may be executed manually as well (prefix with 'sudo' on AWS MP):
+
+    confconsole
