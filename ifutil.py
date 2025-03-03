@@ -121,7 +121,8 @@ class EtcNetworkInterfaces:
             elif (_line.startswith('address')
                     or _line.startswith('netmask')
                     or _line.startswith('gateway')
-                    or _line.startswith('dns-nameserver')):
+                    or _line.startswith('dns-nameserver')
+                    or _line.startswith('post-up')):
                 continue
             else:
                 raise IfError(f'Unexpected config line: {line}')
