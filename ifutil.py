@@ -271,13 +271,14 @@ def set_static(ifname: str, addr: str, netmask: str,
                ) -> Optional[str]:
     try:
         ifdown(ifname)
-        interfaces = EtcNetworkInterfaces()
-        interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
+        try:
+            interfaces = EtcNetworkInterfaces()
+            interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
 
-        # FIXME when issue in ifupdown/virtio-net becomes apparent
-        sleep(0.5)
-
-        output = ifup(ifname)
+            # FIXME when issue in ifupdown/virtio-net becomes apparent
+            sleep(0.5)
+        finally:
+            output = ifup(ifname)
 
         net = InterfaceInfo(ifname)
         if not net.address:
