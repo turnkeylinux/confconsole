@@ -12,6 +12,8 @@ from netinfo import get_hostname
 
 class IfError(Exception):
     pass
+class MissingInterfaceConf(IfError):
+    pass
 
 
 class EtcNetworkInterfaces:
@@ -130,7 +132,17 @@ class EtcNetworkInterfaces:
             new_lines.append(f'    hostname {hostname}')
         return new_lines
 
+    def gen_default_if_config(self, ifname: str) -> None:
+        if ifname.startswith('e'):
+            self.conf[ifname] = f'''auto {ifname}
+iface {ifname} inet dhcp'''
+        else:
+            raise MissingInterfaceConf(
+                f'failed to find existing configuration for interface: {ifname}')
+
     def set_dhcp(self, ifname: str) -> None:
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
         ifconf = self._preproc_if(self.conf[ifname])
         ifconf[1] = f'iface {ifname} inet dhcp'
 
@@ -138,6 +150,8 @@ class EtcNetworkInterfaces:
         self.write_conf(ifname, ifconf_str)
 
     def set_manual(self, ifname: str) -> None:
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
         ifconf = self._preproc_if(self.conf[ifname])
         ifconf[1] = f'iface {ifname} inet manual'
         ifconf_str = "\n".join(ifconf)
@@ -147,6 +161,8 @@ class EtcNetworkInterfaces:
                    gateway: Optional[str] = None,
                    nameservers: Optional[list[str]] = None
                    ) -> None:
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
         ifconf = self._preproc_if(self.conf[ifname])
         ifconf[1] = f'iface {ifname} inet static'
 

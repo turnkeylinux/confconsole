@@ -559,10 +559,10 @@ class TurnkeyConsole:
                     self.ifname, False)
 
         if addr is None:
-            warnings.append('failed to assertain current address!')
+            warnings.append('failed to ascertain current address!')
             addr = ''
         if netmask is None:
-            warnings.append('failed to assertain current netmask!')
+            warnings.append('failed to ascertain current netmask!')
             netmask = ''
         if gateway is None:
             gateway = ''
