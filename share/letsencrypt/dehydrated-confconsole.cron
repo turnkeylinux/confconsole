@@ -23,7 +23,8 @@ if [[ "$exit_code" -eq 0 ]]; then
 else
     exit_code=0
     log "Attempting renewal."
-    log "$(DEHYDRATED $ARG 2>&1)" || exit_code=$?
+    dehydrated_output=$(DEHYDRATED $ARG 2>&1) || exit_code=$?
+    log "$dehydrated_output"
     if [[ $exit_code != 0 ]]; then
         log "ERR: $(basename $DEHYDRATED) exited with a non-zero exit code."
         exit 1
