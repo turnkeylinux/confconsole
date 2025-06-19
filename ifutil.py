@@ -1,10 +1,8 @@
-# Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
-# Copyright (c) 2022 TurnKey GNU/Linux <admin@turnkeylinux.org>
-
-import os
-from time import sleep
+from dataclasses import dataclass, field
 import subprocess
-from typing import Optional
+from time import sleep
+import os
+import re
 
 from netinfo import InterfaceInfo
 from netinfo import get_hostname
@@ -14,26 +12,152 @@ class IfError(Exception):
     pass
 
 
-class EtcNetworkInterfaces:
-    """class for controlling /etc/network/interfaces
+class InvalidIPv4Error(IfError):
+    pass
 
-    An error will be raised if the interfaces file does not include the
-    header: # UNCONFIGURED INTERFACES (in other words, we will not override
-    any customizations)
-    """
 
-    CONF_FILE = '/etc/network/interfaces'
+class ManuallyConfiguredError(IfError):
+    pass
+
+
+class InterfaceNotFoundError(IfError):
+    pass
+
+
+class BadIfConfigError(IfError):
+    pass
+
+
+IPV4_RE = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(.*)$"
+IPV4_CIDR = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})(.*)$"
+
+def _preprocess_interface_config(config: str) -> list[str]:
+    """Process and Validate Networking Interface"""
+    lines = config.splitlines()
+    new_lines = []
+    hostname = get_hostname()
+
+    for line in lines:
+        _line = line.strip()
+
+        if _line.startswith(("allow-hotplug", "auto", "iface", "wpa-conf")):
+            new_lines.append(line)
+        elif _line.startswith("hostname"):
+            if hostname:
+                new_lines.append(f"    hostname {hostname}")
+            else:
+                continue
+        elif _line.startswith(
+            ("address", "netmask", "gateway", "dns-nameserver", "post-up")
+        ):
+            continue
+        else:
+            raise BadIfConfigError(f"Unexpected config line: {line}")
+    if len(new_lines) == 2 and hostname:
+        new_lines.append(f"    hostname {hostname}")
+    return new_lines
+
+
+@dataclass
+class IPv4:
+    p0: int
+    p1: int
+    p2: int
+    p3: int
+
+    @classmethod
+    def parse(cls, value: str) -> "IPv4":
+        matches = re.match(IPV4_RE, value.strip())
+        if not matches:
+            raise InvalidIPv4Error(f"{value!r} is not a valid IPv4")
+        if matches.group(5):
+            raise InvalidIPv4Error(
+                f"{value!r} is not a valid IPv4 (junk after ip segments)"
+            )
+
+        ip = cls(
+            int(matches.group(1)),
+            int(matches.group(2)),
+            int(matches.group(3)),
+            int(matches.group(4)),
+        )
+
+        if ip.p0 < 0 or ip.p0 > 255:
+            raise InvalidIPv4Error(
+                f"{value!r} is not a valid IPv4 " f"({ip.p0} not in range 0-255"
+            )
+        if ip.p1 < 0 or ip.p1 > 255:
+            raise InvalidIPv4Error(
+                f"{value!r} is not a valid IPv4 " f"({ip.p1} not in range 0-255"
+            )
+        if ip.p2 < 0 or ip.p2 > 255:
+            raise InvalidIPv4Error(
+                f"{value!r} is not a valid IPv4 " f"({ip.p2} not in range 0-255"
+            )
+        if ip.p3 < 0 or ip.p3 > 255:
+            raise InvalidIPv4Error(
+                f"{value!r} is not a valid IPv4 " f"({ip.p3} not in range 0-255"
+            )
+        return ip
+
+    def __str__(self) -> str:
+        return f"{self.p0}.{self.p1}.{self.p2}.{self.p3}"
+
+
+class NetworkInterfaces:
     HEADER_UNCONFIGURED = "# UNCONFIGURED INTERFACES"
+    CONF_FILE = "/etc/network/interfaces"
 
-    def __init__(self) -> None:
-        self.read_conf()
+    conf: dict[str, list[str]] = {}
+    unconfigured: bool = True
 
-    def read_conf(self) -> None:
-        self.conf: dict[str, str] = {}
+    _iface_opts = ["pre-up", "up", "post-up", "pre-down", "down", "post-down"]
+
+    _bridge_opts = [
+        "bridge_ports",
+        "bridge_ageing",
+        "bridge_bridgeprio",
+        "bridge_fd",
+        "bridge_gcinit",
+        "bridge_hello",
+        "bridge_hw",
+        "bridge_maxage",
+        "bridge_maxwait",
+        "bridge_pathcost",
+        "bridge_portprio",
+        "bridge_stp",
+        "bridge_waitport",
+    ]
+
+    def _get_opts_subset(self, ifname: str, opts: list[str]) -> list[str]:
+        if ifname not in self.conf:
+            raise InterfaceNotFoundError(f"no existing config for {ifname}")
+        return [
+            line.strip()
+            for line in self.conf[ifname]
+            if line.strip().split()[0] in opts
+        ]
+
+    def get_iface_opts(self, ifname: str) -> list[str]:
+        return self._get_opts_subset(ifname, self._iface_opts)
+
+    def get_bridge_opts(self, ifname: str) -> list[str]:
+        return self._get_opts_subset(ifname, self._bridge_opts)
+
+    def duplicate(self) -> "NetworkInterfaces":
+        interfaces = NetworkInterfaces()
+        interfaces.unconfigured = self.unconfigured
+        interfaces.conf = {key: [i for i in value] for key, value in self.conf.items()}
+        return interfaces
+
+    def read(self) -> None:
+        # clear config
+        self.conf = {}
         self.unconfigured = False
 
-        ifname = None
-        with open(self.CONF_FILE) as fob:
+        ifname: str | None = None
+
+        with open(self.CONF_FILE, "r") as fob:
             for line in fob:
                 line = line.rstrip()
 
@@ -45,278 +169,263 @@ class EtcNetworkInterfaces:
 
                 if line.startswith("auto") or line.startswith("allow-hotplug"):
                     ifname = line.split()[1]
-                    self.conf[ifname] = line + "\n"
+                    self.conf[ifname] = [line]
                 elif ifname:
-                    self.conf[ifname] += line + "\n"
+                    self.conf[ifname].append(line)
 
-    def _get_iface_opts(self, ifname: str) -> list[str]:
-        iface_opts = ('pre-up', 'up', 'post-up',
-                      'pre-down', 'down', 'post-down')
-        if ifname not in self.conf:
-            return []
-
-        ifconf = self.conf[ifname]
-        return [line.strip()
-                for line in ifconf.splitlines()
-                if line.strip().split()[0] in iface_opts]
-
-    def _get_bridge_opts(self, ifname: str) -> list[str]:
-        bridge_opts = ('bridge_ports', 'bridge_ageing', 'bridge_bridgeprio',
-                       'bridge_fd', 'bridge_gcinit', 'bridge_hello',
-                       'bridge_hw', 'bridge_maxage', 'bridge_maxwait',
-                       'bridge_pathcost', 'bridge_portprio', 'bridge_stp',
-                       'bridge_waitport')
-        if ifname not in self.conf:
-            return []
-
-        ifconf = self.conf[ifname]
-        return [line.strip()
-                for line in ifconf.splitlines()
-                if line.strip().split()[0] in bridge_opts]
-
-    def write_conf(self, ifname: str, ifconf: str) -> None:
-        self.read_conf()
+    def write(self) -> None:
         if not self.unconfigured:
-            raise IfError(f"refusing to write to {self.CONF_FILE}\n"
-                          f"header not found: {self.HEADER_UNCONFIGURED}")
-
-        # carry over previously defined bridge options
-        ifconf += "\n" + "\n".join(["    " + opt
-                                   for opt in self._get_bridge_opts(ifname)])
-
-        # carry over previously defined interface options
-        ifconf += "\n" + "\n".join(["    " + opt
-                                    for opt in self._get_iface_opts(ifname)])
+            raise ManuallyConfiguredError(
+                f"refusing to write to {self.CONF_FILE}\n"
+                f"header not found: {self.HEADER_UNCONFIGURED}"
+            )
 
         with open(self.CONF_FILE, "w") as fob:
-            fob.write(self.HEADER_UNCONFIGURED+'\n')
-            fob.write("# remove the above line if you edit this file")
-
+            fob.write(self.HEADER_UNCONFIGURED + "\n")
             for iface in self.conf.keys():
-                if iface:
-                    fob.write('\n\n')
-                    if iface == ifname:
-                        fob.writelines(ifconf.rstrip())
-                    else:
-                        fob.writelines(self.conf[iface].rstrip())
-            fob.write('\n')
+                fob.write("\n\n")
+                fob.write('\n'.join(self.conf[iface]))
+                fob.write("\n")
 
-    @staticmethod
-    def _preproc_if(ifname_conf: str) -> list[str]:
-        lines = ifname_conf.splitlines()
-        new_lines = []
-        hostname = get_hostname()
-        for line in lines:
-            _line = line.lstrip()
-            if (_line.startswith('allow-hotplug')
-                    or _line.startswith('auto')
-                    or _line.startswith('iface')
-                    or _line.startswith('wpa-conf')):
-                new_lines.append(line)
-            elif _line.startswith('hostname'):
-                if hostname:
-                    new_lines.append(f'    hostname {hostname}')
-                else:
-                    continue
-            elif (_line.startswith('address')
-                    or _line.startswith('netmask')
-                    or _line.startswith('gateway')
-                    or _line.startswith('dns-nameserver')
-                    or _line.startswith('post-up')):
-                continue
-            else:
-                raise IfError(f'Unexpected config line: {line}')
-        if len(new_lines) == 2 and hostname:
-            new_lines.append(f'    hostname {hostname}')
-        return new_lines
+    def gen_default_if_config(self, ifname: str) -> None:
+        if ifname.startswith("e"):
+            self.conf[ifname] = _preprocess_interface_config(
+                f"auto {ifname}\n" f"iface {ifname} inet dhcp"
+            )
+        else:
+            raise InterfaceNotFoundError(f"no existing config for {ifname}")
 
     def set_dhcp(self, ifname: str) -> None:
-        ifconf = self._preproc_if(self.conf[ifname])
-        ifconf[1] = f'iface {ifname} inet dhcp'
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
 
-        ifconf_str = "\n".join(ifconf)
-        self.write_conf(ifname, ifconf_str)
+        ifconf = _preprocess_interface_config("\n".join(self.conf[ifname]))
+        ifconf[1] = f"iface {ifname} inet dhcp"
+        self.conf[ifname] = ifconf
+
+        self.write()
 
     def set_manual(self, ifname: str) -> None:
-        ifconf = self._preproc_if(self.conf[ifname])
-        ifconf[1] = f'iface {ifname} inet manual'
-        ifconf_str = "\n".join(ifconf)
-        self.write_conf(ifname, ifconf_str)
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
 
-    def set_static(self, ifname: str, addr: str, netmask: str,
-                   gateway: Optional[str] = None,
-                   nameservers: Optional[list[str]] = None
-                   ) -> None:
-        ifconf = self._preproc_if(self.conf[ifname])
-        ifconf[1] = f'iface {ifname} inet static'
+        ifconf = _preprocess_interface_config("\n".join(self.conf[ifname]))
+        ifconf[1] = f"iface {ifname} inet manual"
+        self.conf[ifname] = ifconf
 
-        ifconf.extend([f"    address {addr}",
-                       f"    netmask {netmask}"])
+        self.write()
+
+    def set_static(
+        self,
+        ifname: str,
+        addr: str,
+        netmask: str,
+        gateway: str | None = None,
+        nameservers: list[str] | None = None,
+    ) -> None:
+        if ifname not in self.conf:
+            self.gen_default_if_config(ifname)
+
+        ifconf = _preprocess_interface_config("\n".join(self.conf[ifname]))
+        ifconf[1] = f"iface {ifname} inet static"
+
+        ifconf.extend([f"    address {addr}", f"    netmask {netmask}"])
+
         if gateway:
             ifconf.append(f"    gateway {gateway}")
         if nameservers:
-            ifconf.append(f"    dns-nameservers {' '.join(nameservers)}")
+            joined_nameservers = " ".join(nameservers)
+            ifconf.append(f"    dns-nameservers {joined_nameservers}")
 
-        ifconf_str = "\n".join(ifconf)
-        self.write_conf(ifname, ifconf_str)
+        self.conf[ifname] = ifconf
+        self.write()
 
+    def get_if_conf(self, ifname: str, key: str) -> list[str] | None:
+        if ifname in self.conf:
+            for line in self.conf:
+                line = line.strip().split()
+                if line[0] == key:
+                    return line[1:]
 
-class EtcNetworkInterface:
-    """enumerate interface information from /etc/network/interfaces"""
+    def get_nameservers(self, ifname: str) -> list[str] | None:
+        return self.get_if_conf(ifname, "dns-nameservers") or []
 
-    def __init__(self, ifname: str):
-        self.ifname = ifname
+    def get_address(self, ifname: str) -> str | None:
+        addr = self.get_if_conf(ifname, "address")
+        if addr:
+            return addr[0]
 
-        interfaces = EtcNetworkInterfaces()
+    def get_netmask(self, ifname: str) -> str | None:
+        addr = self.get_if_conf(ifname, "netmask")
+        if addr:
+            return addr[0]
 
-        self.conflines = []
-        if ifname in interfaces.conf:
-            self.conflines = interfaces.conf[ifname].splitlines()
-
-    def _parse_attr(self, attr: str) -> list[str]:
-        for line in self.conflines:
-
-            vals = line.strip().split()
-            if not vals:
-                continue
-
-            if vals[0] == attr:
-                return vals
-
-        return []
-
-    @property
-    def method(self) -> Optional[str]:
-        try:
-            return self._parse_attr('iface')[3]
-        except IndexError:
-            return None
-
-    @property
-    def dns_nameservers(self) -> list[str]:
-        return self._parse_attr('dns-nameservers')[1:]
-
-    def __getattr__(self, attrname: str) -> list[str]:
-        # attributes with multiple values will be returned in an array
-        # exception: dns-nameservers always returns in array (expected)
-
-        attrname = attrname.replace('_', '-')
-        values = self._parse_attr(attrname)
-        if len(values) > 2:
-            return values[1:]
-        elif len(values) > 1:
-            return [values[1]]
-
-        return []
+def _parse_resolv(path: str) -> list[str]:
+    nameservers = []
+    with open(path, "r") as fob:
+        for line in fob:
+            if line.startswith("nameserver"):
+                nameservers.append(line.strip().split()[1])
+    return nameservers
 
 
 def get_nameservers(ifname: str) -> list[str]:
+    # /etc/network/interfaces
+    interfaces = NetworkInterfaces()
+    interfaces.read()
 
-    # /etc/network/interfaces (static)
-    interface = EtcNetworkInterface(ifname)
-    if interface.dns_nameservers:
-        return interface.dns_nameservers
-
-    def parse_resolv(path: str) -> list[str]:
-        nameservers = []
-        with open(path, 'r') as fob:
-            for line in fob:
-                if line.startswith('nameserver'):
-                    nameservers.append(line.strip().split()[1])
+    nameservers = interfaces.get_nameservers(ifname)
+    if nameservers:
         return nameservers
 
     # resolvconf (dhcp)
-    path = '/etc/resolvconf/run/interface'
+    path = "/etc/resolvconf/run/interface"
     if os.path.exists(path):
         for f in os.listdir(path):
-            if not f.startswith(ifname) or f.endswith('.inet'):
+            if not f.startswith(ifname) or f.endswith(".inet"):
                 continue
 
-            nameservers = parse_resolv(os.path.join(path, f))
+            nameservers = _parse_resolv(os.path.join(path, f))
             if nameservers:
                 return nameservers
 
     # /etc/resolv.conf (fallback)
-    nameservers = parse_resolv('/etc/resolv.conf')
-    if nameservers:
-        return nameservers
+    return _parse_resolv("/etc/resolv.conf")
 
-    return []
+def ifup(ifname: str, force: bool = False) -> None:
+    # force is not the same as --force. Here force will configure regardless of
+    # errors
 
+    if force:
+        args = ["/usr/sbin/ifup", "--force", "--ignore-errors", ifname]
+    else:
+        args = ["/usr/sbin/ifup", "--force", ifname]
 
-def ifup(ifname: str) -> None:
-    subprocess.run(["ifup", "--force", "--ignore-errors", ifname],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    p = subprocess.run(
+        args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+    )
+    if p.returncode != 0:
+        raise BadIfConfigError(
+            f"failed to bring up interface {ifname!r}" f" error: {p.stderr!r}"
+        )
 
+def ifdown(ifname: str, force: bool = False) -> None:
+    # force is not the same as --force. Here force will configure regardless of
+    # errors
 
-def ifdown(ifname: str) -> None:
-    subprocess.run(["ifdown", "--force", "--ignore-errors", ifname],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if force:
+        subprocess.run(
+            ["/usr/sbin/ifdown", "--force", "--ignore-errors", ifname],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        p = subprocess.run(
+            ["/usr/sbin/ifdown", "--force", ifname],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if p.returncode != 0:
+            raise BadIfConfigError(
+                f"failed to bring down interface {ifname!r}" f" error: {p.stderr!r}"
+            )
 
-
-def unconfigure_if(ifname: str) -> Optional[str]:
+def unconfigure_if(ifname: str) -> str | None:
     try:
         ifdown(ifname)
-        interfaces = EtcNetworkInterfaces()
-        interfaces.set_manual(ifname)
-        subprocess.check_output(['ifconfig', ifname, '0.0.0.0'])
-        ifup(ifname)
-        return None
+    except Exception as e:
+        return str(e)
+
+    interfaces = NetworkInterfaces()
+    interfaces.read()
+    backup_interfaces = interfaces.duplicate()
+    interfaces.set_manual(ifname)
+
+    try:
+        subprocess.check_output(["/usr/sbin/ifconfig", ifname, "0.0.0.0"])
     except subprocess.CalledProcessError as e:
         return str(e)
 
-
-def set_static(ifname: str, addr: str, netmask: str,
-               gateway: str, nameservers: list[str]
-               ) -> Optional[str]:
     try:
-        ifdown(ifname)
+        ifup(ifname)
+    except Exception as e:
+        backup_interfaces.write()
+        ifup(ifname, force=True)
+
+        return str(e)
+
+def set_static(
+    ifname: str, addr: str, netmask: str, gateway: str, nameservers: list[str]
+) -> str | None:
+    try:
+        addr = str(IPv4.parse(addr))
+        netmask = str(IPv4.parse(netmask))
+        gateway = str(IPv4.parse(gateway))
+        nameservers = [str(IPv4.parse(nameserver)) for nameserver in nameservers]
+
+        ifdown(ifname, True)
+
+        interfaces = NetworkInterfaces()
+        interfaces.read()
+        backup_interfaces = interfaces.duplicate()
+
         try:
-            interfaces = EtcNetworkInterfaces()
             interfaces.set_static(ifname, addr, netmask, gateway, nameservers)
-
-            # FIXME when issue in ifupdown/virtio-net becomes apparent
             sleep(0.5)
+        except Exception as e:
+            backup_interfaces.write()
+            raise
         finally:
-            output = ifup(ifname)
+            output = ifup(ifname, True)
 
         net = InterfaceInfo(ifname)
         if not net.address:
-            raise IfError(f'Error obtaining IP address\n\n{output}')
+            raise IfError(f"Error obtaining IP address\n\n{output}")
+
         return None
     except Exception as e:
         return str(e)
 
-
-def set_dhcp(ifname: str) -> Optional[str]:
+def set_dhcp(ifname: str) -> str | None:
     try:
-        ifdown(ifname)
-        interfaces = EtcNetworkInterfaces()
-        interfaces.set_dhcp(ifname)
-        output = ifup(ifname)
+        ifdown(ifname, True)
+
+        interfaces = NetworkInterfaces()
+        interfaces.read()
+        backup_interfaces = interfaces.duplicate()
+        try:
+            interfaces.set_dhcp(ifname)
+        except Exception as e:
+            backup_interfaces.write()
+            raise
+        finally:
+            output = ifup(ifname, True)
 
         net = InterfaceInfo(ifname)
         if not net.address:
-            raise IfError(f'Error obtaining IP address\n\n{output}')
+            raise IfError(f"Error obtaining IP address\n\n{output}")
         return None
     except Exception as e:
         return str(e)
 
-
-def get_ipconf(ifname: str, error: bool = False
-               ) -> tuple[Optional[str], Optional[str],
-                          Optional[str], list[str]]:
+def get_ipconf(
+    ifname: str, error: bool = False
+) -> tuple[str | None, str | None, str | None, list[str]]:
     net = InterfaceInfo(ifname)
-    for i in range(6):
+    for _ in range(6):
         net = InterfaceInfo(ifname)
         if net.address is not None and net.netmask is not None:
             gateway = net.get_gateway(error)
             return (net.address, net.netmask, gateway, get_nameservers(ifname))
         sleep(0.1)
-    # no interface which is up; this is ok though
+
+    # no interfaces up
     return (None, None, net.get_gateway(error), get_nameservers(ifname))
 
-
-def get_ifmethod(ifname: str) -> Optional[str]:
-    interface = EtcNetworkInterface(ifname)
-    return interface.method
+def get_ifmethod(ifname: str) -> str | None:
+    interfaces = NetworkInterfaces()
+    interfaces.read()
+    conf_line = interfaces.get_if_conf(ifname, "iface")
+    if conf_line:
+        return conf_line[3]
