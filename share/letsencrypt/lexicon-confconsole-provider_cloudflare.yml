@@ -1,4 +1,14 @@
-# uncomment relevant lines and replace example value(s)
+# Cloudflare Lexicon conf template provided by TurnKey Linux's Confconsole
+#
+# Confconsole uses Lexicon to support the Let's Encrypt DNS-01 challenge type:
+# https://dns-lexicon.github.io/dns-lexicon/
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+# https://letsencrypt.org/docs/challenge-types/#dns-01-challenge
+#
+# Uncomment and update the example authentication lines below relevant to your
+# desired Cloudflare authentication method. See Lexicon Cloudflare config docs
+# for more info:
+# https://dns-lexicon.github.io/dns-lexicon/configuration_reference.html#cloudflare
 
 # Cloudflare example 1 - using global api key
 #auth_username: YOUR_CF_USERNAME
