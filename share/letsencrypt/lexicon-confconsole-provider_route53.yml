@@ -1,7 +1,23 @@
-# uncomment relevant lines and replace example value(s)
+# Route53 Lexicon conf template provided by TurnKey Linux's Confconsole
+#
+# Confconsole uses Lexicon to support the Let's Encrypt DNS-01 challenge type:
+# https://dns-lexicon.github.io/dns-lexicon/
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+# https://letsencrypt.org/docs/challenge-types/#dns-01-challenge
+#
+# Uncomment and update the example authentication lines below relevant to your
+# Route53 authentication method. See Lexicon Route53 config docs for more
+# info:
+# https://dns-lexicon.github.io/dns-lexicon/configuration_reference.html#route53
 
-# AWS Route53 example:
+# AWS Route53 example 1 - AWS API key/secret auth:
 #auth_access_key: YOUR_AWS_ACCESS_KEY
 #auth_access_secret: YOUR_AWS_ACCESS_SECRET
+#private_zone: False # generally you'll always want public zone
+#zone_id: YOUR_ZONE_ID
+
+# AWS Route53 example 2 - AWS username/token auth:
+#auth_username: YOUR_AWS_USERNAME
+#auth_token: YOUR_AWS_TOKEN
 #private_zone: False # generally you'll always want public zone
 #zone_id: YOUR_ZONE_ID

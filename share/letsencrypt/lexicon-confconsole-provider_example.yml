@@ -1,3 +1,18 @@
-# Your relevant provider config here
+# Generic Lexicon conf template provided by TurnKey Linux's Confconsole
+#
+# Confconsole uses Lexicon to support the Let's Encrypt DNS-01 challenge type:
+# https://dns-lexicon.github.io/dns-lexicon/
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+# https://letsencrypt.org/docs/challenge-types/#dns-01-challenge
+#
+# AWS Route53 & Cloudflare specific Lexicon config are also provided by
+# Confconsole. When using either of those DNS providers, rerunning Confconsole
+# and selecting the relevant provider is recommended.
+#
+# Replace or add Lexicon config relevant to your DNS provider; see the Lexicon
+# doc page for your specific provider:
+# https://dns-lexicon.github.io/dns-lexicon/configuration_reference.html
+
+# Adjust/replace as per Lexicon docs for your specific DNS provider
 #config_key_1: config_value_1
 #config_key_2: config_value_2
