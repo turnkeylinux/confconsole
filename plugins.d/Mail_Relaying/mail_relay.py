@@ -60,8 +60,8 @@ def testsettings(host, port, login, password):
 
         if ret == 235:
             return True, None
-    except SMTPException as e:
-        ret, msg = e.args[0], e.args[1].decode(encoding)
+    except (ssl.SSLError, SMTPException) as e:
+        ret, msg = e.args[0], bytes2string(e.args[1])
         pass
 
     return False, (ret, msg)
