@@ -28,7 +28,7 @@ class ModuleInterface(ModuleType):
     def doOnce(self) -> None: ...
 
 
-class EventManager(object):
+class EventManager:
     _handlers: dict[str, list[Callable[[], None]]]
     _events: set[str]
 
@@ -75,7 +75,7 @@ class EventManager(object):
                 )
 
 
-class Plugin(object):
+class Plugin:
     """Object that holds various information about a `plugin`"""
 
     parent: str | None
@@ -197,7 +197,7 @@ class PluginDir:
             return v
 
 
-class PluginManager(object):
+class PluginManager:
     """Object that holds various information about multiple `plugins`"""
 
     path_map: OrderedDict[str, Plugin | PluginDir] = OrderedDict()
