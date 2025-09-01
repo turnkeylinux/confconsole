@@ -5,10 +5,9 @@
 
 import re
 import os
-from typing import Optional
 
 
-class Error(Exception):
+class ConfconsoleConfError(Exception):
     pass
 
 
@@ -18,12 +17,14 @@ def path(filename: str) -> str:
         if os.path.exists(path):
             return path
 
-    raise Error(f'could not find configuration file: {filename}')
+    raise ConfconsoleConfError(
+        f"could not find configuration file: {filename}"
+    )
 
 
 class Conf:
-    default_nic: Optional[str]
-    publicip_cmd: Optional[str]
+    default_nic: str | None
+    publicip_cmd: str | None
     networking: bool
     copy_paste: bool
     conf_file: str
@@ -32,26 +33,28 @@ class Conf:
         if not self.conf_file or not os.path.exists(self.conf_file):
             return
 
-        with open(self.conf_file, 'r') as fob:
+        with open(self.conf_file) as fob:
             for line in fob:
                 line = line.strip()
 
                 if not line or line.startswith("#"):
                     continue
 
-                op, val = re.split(r'\s+', line, 1)
-                if op == 'default_nic':
+                op, val = re.split(r"\s+", line, 1)
+                if op == "default_nic":
                     self.default_nic = val
-                elif op == 'publicip_cmd':
+                elif op == "publicip_cmd":
                     self.publicip_cmd = val
-                elif op == 'networking' and val in ('true', 'false'):
-                    self.networking = True if val == 'true' else False
-                elif op == 'autostart':
+                elif op == "networking" and val in ("true", "false"):
+                    self.networking = True if val == "true" else False
+                elif op == "autostart":
                     pass
-                elif op == 'copy_paste' and val.lower() in ('true', 'false'):
-                    self.copy_paste = True if val.lower() == 'true' else False
+                elif op == "copy_paste" and val.lower() in ("true", "false"):
+                    self.copy_paste = True if val.lower() == "true" else False
                 else:
-                    raise Error("illegal configuration line: " + line)
+                    raise ConfconsoleConfError(
+                        f"illegal configuration line: {line}"
+                    )
 
     def __init__(self) -> None:
         self.default_nic = None
@@ -64,5 +67,5 @@ class Conf:
     def set_default_nic(self, ifname: str) -> None:
         self.default_nic = ifname
 
-        with open(self.conf_file, 'w') as fob:
+        with open(self.conf_file, "w") as fob:
             fob.write(f"default_nic {ifname}\n")
