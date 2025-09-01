@@ -9,7 +9,7 @@ PROXY_LINE = r'Acquire::http::Proxy "(.*)";'
 PROXY_REPL = r'Acquire::http::Proxy "{}";'
 
 
-def get_proxy():
+def get_proxy() -> str:
     proxy = ""
     if not isfile(CONF):
         return proxy
@@ -21,7 +21,7 @@ def get_proxy():
     return proxy
 
 
-def set_proxy(prox):
+def set_proxy(prox: str) -> None:
     if isfile(CONF):
         with open(CONF) as fob:
             data = fob.read()
@@ -37,9 +37,9 @@ def set_proxy(prox):
         fob.write(data)
 
 
-def validate_address(addr):
+def validate_address(addr: str) -> bool:
     parsed = urlparse(addr)
-    return parsed.scheme and len(parsed.netloc.split(".")) > 1
+    return bool(parsed.scheme) and len(parsed.netloc.split(".")) > 1
 
 
 def doOnce():
