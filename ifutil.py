@@ -31,6 +31,7 @@ class BadIfConfigError(IfError):
 IPV4_RE = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(.*)$"
 IPV4_CIDR = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})(.*)$"
 
+
 def _preprocess_interface_config(config: str) -> list[str]:
     """Process and Validate Networking Interface"""
     lines = config.splitlines()
@@ -84,19 +85,19 @@ class IPv4:
 
         if ip.p0 < 0 or ip.p0 > 255:
             raise InvalidIPv4Error(
-                f"{value!r} is not a valid IPv4 " f"({ip.p0} not in range 0-255"
+                f"{value!r} is not a valid IPv4 ({ip.p0} not in range 0-255"
             )
         if ip.p1 < 0 or ip.p1 > 255:
             raise InvalidIPv4Error(
-                f"{value!r} is not a valid IPv4 " f"({ip.p1} not in range 0-255"
+                f"{value!r} is not a valid IPv4 ({ip.p1} not in range 0-255"
             )
         if ip.p2 < 0 or ip.p2 > 255:
             raise InvalidIPv4Error(
-                f"{value!r} is not a valid IPv4 " f"({ip.p2} not in range 0-255"
+                f"{value!r} is not a valid IPv4 ({ip.p2} not in range 0-255"
             )
         if ip.p3 < 0 or ip.p3 > 255:
             raise InvalidIPv4Error(
-                f"{value!r} is not a valid IPv4 " f"({ip.p3} not in range 0-255"
+                f"{value!r} is not a valid IPv4 ({ip.p3} not in range 0-255"
             )
         return ip
 
@@ -147,7 +148,9 @@ class NetworkInterfaces:
     def duplicate(self) -> "NetworkInterfaces":
         interfaces = NetworkInterfaces()
         interfaces.unconfigured = self.unconfigured
-        interfaces.conf = {key: [i for i in value] for key, value in self.conf.items()}
+        interfaces.conf = {
+            key: [i for i in value] for key, value in self.conf.items()
+        }
         return interfaces
 
     def read(self) -> None:
@@ -157,7 +160,7 @@ class NetworkInterfaces:
 
         ifname: str | None = None
 
-        with open(self.CONF_FILE, "r") as fob:
+        with open(self.CONF_FILE) as fob:
             for line in fob:
                 line = line.rstrip()
 
@@ -184,13 +187,13 @@ class NetworkInterfaces:
             fob.write(self.HEADER_UNCONFIGURED + "\n")
             for iface in self.conf.keys():
                 fob.write("\n\n")
-                fob.write('\n'.join(self.conf[iface]))
+                fob.write("\n".join(self.conf[iface]))
                 fob.write("\n")
 
     def gen_default_if_config(self, ifname: str) -> None:
         if ifname.startswith("e"):
             self.conf[ifname] = _preprocess_interface_config(
-                f"auto {ifname}\n" f"iface {ifname} inet dhcp"
+                f"auto {ifname}\niface {ifname} inet dhcp"
             )
         else:
             raise InterfaceNotFoundError(f"no existing config for {ifname}")
@@ -260,9 +263,10 @@ class NetworkInterfaces:
         if addr:
             return addr[0]
 
+
 def _parse_resolv(path: str) -> list[str]:
     nameservers = []
-    with open(path, "r") as fob:
+    with open(path) as fob:
         for line in fob:
             if line.startswith("nameserver"):
                 nameservers.append(line.strip().split()[1])
@@ -292,6 +296,7 @@ def get_nameservers(ifname: str) -> list[str]:
     # /etc/resolv.conf (fallback)
     return _parse_resolv("/etc/resolv.conf")
 
+
 def ifup(ifname: str, force: bool = False) -> None:
     # force is not the same as --force. Here force will configure regardless of
     # errors
@@ -306,8 +311,9 @@ def ifup(ifname: str, force: bool = False) -> None:
     )
     if p.returncode != 0:
         raise BadIfConfigError(
-            f"failed to bring up interface {ifname!r}" f" error: {p.stderr!r}"
+            f"failed to bring up interface {ifname!r} error: {p.stderr!r}"
         )
+
 
 def ifdown(ifname: str, force: bool = False) -> None:
     # force is not the same as --force. Here force will configure regardless of
@@ -328,8 +334,10 @@ def ifdown(ifname: str, force: bool = False) -> None:
         )
         if p.returncode != 0:
             raise BadIfConfigError(
-                f"failed to bring down interface {ifname!r}" f" error: {p.stderr!r}"
+                f"failed to bring down interface {ifname!r}"
+                f" error: {p.stderr!r}"
             )
+
 
 def unconfigure_if(ifname: str) -> str | None:
     try:
@@ -355,6 +363,7 @@ def unconfigure_if(ifname: str) -> str | None:
 
         return str(e)
 
+
 def set_static(
     ifname: str, addr: str, netmask: str, gateway: str, nameservers: list[str]
 ) -> str | None:
@@ -362,7 +371,9 @@ def set_static(
         addr = str(IPv4.parse(addr))
         netmask = str(IPv4.parse(netmask))
         gateway = str(IPv4.parse(gateway))
-        nameservers = [str(IPv4.parse(nameserver)) for nameserver in nameservers]
+        nameservers = [
+            str(IPv4.parse(nameserver)) for nameserver in nameservers
+        ]
 
         ifdown(ifname, True)
 
@@ -375,7 +386,7 @@ def set_static(
             sleep(0.5)
         except Exception as e:
             backup_interfaces.write()
-            raise
+            raise e
         finally:
             output = ifup(ifname, True)
 
@@ -384,8 +395,9 @@ def set_static(
             raise IfError(f"Error obtaining IP address\n\n{output}")
 
         return None
-    except Exception as e:
+    except Exception as e:  # TODO - this is essentially a bare except
         return str(e)
+
 
 def set_dhcp(ifname: str) -> str | None:
     try:
@@ -398,7 +410,7 @@ def set_dhcp(ifname: str) -> str | None:
             interfaces.set_dhcp(ifname)
         except Exception as e:
             backup_interfaces.write()
-            raise
+            raise e
         finally:
             output = ifup(ifname, True)
 
@@ -408,6 +420,7 @@ def set_dhcp(ifname: str) -> str | None:
         return None
     except Exception as e:
         return str(e)
+
 
 def get_ipconf(
     ifname: str, error: bool = False
@@ -422,6 +435,7 @@ def get_ipconf(
 
     # no interfaces up
     return (None, None, net.get_gateway(error), get_nameservers(ifname))
+
 
 def get_ifmethod(ifname: str) -> str | None:
     interfaces = NetworkInterfaces()
