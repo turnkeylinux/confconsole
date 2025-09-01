@@ -29,7 +29,7 @@ import ifutil
 import conf
 import plugin
 
-from typing import NoReturn, Optional, Iterable, Any
+from typing import NoReturn, Iterable, Any
 
 USAGE: str = __doc__ if __doc__ else ""
 PLUGIN_PATH = os.path.join(
@@ -76,7 +76,7 @@ WrapperReturn = str | tuple[str, str]
 class Console:
     def __init__(
         self,
-        title: Optional[str] = None,
+        title: str | None = None,
         width: int = 60,
         height: int = 20,
     ) -> None:
@@ -498,7 +498,7 @@ class TurnkeyConsole:
         try:
             with open(conf.path("services.txt")) as fob:
                 t = fob.read().rstrip()
-        except conf.Error:
+        except conf.ConfconsoleConfError:
             t = ""
         text = Template(t).substitute(ipaddr=ip_addr)
 
