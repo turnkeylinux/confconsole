@@ -13,7 +13,7 @@
 # option) any later version.
 
 import socket
-import datetime
+from datetime import datetime
 from argparse import ArgumentParser
 from queue import Queue, Empty
 from threading import Thread
@@ -21,8 +21,8 @@ from os.path import isfile, dirname, basename, abspath
 from bottle import get, static_file, run, route, redirect
 
 # "Maintence" page to serve for all requested content, other than LE token
-DEFAULT_INDEX = '/usr/share/confconsole/letsencrypt/index.html'
-CUSTOM_INDEX = '/var/lib/confconsole/letsencrypt/index.html'
+DEFAULT_INDEX = "/usr/share/confconsole/letsencrypt/index.html"
+CUSTOM_INDEX = "/var/lib/confconsole/letsencrypt/index.html"
 
 if isfile(CUSTOM_INDEX):
     INDEX_PATH = CUSTOM_INDEX
@@ -45,18 +45,18 @@ def update_tokens():
             break
         else:
 
-            op, token = new_token.split(' ', 1)
+            op, token = new_token.split(" ", 1)
 
             token_path = abspath(token)
             token_file = basename(token_path)
             token_webroot = dirname(token_path)
 
-            if op == 'deploy':
+            if op == "deploy":
                 tokens[token_file] = token_webroot
-            elif op == 'clean':
+            elif op == "clean":
                 del tokens[token_file]
             else:
-                raise ValueError('Unknown operation specified!')
+                raise ValueError("Unknown operation specified!")
 
 
 @get("/.well-known/acme-challenge/<filename:path>")
@@ -66,22 +66,23 @@ def challenge(filename):
         token_webroot = tokens[filename]
         return static_file(filename, root=token_webroot)
     else:
-        redirect('/')
+        redirect("/")
 
 
-@route('/')
+@route("/")
 def index():
     update_tokens()
     return static_file(INDEX_FILE, root=INDEX_WEBROOT)
 
 
-@route('<randompath:path>')
+@route("<randompath:path>")
 def test(randompath):
-    redirect('/')
+    _ = randompath
+    redirect("/")
 
 
 def handle_token_input():
-    host = '127.0.0.1'
+    host = "127.0.0.1"
     port = 9977
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((host, port))
@@ -92,8 +93,8 @@ def handle_token_input():
     while True:
         conn, addr = sock.accept()
 
-        token = conn.recv(4096).decode('utf8')
-        print('Got token {} from {}: serving'.format(token, addr))
+        token = conn.recv(4096).decode("utf8")
+        print(f"Got token {token} from {addr}: serving")
         token_queue.put(token)
 
         conn.close()
@@ -101,16 +102,17 @@ def handle_token_input():
     sock.close()
 
 
-if __name__ == '__main__':
-    parser = ArgumentParser(description="add-water"
-                            " - Bottle based python HTTP server to serve"
-                            " Dehydrated Let's Encrypt challenges")
-    parser.add_argument('-l', '--logfile', help='path to logfile')
+if __name__ == "__main__":
+    parser = ArgumentParser(
+        description="add-water - Bottle based python HTTP server to serve"
+                    " Dehydrated Let's Encrypt challenges"
+    )
+    parser.add_argument("-l", "--logfile", help="path to logfile")
     args = parser.parse_args()
 
     input_handler = Thread(target=handle_token_input)
     input_handler.start()
 
-    print("[{}] Starting Server".format(
-        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-    run(host='::', port=80)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{now}] Starting Server")
+    run(host="::", port=80)
