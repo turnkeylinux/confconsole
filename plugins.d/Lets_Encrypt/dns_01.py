@@ -158,9 +158,7 @@ def initial_setup() -> None:
             exit_code, msg = run_command(command)
             if exit_code != 0:
                 com = " ".join(command)
-                console.msgbox(
-                    "Error", f"Command '{com}' failed:\n\n{msg}"
-                )
+                console.msgbox("Error", f"Command '{com}' failed:\n\n{msg}")
                 return None
 
         lexicon_bin = which("turnkey-lexicon")

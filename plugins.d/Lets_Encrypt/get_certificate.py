@@ -226,9 +226,7 @@ def run() -> None:
     except KeyError:
         msg = "Data error, no value found for 'terms-of-service'"
     if not tos_url:
-        console.msgbox(
-            "Error", msg, autosize=True
-        )
+        console.msgbox("Error", msg, autosize=True)
         return
 
     ret = console.yesno(
@@ -301,9 +299,7 @@ def run() -> None:
         else:
             providers, err = dns_01.get_providers()
             if err:
-                console.msgbox(
-                    "Error", err, autosize=True
-                )
+                console.msgbox("Error", err, autosize=True)
                 return
             if not providers:
                 console.msgbox(
@@ -331,14 +327,10 @@ def run() -> None:
                     return
                 returncode, message = dns_01.apt_install(["dnsutils"])
                 if returncode != 0:
-                    console.msgbox(
-                        "Error", message, autosize=True
-                    )
+                    console.msgbox("Error", message, autosize=True)
                     return
             if not provider:
-                console.msgbox(
-                    "Error", "No provider selected", autosize=True
-                )
+                console.msgbox("Error", "No provider selected", autosize=True)
 
         d_conf = initial_load_conf(provider)
         conf_file, config = dns_01.load_config(provider)
@@ -403,9 +395,7 @@ def run() -> None:
                 ("Domain 4", 4, 0, values[3], 4, 10, field_width, 255),
                 ("Domain 5", 5, 0, values[4], 5, 10, field_width, 255),
             ]
-            ret, values = console.form(
-                TITLE, DESC, fields, autosize=True
-            )
+            ret, values = console.form(TITLE, DESC, fields, autosize=True)
 
             if ret != "ok":
                 canceled = True
