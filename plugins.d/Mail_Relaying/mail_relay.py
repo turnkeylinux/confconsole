@@ -6,7 +6,6 @@ import sys
 from smtplib import SMTP, SMTP_SSL, SMTPException
 import os
 import subprocess
-from subprocess import PIPE
 
 TITLE = "Mail Relay"
 
@@ -121,9 +120,7 @@ def run():
                 ("Password", 4, 0, password, 4, 10, field_width, field_limit),
             ]
 
-            retcode, values = console.form(  # type: ignore[not-defined]
-                TITLE, FORMNOTE, fields
-            )
+            retcode, values = console.form(TITLE, FORMNOTE, fields)
 
             if retcode != "ok":
                 console.msgbox(  # type: ignore[not-defined]
