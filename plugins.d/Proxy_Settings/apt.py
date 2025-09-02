@@ -50,7 +50,7 @@ def run():
     original_proxy = get_proxy()
     while True:
         # console is inherited so doesn't need to be defined
-        code, prox = console.inputbox(  # type: ignore[not-defined]
+        code, prox = console.inputbox(
             "Set proxy",
             'Set a HTTP Proxy. Must contain scheme "http://example.com"'
             ' but not "example.com"',
@@ -58,7 +58,7 @@ def run():
         )
         if code == "ok":
             if prox and not validate_address(prox):
-                console.msgbox(  # type: ignore[not-defined]
+                console.msgbox(
                     "Invalid Proxy",
                     "A valid proxy address must at least have a net"
                     " location and scheme (http://example.com) but not"
@@ -68,7 +68,7 @@ def run():
                 if not prox and original_proxy:
                     # if no proxy chosen but there WAS a proxy set previously
                     if (
-                        console.yesno(  # type: ignore[not-defined]
+                        console.yesno(
                             "Are you sure you want to disable apt proxy?"
                         )
                         == "ok"

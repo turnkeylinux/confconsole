@@ -31,11 +31,11 @@ def run():
             "Please 'Get certificate' first."
         )
         # console is inherited so doesn't need to be defined
-        r = console.msgbox("Error", msg)  # type: ignore[not-defined]
+        r = console.msgbox("Error", msg)
     else:
         status = "enabled" if enabled else "disabled"
         msg = """Automatic certificate renewal is currently {}"""
-        r = console._wrapper(  # type: ignore[not-defined]
+        r = console._wrapper(
             "yesno",
             msg.format(status),
             10,
@@ -50,7 +50,7 @@ def run():
                 enable_cron()
             enabled = check_cron()
             status = "enabled" if enabled else "disabled"
-            r = console._wrapper(  # type: ignore[not-defined]
+            r = console._wrapper(
                 "yesno",
                 msg.format(status),
                 10,

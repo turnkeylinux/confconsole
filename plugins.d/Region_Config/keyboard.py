@@ -18,13 +18,13 @@ def is_installed(pkg: str) -> bool:
 def run():
     flag = []
     # interactive is inherited so doesn't need to be defined
-    if interactive:  # type: ignore[not-defined]
+    if interactive:
         to_install = []
         for package in ["console-setup", "keyboard-configuration"]:
             if not is_installed(package):
                 to_install.append(package)
         if to_install:
-            ret = console.yesno(  # type: ignore[not-defined]
+            ret = console.yesno(
                 "The following package(s) is/are required for this"
                 " operation:\n\n"
                 f"    {' '.join(to_install)}\n\n"
@@ -37,7 +37,7 @@ def run():
             else:
                 return
 
-        ret = console.yesno(  # type: ignore[not-defined]
+        ret = console.yesno(
             "Note: If new keyboard settings are not applied, you may need"
             " to reboot your operating system. Continue with"
             " configuration?",

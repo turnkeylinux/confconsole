@@ -123,7 +123,7 @@ def initial_setup() -> None:
     if msg is not None:
         msg = msg_start + msg_mid + msg_end
         # console is inherited so doesn't need to be defined
-        ret = console.yesno(msg, autosize=True)  # type: ignore[name-defined]
+        ret = console.yesno(msg, autosize=True)
         if ret != "ok":
             return
     if install_venv or unexpected:
@@ -139,7 +139,7 @@ def initial_setup() -> None:
             exit_code, msg = apt_install(pkgs)
             if exit_code != 0:
                 pkgs_l = " ".join(pkgs)
-                console.msgbox(  # type: ignore[name-defined]
+                console.msgbox(
                     "Error", f"Apt installing {pkgs_l} failed:\n\n{msg}"
                 )
         makedirs(dirname(venv), exist_ok=True)
@@ -158,14 +158,14 @@ def initial_setup() -> None:
             exit_code, msg = run_command(command)
             if exit_code != 0:
                 com = " ".join(command)
-                console.msgbox(  # type: ignore[name-defined]
+                console.msgbox(
                     "Error", f"Command '{com}' failed:\n\n{msg}"
                 )
                 return None
 
         lexicon_bin = which("turnkey-lexicon")
         if not lexicon_bin:
-            console.msgbox(  # type: ignore[name-defined]
+            console.msgbox(
                 "Error",
                 "Could not find 'turnkey-lexicon'? Should be installed with"
                 " Confconsole.",
