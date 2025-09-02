@@ -230,7 +230,15 @@ class TurnkeyConsole:
         self.height = 20
 
         self.console = Console(title, self.width, self.height)
-        self.appname = f"TurnKey GNU/Linux {netinfo.get_hostname().upper()}"
+
+        # sometimes it would be nice to have the appname be something other
+        # than the hostname. Allow developers to create  file containing the
+        # appname in /etc/appname
+        try:
+            with open("/etc/appname", 'r') as fob:
+                self.appname = fob.read().rstrip()
+        except FileNotFoundError:
+            self.appname = f"TurnKey Linux {netinfo.get_hostname().upper()}"
 
         self.installer = Installer(path='/usr/bin/di-live')
 
@@ -426,9 +434,12 @@ class TurnkeyConsole:
         try:
             with open(conf.path('services.txt'), 'r') as fob:
                 t = fob.read().rstrip()
+                text = Template(t).substitute(appname=self.appname,
+                                              hostname=hostname,
+                                              ipaddr=ip_addr)
         except conf.Error:
             t = ""
-        text = Template(t).substitute(ipaddr=ip_addr)
+            text = Template(t).substitute(ipaddr=ip_addr)
 
         text += f"\n\n{tklbam_status}\n\n"
         text += "\n" * (self.height - len(text.splitlines()) - 7)
