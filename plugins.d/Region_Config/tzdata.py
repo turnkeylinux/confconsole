@@ -7,7 +7,7 @@ import os
 def run():
     flag = []
     # interactive is inherited so doesn't need to be defined
-    if not interactive:  # type: ignore[not-defined]
+    if not interactive:
         tz = os.getenv("TZ")
 
         if tz:

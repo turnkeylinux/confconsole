@@ -80,7 +80,7 @@ def run():
     retcode, choice = console.menu(
         TITLE,
         TEXT,
-        [  # type: ignore[not-defined]
+        [
             ("SendinBlue", "TurnKey's preferred SMTP gateway"),
             ("Custom", "Custom mail relay configuration"),
             ("Deconfigure", "Erase current mail relay settings"),
@@ -94,13 +94,13 @@ def run():
             )
             if proc.returncode != 0:
                 console.msgbox(
-                    "Error",  # type: ignore[not-defined]
+                    "Error",
                     proc.stderr,
                 )
                 return
 
             console.msgbox(
-                TITLE,  # type: ignore[not-defined]
+                TITLE,
                 "The mail relay settings were succesfully erased."
                 " No relaying will take place from now on.",
             )
@@ -123,7 +123,7 @@ def run():
             retcode, values = console.form(TITLE, FORMNOTE, fields)
 
             if retcode != "ok":
-                console.msgbox(  # type: ignore[not-defined]
+                console.msgbox(
                     TITLE,
                     "You have cancelled the configuration process. No relaying"
                     " of mail will be performed.",
@@ -133,7 +133,7 @@ def run():
             host, port, login, password = tuple(values)
 
             if not login:
-                ret = console.yesno(  # type: ignore[not-defined]
+                ret = console.yesno(
                     "No login username provided. Unable to test SMTP"
                     " connection before configuring.\n\n"
                     "Are you sure you want to configure SMTP forwarding with"
@@ -148,7 +148,7 @@ def run():
             else:
                 success, error_msg = testsettings(*values)
                 if success:
-                    console.msgbox(  # type: ignore[not-defined]
+                    console.msgbox(
                         TITLE,
                         "SMTP connection test successful.\n\n"
                         "Ready to configure Postfix.",
@@ -156,7 +156,7 @@ def run():
                     break
 
                 else:
-                    console.msgbox(  # type: ignore[not-defined]
+                    console.msgbox(
                         TITLE,
                         "Could not connect with supplied parameters.\n\n"
                         "Error code: {}\n\nMessage:\n\n  {}\n\nPlease"
@@ -170,4 +170,4 @@ def run():
             text=True,
         )
         if proc.returncode != 0:
-            console.msgbox("Error", proc.stderr)  # type: ignore[not-defined]
+            console.msgbox("Error", proc.stderr)
