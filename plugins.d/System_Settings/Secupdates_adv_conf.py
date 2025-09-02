@@ -4,11 +4,11 @@ import os
 from os.path import exists, islink
 from typing import Optional
 
-FILE_PATH = '/etc/cron-apt/action.d/5-install'
-CONF_DEFAULT = '/etc/cron-apt/action-available.d/5-install.default'
-CONF_ALT = '/etc/cron-apt/action-available.d/5-install.alt'
+FILE_PATH = "/etc/cron-apt/action.d/5-install"
+CONF_DEFAULT = "/etc/cron-apt/action-available.d/5-install.default"
+CONF_ALT = "/etc/cron-apt/action-available.d/5-install.alt"
 
-doc_url = 'www.turnkeylinux.org/secupdates#issue-res'
+doc_url = "www.turnkeylinux.org/secupdates#issue-res"
 
 info_default = """
 This is the historic and default TurnKey cronapt behaviour. Only packages \
@@ -40,28 +40,25 @@ def check_paths() -> tuple[int, list[str]]:
     errors: list[str] = []
     for _path in [FILE_PATH, CONF_DEFAULT, CONF_ALT]:
         if not exists(_path):
-            errors.append(f'Path not found:'
-                          f'\n{_path}')
+            errors.append(f"Path not found:\n{_path}")
     if errors:
         return 2, errors
     if islink(FILE_PATH):
         _target_path = os.readlink(FILE_PATH)
-        if _target_path.startswith('../action-available.d/5-install'):
-            _target_path = _target_path.replace('..', '/etc/cron-apt')
+        if _target_path.startswith("../action-available.d/5-install"):
+            _target_path = _target_path.replace("..", "/etc/cron-apt")
         if _target_path == CONF_DEFAULT:
-            return 0, ['default']
+            return 0, ["default"]
         elif _target_path == CONF_ALT:
-            return 0, ['alternate']
+            return 0, ["alternate"]
         else:
-            return 1, [f'Unexpected link target:'
-                       f'\n{_target_path}']
+            return 1, [f"Unexpected link target:\n{_target_path}"]
     else:
-        return 1, [f'{FILE_PATH}'
-                   f'\nis not a symlink']
+        return 1, [f"{FILE_PATH}\nis not a symlink"]
 
 
 def button_label(current: str) -> str:
-    options = ['default', 'alternate']
+    options = ["default", "alternate"]
     try:
         options.remove(current)
     except ValueError:
@@ -74,9 +71,9 @@ def button_label(current: str) -> str:
 
 
 def get_details(choice: str) -> Optional[str]:
-    if choice == 'default':
+    if choice == "default":
         return info_default
-    elif choice == 'alternate':
+    elif choice == "alternate":
         return info_alternate
     else:
         return None
@@ -85,33 +82,39 @@ def get_details(choice: str) -> Optional[str]:
 def run() -> None:
     retcode, data = check_paths()
     if retcode:
-        msg = ('Error(s) encountered while checking status:')
+        msg = "Error(s) encountered while checking status:"
         for message in data:
-            msg = f'{msg}\n{message}'
-        msg = (f'{msg}\nFor more info please see\n\n{doc_url}')
-        r = console.msgbox('Error', msg)  # type: ignore[name-defined]
+            msg = f"{msg}\n{message}"
+        msg = f"{msg}\nFor more info please see\n\n{doc_url}"
+        r = console.msgbox("Error", msg)
     else:
         # if retcode == 0, then data == [status]
         status = data[0]
-        msg = ('Current SecUpate Issue resolution strategy is:\n\n\t{}'
-               '\n{}\n\nFor more info please see\n\n{}')
-        r = console._wrapper('yesno',  # type: ignore[name-defined]
-                             msg.format(status, get_details(status), doc_url),
-                             20, 60,
-                             yes_label=button_label(status),
-                             no_label='Back')
-        while r == 'ok':
+        msg = (
+            "Current SecUpate Issue resolution strategy is:\n\n\t{}"
+            "\n{}\n\nFor more info please see\n\n{}"
+        )
+        r = console._wrapper(
+            "yesno",
+            msg.format(status, get_details(status), doc_url),
+            20,
+            60,
+            yes_label=button_label(status),
+            no_label="Back",
+        )
+        while r == "ok":
             # Toggle was clicked
-            if data == ['default']:
+            if data == ["default"]:
                 change_link(CONF_ALT)
             else:
                 change_link(CONF_DEFAULT)
             retcode, data = check_paths()
             status = data[0]
-            r = console._wrapper('yesno',  # type: ignore[name-defined]
-                                 msg.format(status,
-                                            get_details(status),
-                                            doc_url),
-                                 20, 60,
-                                 yes_label=button_label(status),
-                                 no_label='Back')
+            r = console._wrapper(
+                "yesno",
+                msg.format(status, get_details(status), doc_url),
+                20,
+                60,
+                yes_label=button_label(status),
+                no_label="Back",
+            )
