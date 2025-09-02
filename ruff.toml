@@ -2,6 +2,14 @@ target-version = "py311"
 line-length = 79
 src = ["."]
 
+builtins = [
+    "console",
+    "impByPath",
+    "eventManager",
+    "interactive",
+    "PLUGIN_PATH",
+]
+
 # TODO
 #[lint]
 # Select and/or ignore rules for linting.
