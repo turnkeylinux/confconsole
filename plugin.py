@@ -103,7 +103,8 @@ class Plugin:
 
         setattr(self.module, "PLUGIN_PATH", self.path)
 
-        # XXX commented this line as it was causing me issues...
+        # XXX this assert had previously been commented due to issues
+        # - it may need to be commented out again after further testing
         assert isinstance(spec.loader, importlib.abc.Loader)
         spec.loader.exec_module(self.module)
 
