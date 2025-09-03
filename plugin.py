@@ -116,7 +116,7 @@ class Plugin:
             self.module.doOnce()
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
-        for k in newglobals:
+        for k in newglobals.items():
             setattr(self.module, k, newglobals[k])
 
     def run(self) -> str | None:
@@ -138,7 +138,7 @@ class PluginDir:
     parent: str | None
     plugins: list["Plugin | PluginDir"]
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         self.path = path
         self.real_name = os.path.basename(path)
         self.name = re.sub(r"^[\d]*", "", self.real_name).replace("_", " ")
@@ -242,7 +242,7 @@ class PluginManager:
         self.path_map = OrderedDict(
             sorted(path_map.items(), key=lambda x: x[0])
         )
-        for key in path_map:
+        for key in path_map.items():
             plugin = path_map[key]
             if isinstance(plugin, Plugin):
                 # Run plugin init
@@ -259,7 +259,7 @@ class PluginManager:
                 v.plugins = list(sub_plugins)
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
-        for _, plugin in self.path_map.items():
+        for plugin in self.path_map.values():
             plugin.updateGlobals(newglobals)
             # self.module_globals.update(newglobals)
 
