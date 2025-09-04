@@ -116,7 +116,7 @@ class Plugin:
             self.module.doOnce()
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
-        for k in newglobals.items():
+        for k in newglobals.keys():
             setattr(self.module, k, newglobals[k])
 
     def run(self) -> str | None:
@@ -147,7 +147,7 @@ class PluginDir:
 
         self.module_name = self.name
 
-        self.module_globals = {}
+        self.module_globals: dict[str, Any] = {}
 
         if os.path.isfile(os.path.join(path, "description")):
             with open(os.path.join(path, "description"), "r") as fob:
@@ -242,7 +242,7 @@ class PluginManager:
         self.path_map = OrderedDict(
             sorted(path_map.items(), key=lambda x: x[0])
         )
-        for key in path_map.items():
+        for key in path_map.keys():
             plugin = path_map[key]
             if isinstance(plugin, Plugin):
                 # Run plugin init
