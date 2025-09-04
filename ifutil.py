@@ -246,9 +246,9 @@ class NetworkInterfaces:
     def get_if_conf(self, ifname: str, key: str) -> list[str] | None:
         if ifname in self.conf:
             for line in self.conf:
-                line = line.strip().split()
-                if line[0] == key:
-                    return line[1:]
+                line_list = line.strip().split()
+                if line_list[0] == key:
+                    return line_list[1:]
 
     def get_nameservers(self, ifname: str) -> list[str] | None:
         return self.get_if_conf(ifname, "dns-nameservers") or []
@@ -297,46 +297,44 @@ def get_nameservers(ifname: str) -> list[str]:
     return _parse_resolv("/etc/resolv.conf")
 
 
-def ifup(ifname: str, force: bool = False) -> None:
+def ifup(ifname: str, force: bool = False) -> str:
     # force is not the same as --force. Here force will configure regardless of
     # errors
 
     if force:
-        args = ["/usr/sbin/ifup", "--force", "--ignore-errors", ifname]
+        ifup_args = ["/usr/sbin/ifup", "--force", "--ignore-errors", ifname]
     else:
-        args = ["/usr/sbin/ifup", "--force", ifname]
+        ifup_args = ["/usr/sbin/ifup", "--force", ifname]
 
-    p = subprocess.run(
-        args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
-    )
-    if p.returncode != 0:
+    ifup_cmd = subprocess.run(ifup_args, capture_output=True, text=True)
+
+    if not force and ifup_cmd.returncode != 0:
         raise BadIfConfigError(
-            f"failed to bring up interface {ifname!r} error: {p.stderr!r}"
+            f"failed to bring up interface {ifname!r} error:"
+            f" {ifup_cmd.stderr!r}"
         )
+    return ifup_cmd.stderr
 
 
-def ifdown(ifname: str, force: bool = False) -> None:
+def ifdown(ifname: str, force: bool = False) -> str:
     # force is not the same as --force. Here force will configure regardless of
     # errors
 
     if force:
-        subprocess.run(
-            ["/usr/sbin/ifdown", "--force", "--ignore-errors", ifname],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        ifdown_args = [
+            "/usr/sbin/ifdown", "--force", "--ignore-errors", ifname
+        ]
     else:
-        p = subprocess.run(
-            ["/usr/sbin/ifdown", "--force", ifname],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        if p.returncode != 0:
-            raise BadIfConfigError(
+        ifdown_args = ["/usr/sbin/ifdown", "--force", ifname]
+
+    ifdown_cmd = subprocess.run(ifdown_args, capture_output=True, text=True)
+
+    if ifdown_cmd.returncode != 0:
+        raise BadIfConfigError(
                 f"failed to bring down interface {ifname!r}"
-                f" error: {p.stderr!r}"
+                f" error: {ifdown_cmd.stderr!r}"
             )
+    return ifdown_cmd.stderr
 
 
 def unconfigure_if(ifname: str) -> str | None:
