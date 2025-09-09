@@ -1,0 +1,23 @@
+target-version = "py311"
+line-length = 79
+src = ["."]
+
+builtins = [
+    "console",
+    "impByPath",
+    "eventManager",
+    "interactive",
+    "PLUGIN_PATH",
+]
+
+# TODO
+#[lint]
+# Select and/or ignore rules for linting.
+# Full list of available rules: https://docs.astral.sh/ruff/rules/
+#extend-select = [
+#   ...
+#]
+
+[format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true

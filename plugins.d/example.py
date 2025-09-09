@@ -1,6 +1,7 @@
-''' I will be the description '''
+"""I will be the description"""
+
 #
-'''
+"""
 Note: plugins must be executable
 
 
@@ -31,14 +32,12 @@ doOnce() - if defined is run once, after loading all plugins and before
 
 run() - if defined is run whenever the plugin is selected, if not defined, no
         menu entry is created for this plugin.
-'''
+"""
 
 
 def doOnce():
-    # eventManager is inherited so doesn't need to be defined
-    eventManager.add_event('test_event')  # type: ignore[not-defined]
+    eventManager.add_event("test_event")
 
 
 def run():
-    # eventManager is inherited so doesn't need to be defined
-    eventManager.fire_event('test_event')  # type: ignore[not-defined]
+    eventManager.fire_event("test_event")
