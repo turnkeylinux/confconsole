@@ -48,8 +48,10 @@ def _preprocess_interface_config(config: str) -> list[str]:
                 new_lines.append(f"    hostname {hostname}")
             else:
                 continue
+        elif _line.startswith("post-up"):
+            new_lines.append(f"    {_line}")
         elif _line.startswith(
-            ("address", "netmask", "gateway", "dns-nameserver", "post-up")
+            ("address", "netmask", "gateway", "dns-nameserver")
         ):
             continue
         else:
