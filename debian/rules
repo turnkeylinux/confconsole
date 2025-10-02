@@ -1,5 +1,7 @@
 #! /usr/bin/make -f
 
+export PYTHONDONTWRITEBYTECODE=1
+
 %:
 	dh $@ --with python3,systemd
 
