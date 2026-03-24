@@ -437,7 +437,11 @@ class TurnkeyConsole:
         text = f"IP Address:      {addr}\n"
         text += f"Netmask:         {netmask}\n"
         text += f"Default Gateway: {gateway}\n"
-        text += f"Name Server(s):  {' '.join(nameservers)}\n\n"
+        text += f"Name Server(s):  {' '.join(nameservers)}\n"
+        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        if ipv6_addr:
+            text += f"IPv6 Address:    {ipv6_addr}/{ipv6_prefix}\n"
+        text += "\n"
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
@@ -513,6 +517,9 @@ class TurnkeyConsole:
             t = ""
             text = Template(t).substitute(ipaddr=ip_addr)
 
+        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        if ipv6_addr:
+            text += f"\nIPv6:      {ipv6_addr}/{ipv6_prefix}\n"
         text += f"\n\n{tklbam_status}\n\n"
         text += "\n" * (self.height - len(text.splitlines()) - 7)
         text += "         TurnKey Backups and Cloud Deployment\n"
