@@ -331,6 +331,9 @@ class TurnkeyConsole:
             ip = ifutil.get_ipconf(ifname)[0]
             if ip and not ip.startswith("169"):
                 return True
+            ip6 = ifutil.get_ipv6conf(ifname)[0]
+            if ip6:
+                return True
             return False
 
         defifname = conf.Conf().default_nic
