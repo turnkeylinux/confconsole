@@ -1,0 +1,11 @@
+Package: confconsole
+Version: 2.2.1
+Architecture: all
+Maintainer: Stefan Davis <stefan@turnkeylinux.org>
+Installed-Size: 469
+Depends: python3:any, python3-dialog (>= 3.4), turnkey-netinfo, turnkey-conffile, libsasl2-modules, python3-requests
+Recommends: authbind, dehydrated, kbd, python3-bottle, resolvconf
+Suggests: di-live
+Section: misc
+Priority: optional
+Description: TurnKey GNU/Linux Configuration Console

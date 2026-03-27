@@ -1,0 +1,5 @@
+confconsole (2.2.1) stable; urgency=medium
+
+  * fix: recognize IPv6 global address as valid network
+
+ -- PopSolutions <sysadmin@pop.coop>  Tue, 24 Mar 2026 19:03:04 +0000

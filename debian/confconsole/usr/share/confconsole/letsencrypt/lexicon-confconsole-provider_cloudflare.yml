@@ -1,0 +1,22 @@
+# Cloudflare Lexicon conf template provided by TurnKey Linux's Confconsole
+#
+# Confconsole uses Lexicon to support the Let's Encrypt DNS-01 challenge type:
+# https://dns-lexicon.github.io/dns-lexicon/
+# https://www.turnkeylinux.org/docs/confconsole/letsencrypt#dns-01
+# https://letsencrypt.org/docs/challenge-types/#dns-01-challenge
+#
+# Uncomment and update the example authentication lines below relevant to your
+# desired Cloudflare authentication method. See Lexicon Cloudflare config docs
+# for more info:
+# https://dns-lexicon.github.io/dns-lexicon/configuration_reference.html#cloudflare
+
+# Cloudflare example 1 - using global api key
+#auth_username: YOUR_CF_USERNAME
+#auth_token: YOUR_CF_API_TOKEN
+
+# Cloudflare example 2 - using unscoped API token
+#auth_token: YOUR_CF_UNSCOPED_API_TOKEN
+
+# Cloudflare example 3 - using scoped API token
+#auth_token: YOUR_CF_SCOPED_API_TOKEN
+#zone_id: YOUR_CF_ZONE_ID

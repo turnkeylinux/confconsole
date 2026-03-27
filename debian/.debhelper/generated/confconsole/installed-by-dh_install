@@ -1,0 +1,12 @@
+./plugins.d/
+./conf.py
+./confconsole.py
+./ifutil.py
+./ipaddr.py
+./plugin.py
+./conf/confconsole.conf
+./conf/services.txt
+./share/autostart
+./share/letsencrypt
+./add-water/add-water.service
+./turnkey-lexicon

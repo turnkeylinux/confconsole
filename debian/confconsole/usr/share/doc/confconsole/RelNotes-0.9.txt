@@ -1,0 +1,8 @@
+==================
+v0.9 Release Notes
+==================
+
+This is a beta release which is nonetheless feature complete as
+originally designed.  v1.0 will be released after more rigorous
+testing (and potential bugfixes/tweaks) in a production setting.
+

@@ -1,0 +1,7 @@
+[Unit]
+Description=Add Water
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/lib/confconsole/plugins.d/Lets_Encrypt/add-water-srv -l /var/log/confconsole/letsencrypt.log

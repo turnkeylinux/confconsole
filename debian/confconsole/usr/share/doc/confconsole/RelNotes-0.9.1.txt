@@ -1,0 +1,16 @@
+====================
+v0.9.1 Release Notes
+====================
+
+* info dialog text is now created from templates/info.txt
+
+    - simpler, flexible, generic
+    - templates are installed to /usr/share/confconsole/templates
+    - the following variables will be substitued: $ipaddr, $appname
+
+* ports are not verified to be open
+
+    - unnecessary complexity
+    - each appliance can have their own template
+
+* bugfix: dialog is now configured not to "collapse" whitespaces and tabs

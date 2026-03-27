@@ -1,0 +1,3 @@
+/etc/confconsole/confconsole.conf
+/etc/confconsole/services.txt
+/etc/logrotate.d/confconsole

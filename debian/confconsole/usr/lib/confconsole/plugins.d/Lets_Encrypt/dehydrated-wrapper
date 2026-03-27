@@ -1,0 +1,349 @@
+#!/bin/bash -e
+
+# Copyright (c) 2016-2023 TurnKey GNU/Linux - https://www.turnkeylinux.org
+#
+# dehydrated-wrapper - A wrapper script for the Dehydrated
+#                      Let's Encrypt client
+#
+# This file is part of Confconsole.
+#
+# Confconsole is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+
+### initial setup of vars and functions ###
+
+[[ "$DEBUG" = "y" ]] && set -x
+
+APP="$(basename "$0")"
+DEHYD_ETC=/etc/dehydrated
+SHARE=/usr/share/confconsole/letsencrypt
+CONFIG="$DEHYD_ETC/confconsole.config"
+CC_HOOK="$DEHYD_ETC/confconsole.hook.sh"
+CC_DOMAINS="$DEHYD_ETC/confconsole.domains.txt"
+FREQ=daily
+CRON=/etc/cron.$FREQ/confconsole-dehydrated
+LOG=/var/log/confconsole/letsencrypt.log
+AUTHBIND80=/etc/authbind/byport/80
+[[ -f "$AUTHBIND80" ]] || touch "$AUTHBIND80"
+AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
+EXIT_CODE=0
+
+# space separated list of systemd services to restart
+SERVICES_TO_RESTART="webmin.service"
+
+LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
+LICENSE=$(curl "$LE_TOS_URL" 2>/dev/null | grep termsOfService \
+    | sed 's|^.*Service": "||; s|",$||')
+
+SH_CONFIG=$SHARE/dehydrated-confconsole.config
+SH_HOOK_HTTP=$SHARE/dehydrated-confconsole.hook-http-01.sh
+SH_HOOK_DNS=$SHARE/dehydrated-confconsole.hook-dns-01.sh
+SH_CRON=$SHARE/dehydrated-confconsole.cron
+SH_DOMAINS=$SHARE/dehydrated-confconsole.domains
+export LEXICON_CONFIG_DIR=$SHARE
+
+export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
+export TKL_KEYFILE="/etc/ssl/private/cert.key"
+export TKL_COMBINED="/etc/ssl/private/cert.pem"
+export TKL_DHPARAM="/etc/ssl/private/dhparams.pem"
+cp $TKL_CERTFILE $TKL_CERTFILE.bak
+cp $TKL_KEYFILE $TKL_KEYFILE.bak
+cp $TKL_COMBINED $TKL_COMBINED.bak
+
+BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
+export HTTP="add-water-client"
+export HTTP_USR="www-data"
+export HTTP_BIN="$BASE_BIN_PATH/$HTTP"
+export HTTP_PID=/var/run/$HTTP/pid
+export HTTP_LOG=$LOG
+mkdir -p "$(dirname $HTTP_PID)" "$(dirname $LOG)" "$DEHYD_ETC"
+touch $LOG
+chown -R $HTTP_USR "$(dirname $HTTP_PID)" "$(dirname $LOG)"
+
+usage() {
+    echo "$@"
+    cat<<EOF
+Syntax: $APP [--force|-f] [--register|-r] [--challenge|-c <type>] [--provider|-p <name>] [--log-info|-i] [--help|-h]
+
+TurnKey Linux wrapper script for dehydrated.
+
+Provides an easy and reliable way to get SSL/TLS certificates from an ACME
+provider (Let's Encrypt by default), regardless of which webserver is being
+used or how it is configured.
+
+This file is part of confconsole.
+
+Environment variables:
+
+    DEBUG=y
+
+        - $APP will be very verbose (set -x)
+        - INFO will be logged (default logging is WARNING & FATAL only)
+
+Options:
+
+    --force|-f            - Pass --force switch to dehydrated.
+
+                            This will force dehydrated to update certs
+                            regardless of expiry. The included cron job does
+                            this by default (after checking the expiry of
+                            /etc/ssl/private/cert.pem).
+
+    --register|-r         - Accept Terms of Service (ToS) and register a
+                            Let's Encrypt account. (Note if an LE account
+                            already registered, this option makes no difference
+                            so is safe to always use).
+
+                            Let's Encrypt ToS can currently be found here:
+                            $LICENSE
+
+    --challenge|-c <type> - Use specific challenge type.
+                            Valid types: http-01 | dns-01
+                            Will override and update value of CHALLENGETYPE in
+                            $CONFIG
+
+    --provider|-p <name> -  Specify DNS provider name to use with dns-01
+                            challenge. Refer to lexicon documentation for the
+                            list of supported providers.
+
+    --log-info|-i         - INFO will be logged (default logging is
+                            WARNING & FATAL only).
+
+    --help|-h             - Print this information and exit.
+
+For more info on advanced usage, please see
+
+    https://www.turnkeylinux.org/docs/letsencrypt#advanced
+
+EOF
+    exit 1
+}
+
+fatal() {
+    echo "[$(date "+%F %T")] $APP: FATAL: $*" >&2 > >(tee -a $LOG >&2)
+    exit 1
+}
+
+warning() {
+    echo "[$(date "+%F %T")] $APP: WARNING: $*" | tee -a $LOG
+}
+
+info() {
+    echo "[$(date "+%F %T")] $APP: INFO: $*" | tee -a "$DEBUG_LOG"
+}
+
+copy_if_not_found() {
+    if [[ ! -f "$1" ]]; then
+        warning "$1 not found; copying default from $2"
+        cp "$2" "$1"
+    fi
+}
+
+check_port() {
+    case $1 in
+        80|443) local port=$1;;
+        *)      fatal "Unexpected port: $1"
+    esac
+    netstat -ltpn | grep ":$port " | head -1 | cut -d/ -f2 \
+        | sed -e 's|[[:space:]].*$||; s|[^a-zA-Z0-9]||g'
+}
+
+stop_server() {
+    [[ -z "$*" ]] && return
+    info "stopping $1"
+    systemctl stop "$1" 2>&1 | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+    while [[ "$(check_port "$PORT")" != "" ]] && [[ $EXIT_CODE -eq 0 ]]; do
+        info "waiting 1 second for $1 to stop"
+        sleep 1
+    done
+}
+
+# shellcheck disable=SC2317  # Errant "unreachable commands" warning because of trap
+restart_servers() {
+    # intended splitting on space
+    for servicename in "$@"; do
+        info "(Re)starting $servicename"
+        systemctl restart "$servicename" | tee -a "$LOG"
+        [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
+    done
+}
+
+# shellcheck disable=SC2317  # Errant "unreachable commands" because of trap
+clean_exit() {
+    # ideally do not use 'fatal' in this function
+    EXIT_CODE=$1
+    if [[ "$PORT" == "80" ]]; then
+        check_port_80=$(check_port 80)
+        if [[ "$check_port_80" == 'python' ]] || [[ "$check_port_80" == 'python3' ]]; then
+            warning "Python is still listening on port $PORT"
+            info "attempting to kill add-water server"
+            systemctl stop add-water
+        fi
+    fi
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
+    if [[ $EXIT_CODE -ne 0 ]]; then
+        warning "Something went wrong, restoring original cert, key and combined files."
+
+        mv "$TKL_CERTFILE.bak" "$TKL_CERTFILE"
+        mv "$TKL_KEYFILE.bak" "$TKL_KEYFILE"
+        mv "$TKL_COMBINED.bak" "$TKL_COMBINED"
+    else
+        info "Cleaning backup cert & key"
+        rm -f "$TKL_CERTFILE.bak" "$TKL_KEYFILE.bak" "$TKL_COMBINED.bak"
+    fi
+    if [[ "$WEBSERVER" == "tomcat"* ]]; then
+        update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
+        if [[ -x "$update_tomcat_cert" ]]; then
+            $update_tomcat_cert
+        else
+            warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
+        fi
+    fi
+    # don't quote these service names as some values may be empty - which is anticipated
+    # shellcheck disable=SC2086
+    restart_servers $WEBSERVER $SERVICES_TO_RESTART
+    if [[ $EXIT_CODE -ne 0 ]]; then
+        warning "Check today's previous log entries for details of error."
+    else
+        info "$APP completed successfully."
+    fi
+    systemctl stop add-water
+    # don't quote exit code as it may be empty (exit 0)
+    # shellcheck disable=SC2086
+    exit $EXIT_CODE
+}
+
+### some intial checks & set up trap ###
+
+trap '(exit 130)' INT
+trap '(exit 143)' TERM
+trap 'clean_exit' EXIT
+
+[[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
+[[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
+[[ $(which authbind) ]] || fatal "Authbind not installed"
+
+### read args & check config - set up whats needed ###
+force=
+while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case $arg in
+        -f|--force)     force="--force";;
+        -r|--register)  REGISTER=y;;
+        -c|--challenge) if [[ -n $2 && ! $2 =~ ^- ]]; then
+                            CTYPE=${2,,}
+                            shift
+                        fi;;
+        -p|--provider)  if [[ -n $2 && ! $2 =~ ^- ]]; then
+                            export PROVIDER=${2,,}
+                            shift
+                        fi;;
+        -i|--log-info)  LOG_INFO=y;;
+        -h|--help)      usage;;
+        *)              usage "FATAL: unsupported or unknown argument: $1";;
+    esac
+    shift
+done
+
+if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
+    DEBUG_LOG="$LOG"
+else
+    DEBUG_LOG="/dev/null"
+    export HTTP_LOG=$DEBUG_LOG
+fi
+
+info "started"
+
+copy_if_not_found "$CONFIG" "$SH_CONFIG"
+
+# shellcheck source=/dev/null
+source "$CONFIG"
+
+copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
+
+[[ "$DOMAINS_TXT" != "$CC_DOMAINS" ]] && warning "$CONFIG is not using $CC_DOMAINS"
+[[ -z "$HOOK" ]] && fatal "hook script not defined in $CONFIG"
+
+export CHALLENGETYPE="${CTYPE:-$CHALLENGETYPE}"
+
+case $CHALLENGETYPE in
+    http-01) cp "$SH_HOOK_HTTP" "$CC_HOOK"
+            PORT=80
+            sed -i '\|^CHALLENGETYPE=|s|=.*|="http-01"|' "$CONFIG";;
+    dns-01)  cp "$SH_HOOK_DNS" "$CC_HOOK"
+            PORT=443
+            sed -i '\|^CHALLENGETYPE=|s|=.*|="dns-01"|' "$CONFIG";;
+    *)       fatal "Unexpected challenge type: $CHALLENGETYPE"
+esac
+
+[[ "$HOOK" != "$CC_HOOK" ]] && warning "$CONFIG is not using $CC_HOOK"
+chmod +x "$HOOK"
+
+copy_if_not_found "$CRON" "$SH_CRON"
+
+if [[ "$REGISTER" = 'y' ]]; then
+    DEHYDRATED_REGISTER="dehydrated --register --accept-terms --config $CONFIG"
+    if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
+        $DEHYDRATED_REGISTER 2>&1 | tee -a $DEBUG_LOG
+        EXIT_CODE=${PIPESTATUS[0]}
+    else
+        ($DEHYDRATED_REGISTER 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+        EXIT_CODE=${PIPESTATUS[0]}
+    fi
+    [[ $EXIT_CODE -eq 0 ]] || fatal "dehydrated failed to register account."
+fi
+
+### main script ###
+
+WEBSERVER=$(check_port $PORT)
+if [[ -n "$WEBSERVER" ]]; then
+    info "found $WEBSERVER listening on port $PORT"
+    if [[ "$CHALLENGETYPE" == 'http-01' ]]; then
+        case $WEBSERVER in
+            apache2 | lighttpd | nginx )
+                stop_server "$WEBSERVER";;
+            java )
+                TOMCAT=/etc/init.d/tomcat;
+                if [[ -x "${TOMCAT}8" ]]; then
+                    WEBSERVER=tomcat8;
+                elif [[ -f "/lib/systemd/system/tomcat9.service" ]]; then
+                    WEBSERVER=tomcat9;
+                elif [[ -f "/lib/systemd/system/tomcat10.service" ]]; then
+                    WEBSERVER=tomcat10;
+                else
+                    unset WEBSERVER;
+                    fatal "An unknown Java app is listening on port $PORT";
+                fi;
+                stop_server $WEBSERVER;;
+            python | python3 )
+                unset WEBSERVER;
+                fatal "An unknown/unexpected Python app is listening on port $PORT";;
+            * )
+                unknown="$WEBSERVER";
+                unset WEBSERVER;
+                fatal "An unexpected service is listening on port $PORT: $unknown";;
+        esac
+    [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown $HTTP_USR $AUTHBIND80
+    fi
+else
+    info "No process found listening on port $PORT; continuing"
+fi
+
+[[ "$CHALLENGETYPE" != "dns-01" ]] && systemctl start add-water
+info "running dehydrated"
+if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
+    dehydrated --cron $force --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+else
+    (dehydrated --cron $force --config $CONFIG 3>&2 2>&1 1>&3) 2>/dev/null | tee -a $LOG
+    EXIT_CODE=${PIPESTATUS[0]}
+fi
+if [[ $EXIT_CODE -ne 0 ]]; then
+    fatal "dehydrated exited with a non-zero exit code."
+else
+    info "dehydrated complete"
+    exit 0
+fi

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#! /usr/bin/python3
 # Copyright (c) 2008 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
 """TurnKey Configuration Console
 
@@ -510,27 +510,19 @@ class TurnkeyConsole:
 
         hostname = netinfo.get_hostname().upper()
 
-        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
-        ip6_display = f"{ipv6_addr}/{ipv6_prefix}" if ipv6_addr else "not configured"
-
         try:
             with open(conf.path("services.txt")) as fob:
                 t = fob.read().rstrip()
-                text = Template(t).safe_substitute(
-                    appname=self.appname,
-                    hostname=hostname,
-                    ipaddr=ip_addr,
-                )
+                text = Template(t).substitute(appname=self.appname,
+                                              hostname=hostname,
+                                              ipaddr=ip_addr)
         except conf.ConfconsoleConfError:
             t = ""
-            text = Template(t).safe_substitute(ipaddr=ip_addr)
+            text = Template(t).substitute(ipaddr=ip_addr)
 
-        ipv6_addr, _ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
         if ipv6_addr:
-            text += f"\n"
-            text += f"\nIPv6 Web:  http://[{ipv6_addr}]"
-            text += f"\nIPv6 SSH:  'root@[{ipv6_addr}]'"
-
+            text += f"\nIPv6:      {ipv6_addr}/{ipv6_prefix}\n"
         text += f"\n\n{tklbam_status}\n\n"
         text += "\n" * (self.height - len(text.splitlines()) - 7)
         text += "         TurnKey Backups and Cloud Deployment\n"
