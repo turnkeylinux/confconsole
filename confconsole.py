@@ -520,14 +520,16 @@ class TurnkeyConsole:
                     appname=self.appname,
                     hostname=hostname,
                     ipaddr=ip_addr,
-                    ip6addr=ip6_display,
                 )
         except conf.ConfconsoleConfError:
             t = ""
-            text = Template(t).safe_substitute(
-                ipaddr=ip_addr,
-                ip6addr=ip6_display,
-            )
+            text = Template(t).safe_substitute(ipaddr=ip_addr)
+
+        ipv6_addr, _ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        if ipv6_addr:
+            text += f"\n"
+            text += f"\nIPv6 Web:  http://[{ipv6_addr}]"
+            text += f"\nIPv6 SSH:  'root@[{ipv6_addr}]'"
 
         text += f"\n\n{tklbam_status}\n\n"
         text += "\n" * (self.height - len(text.splitlines()) - 7)
