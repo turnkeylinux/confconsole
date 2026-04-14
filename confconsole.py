@@ -443,7 +443,7 @@ class TurnkeyConsole:
         text += f"Name Server(s):  {' '.join(nameservers)}\n"
         ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
         if ipv6_addr:
-            text += f"IPv6 Address:    {ipv6_addr}/{ipv6_prefix}\n"
+            text += f"IPv6 Address: {ipv6_addr}/{ipv6_prefix}\n"
         text += "\n"
 
         ifmethod = ifutil.get_ifmethod(ifname)
@@ -511,7 +511,6 @@ class TurnkeyConsole:
         hostname = netinfo.get_hostname().upper()
 
         ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
-        ip6_display = f"{ipv6_addr}/{ipv6_prefix}" if ipv6_addr else "not configured"
 
         try:
             with open(conf.path("services.txt")) as fob:
@@ -527,12 +526,15 @@ class TurnkeyConsole:
 
         ipv6_addr, _ipv6_prefix = ifutil.get_ipv6conf(ifname)
         if ipv6_addr:
-            text += f"\n"
-            text += f"\nIPv6 Web:  http://[{ipv6_addr}]"
-            text += f"\nIPv6 SSH:  'root@[{ipv6_addr}]'"
+            text += "\n"
+            text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
+            text += f"\nIPv6 SSH:  root@{ipv6_addr}"
 
-        text += f"\n\n{tklbam_status}\n\n"
-        text += "\n" * (self.height - len(text.splitlines()) - 7)
+        gap = self.height - len(text.splitlines()) - 11
+        gap = gap if gap >= 1 else 1
+
+        text += f"\n\n{tklbam_status}"
+        text += "\n" * gap
         text += "         TurnKey Backups and Cloud Deployment\n"
         text += "             https://hub.turnkeylinux.org"
 
