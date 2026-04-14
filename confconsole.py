@@ -507,10 +507,8 @@ class TurnkeyConsole:
         ip_addr = self._get_public_ipaddr()
         if not ip_addr:
             ip_addr = ifutil.get_ipconf(ifname)[0]
-
-        hostname = netinfo.get_hostname().upper()
-
         ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        hostname = netinfo.get_hostname().upper()
 
         try:
             with open(conf.path("services.txt")) as fob:
@@ -524,7 +522,6 @@ class TurnkeyConsole:
             t = ""
             text = Template(t).safe_substitute(ipaddr=ip_addr)
 
-        ipv6_addr, _ipv6_prefix = ifutil.get_ipv6conf(ifname)
         if ipv6_addr:
             text += "\n"
             text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
