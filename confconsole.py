@@ -77,8 +77,8 @@ class Console:
     def __init__(
         self,
         title: str | None = None,
-        width: int = 60,
-        height: int = 20,
+        width: int = 65,
+        height: int = 25,
     ) -> None:
         self.width = width
         self.height = height
@@ -275,8 +275,8 @@ class TurnkeyConsole:
         advanced_enabled: bool = True,
     ) -> None:
         title = "TurnKey GNU/Linux Configuration Console"
-        self.width = 60
-        self.height = 20
+        self.width = 65
+        self.height = 25
 
         self.console = Console(title, self.width, self.height)
 
