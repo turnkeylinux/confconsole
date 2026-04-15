@@ -413,8 +413,11 @@ def set_dhcp(ifname: str) -> str | None:
             raise e
         finally:
             output = ifup(ifname, True)
-
-        net = InterfaceInfo(ifname)
+        for _retry in range(10):
+            net = InterfaceInfo(ifname)
+            if net.address:
+                break
+            sleep(1)
         if not net.address:
             raise IfError(f"Error obtaining IP address\n\n{output}")
         return None
@@ -436,6 +439,25 @@ def get_ipconf(
     # no interfaces up
     return (None, None, net.get_gateway(error), get_nameservers(ifname))
 
+
+
+def get_ipv6conf(ifname: str) -> tuple[str | None, str | None]:
+    """Get IPv6 global address and prefix for an interface."""
+    try:
+        out = subprocess.check_output(
+            ["ip", "-6", "addr", "show", ifname, "scope", "global"],
+            text=True, stderr=subprocess.DEVNULL
+        )
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("inet6"):
+                parts = line.split()
+                addr_prefix = parts[1]
+                addr, prefix = addr_prefix.split("/")
+                return (addr, prefix)
+    except Exception:
+        pass
+    return (None, None)
 
 def get_ifmethod(ifname: str) -> str | None:
     interfaces = NetworkInterfaces()

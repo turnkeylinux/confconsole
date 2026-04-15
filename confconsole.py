@@ -77,8 +77,8 @@ class Console:
     def __init__(
         self,
         title: str | None = None,
-        width: int = 60,
-        height: int = 20,
+        width: int = 65,
+        height: int = 25,
     ) -> None:
         self.width = width
         self.height = height
@@ -275,8 +275,8 @@ class TurnkeyConsole:
         advanced_enabled: bool = True,
     ) -> None:
         title = "TurnKey GNU/Linux Configuration Console"
-        self.width = 60
-        self.height = 20
+        self.width = 65
+        self.height = 25
 
         self.console = Console(title, self.width, self.height)
 
@@ -330,6 +330,9 @@ class TurnkeyConsole:
         def _validip(ifname: str) -> bool:
             ip = ifutil.get_ipconf(ifname)[0]
             if ip and not ip.startswith("169"):
+                return True
+            ip6 = ifutil.get_ipv6conf(ifname)[0]
+            if ip6:
                 return True
             return False
 
@@ -437,7 +440,11 @@ class TurnkeyConsole:
         text = f"IP Address:      {addr}\n"
         text += f"Netmask:         {netmask}\n"
         text += f"Default Gateway: {gateway}\n"
-        text += f"Name Server(s):  {' '.join(nameservers)}\n\n"
+        text += f"Name Server(s):  {' '.join(nameservers)}\n"
+        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
+        if ipv6_addr:
+            text += f"IPv6 Address: {ipv6_addr}/{ipv6_prefix}\n"
+        text += "\n"
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
@@ -500,21 +507,31 @@ class TurnkeyConsole:
         ip_addr = self._get_public_ipaddr()
         if not ip_addr:
             ip_addr = ifutil.get_ipconf(ifname)[0]
-
+        ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
         hostname = netinfo.get_hostname().upper()
 
         try:
             with open(conf.path("services.txt")) as fob:
                 t = fob.read().rstrip()
-                text = Template(t).substitute(appname=self.appname,
-                                              hostname=hostname,
-                                              ipaddr=ip_addr)
+                text = Template(t).safe_substitute(
+                    appname=self.appname,
+                    hostname=hostname,
+                    ipaddr=ip_addr,
+                )
         except conf.ConfconsoleConfError:
             t = ""
-            text = Template(t).substitute(ipaddr=ip_addr)
+            text = Template(t).safe_substitute(ipaddr=ip_addr)
 
-        text += f"\n\n{tklbam_status}\n\n"
-        text += "\n" * (self.height - len(text.splitlines()) - 7)
+        if ipv6_addr:
+            text += "\n"
+            text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
+            text += f"\nIPv6 SSH:  root@{ipv6_addr}"
+
+        gap = self.height - len(text.splitlines()) - 11
+        gap = gap if gap >= 1 else 1
+
+        text += f"\n\n{tklbam_status}"
+        text += "\n" * gap
         text += "         TurnKey Backups and Cloud Deployment\n"
         text += "             https://hub.turnkeylinux.org"
 
