@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
-import subprocess
-from time import sleep
 import os
 import re
+import subprocess
+from dataclasses import dataclass
+from time import sleep
 
 from netinfo import InterfaceInfo
 from netinfo import get_hostname
@@ -251,6 +251,7 @@ class NetworkInterfaces:
                 line_list = line.strip().split()
                 if line_list[0] == key:
                     return line_list[1:]
+        return None
 
     def get_nameservers(self, ifname: str) -> list[str] | None:
         return self.get_if_conf(ifname, "dns-nameservers") or []
@@ -259,11 +260,13 @@ class NetworkInterfaces:
         addr = self.get_if_conf(ifname, "address")
         if addr:
             return addr[0]
+        return None
 
     def get_netmask(self, ifname: str) -> str | None:
         addr = self.get_if_conf(ifname, "netmask")
         if addr:
             return addr[0]
+        return None
 
 
 def _parse_resolv(path: str) -> list[str]:
@@ -362,6 +365,7 @@ def unconfigure_if(ifname: str) -> str | None:
         ifup(ifname, force=True)
 
         return str(e)
+    return None
 
 
 def set_static(
@@ -440,7 +444,6 @@ def get_ipconf(
     return (None, None, net.get_gateway(error), get_nameservers(ifname))
 
 
-
 def get_ipv6conf(ifname: str) -> tuple[str | None, str | None]:
     """Get IPv6 global address and prefix for an interface."""
     try:
@@ -459,9 +462,11 @@ def get_ipv6conf(ifname: str) -> tuple[str | None, str | None]:
         pass
     return (None, None)
 
+
 def get_ifmethod(ifname: str) -> str | None:
     interfaces = NetworkInterfaces()
     interfaces.read()
     conf_line = interfaces.get_if_conf(ifname, "iface")
     if conf_line:
         return conf_line[3]
+    return None
