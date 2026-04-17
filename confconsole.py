@@ -10,6 +10,7 @@ Options:
 
 """
 
+import logging
 import os
 import sys
 import subprocess
@@ -22,6 +23,7 @@ import traceback
 
 import dialog
 from dialog import DialogError
+from systemd.journal import JournalHandler
 import netinfo
 
 import ipaddr
@@ -36,19 +38,29 @@ PLUGIN_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "plugins.d"
 )
 
+handler = JournalHandler()
+handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().addHandler(handler)
+log = logging.getLogger(__name__)
+
 
 class ConfconsoleError(Exception):
     pass
 
 
 def fatal(msg: str) -> NoReturn:
-    print(f"Error: {msg}", file=sys.stderr)
+    msg = f"Error: {msg}"
+    log.exception(msg)
+    print(msg, file=sys.stderr)
     sys.exit(1)
 
 
 def usage(msg: str | getopt.GetoptError = "") -> NoReturn:
     if msg:
-        print(f"Error: {msg}", file=sys.stderr)
+        msg = f"Error: {msg}"
+        log.exception(msg)
+        print(msg, file=sys.stderr)
 
     print(f"Syntax: {sys.argv[0]}", file=sys.stderr)
     print(USAGE.strip(), file=sys.stderr)
@@ -435,20 +447,29 @@ class TurnkeyConsole:
     def _get_ifconftext(self, ifname: str) -> str:
         addr, netmask, gateway, nameservers = ifutil.get_ipconf(ifname)
         if addr is None:
-            return "Network adapter is not configured\n"
-
+            msg = "Network adapter is not configured"
+            log.warning(msg)
+            return msg + "\n"
+        nameserver_str = " ".join(nameservers)
+        log.info(
+            f"ip: {addr} netmask: {netmask} gateway: {gateway}"
+            f" nameservers: {nameserver_str}",
+        )
         text = f"IP Address:      {addr}\n"
         text += f"Netmask:         {netmask}\n"
         text += f"Default Gateway: {gateway}\n"
-        text += f"Name Server(s):  {' '.join(nameservers)}\n"
+        text += f"Name Server(s):  {nameserver_str}\n"
         ipv6_addr, ipv6_prefix = ifutil.get_ipv6conf(ifname)
         if ipv6_addr:
+            log.info(f"ipv6: {ipv6_addr}/{ipv6_prefix}")
             text += f"IPv6 Address: {ipv6_addr}/{ipv6_prefix}\n"
         text += "\n"
 
         ifmethod = ifutil.get_ifmethod(ifname)
         if ifmethod:
-            text += f"Networking configuration method: {ifmethod}\n"
+            conf_method = f"Networking configuration method: {ifmethod}"
+            log.info(conf_method)
+            text += conf_method + "\n"
 
         if len(self._get_filtered_ifnames()) > 1:
             text += "Is this adapter's IP address displayed in Usage: "
@@ -470,6 +491,7 @@ class TurnkeyConsole:
         # if no interfaces at all - display error and go to advanced
         if len(self._get_filtered_ifnames()) == 0:
             error = "No network adapters detected"
+            log.exception(error)
             if not self.advanced_enabled:
                 fatal(error)
 
@@ -480,6 +502,7 @@ class TurnkeyConsole:
         ifname = self._get_default_nic()
         if not ifname:
             error = "Networking is not yet configured"
+            log.exception(error)
             if not self.advanced_enabled:
                 fatal(error)
 
@@ -502,6 +525,7 @@ class TurnkeyConsole:
             tklbam_status = (
                 "TKLBAM not found - please check that it's installed."
             )
+        log.info(tklbam_status)
 
         # display usage
         ip_addr = self._get_public_ipaddr()
@@ -522,11 +546,15 @@ class TurnkeyConsole:
             t = ""
             text = Template(t).safe_substitute(ipaddr=ip_addr)
 
+        log_msg = f"Usage started - hostname: {hostname} ip: {ip_addr}"
+
         if ipv6_addr:
             text += "\n"
             text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
             text += f"\nIPv6 SSH:  root@{ipv6_addr}"
+            log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
+        log.info(log_msg)
         gap = self.height - len(text.splitlines()) - 11
         gap = gap if gap >= 1 else 1
 
@@ -574,9 +602,11 @@ class TurnkeyConsole:
 
         # if no interfaces at all - display error and go to advanced
         if len(ifnames) == 0:
+            log.warning("no interfaces found")
             self.console.msgbox("Error", "No network adapters detected")
             return "advanced"
 
+        log.info(f"{len(ifnames)} interface/s found: {', '.join(ifnames)}")
         # if only 1 interface, dont display menu - just configure it
         if len(ifnames) == 1:
             self.ifname = ifnames[0]
@@ -613,12 +643,14 @@ class TurnkeyConsole:
         return "_ifconf_" + choice.lower()
 
     def _ifconf_staticip(self) -> str:
+        log_msg = "Applying static ip"
+        log.info(log_msg)
         def _validate(
             addr: str, netmask: str, gateway: str, nameservers: list[str]
         ) -> list[str]:
             """Validate Static IP form parameters. Returns an empty array on
             success, an array of strings describing errors otherwise"""
-
+            log_valid_msg = f"{log_msg} {addr}"
             errors = []
             if not addr:
                 errors.append("No IP address provided")
@@ -638,17 +670,22 @@ class TurnkeyConsole:
                 errors.append("Duplicate nameservers specified")
 
             if errors:
+                log.exception(f"{log_valid_msg} failed: {', '.join(errors)}")
                 return errors
 
             if gateway:
                 if not ipaddr.is_legal_ip(gateway):
-                    return [f"Invalid gateway: {gateway}"]
+                    error = f"Invalid gateway: {gateway}"
+                    log.exception(f"{log_valid_msg} failed: {error}")
+                    return [error]
                 else:
                     iprange = ipaddr.IPRange(addr, netmask)
                     if gateway not in iprange:
-                        return [
+                        error = \
                             f"Gateway ({gateway}) not in IP range ({iprange})"
-                        ]
+                        log.exception(f"{log_valid_msg} failed: {error}")
+                        return [error]
+
             return []
 
         warnings = []
@@ -682,10 +719,12 @@ class TurnkeyConsole:
             nameservers = []
 
         if warnings:
-            warnings.append("\nWill leave relevant fields blank")
-
-        if warnings:
-            self.console.msgbox("Warning", "\n".join(warnings))
+            warning_last_line = "Will leave relevant fields blank"
+            log.warning(f"{log_msg} warning/s: {', '.join(warnings)}")
+            log.warning(warning_last_line)
+            self.console.msgbox(
+                "Warning", "\n".join([*warnings, warning_last_line]),
+            )
 
         value = [addr, netmask, gateway]
         value.extend(nameservers)
