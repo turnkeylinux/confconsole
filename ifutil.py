@@ -1,11 +1,16 @@
+import logging
 import os
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
+from os.path import isfile
 from time import sleep
 
 from netinfo import InterfaceInfo
 from netinfo import get_hostname
+
+log = logging.getLogger(__name__)
 
 
 class IfError(Exception):
@@ -28,8 +33,127 @@ class BadIfConfigError(IfError):
     pass
 
 
+class DHCPError(IfError):
+    pass
+
+
 IPV4_RE = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(.*)$"
 IPV4_CIDR = r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})(.*)$"
+
+
+def _etckeeper_commit(msg: str) -> None:
+    etckeeper = shutil.which("etckeeper")
+    if not etckeeper:
+        log.warning("etckeeper not found, current /etc config not commited")
+        return
+    commit_conf_cmd = subprocess.run(
+        [
+            etckeeper,
+            "commit",
+            msg
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if commit_conf_cmd.returncode != 0:
+        log.exception(
+            f"'etckeeper commit' failed: {commit_conf_cmd.stderr}",
+        )
+    else:
+        log.info("Current /etc config committed by etckeeper")
+
+
+def _backup_conf(conf_path: str) -> None:
+    if not isfile(conf_path):
+        log.exception(f"File not found: {conf_path} - can't backup.")
+        return
+    if isfile(conf_path):
+        shutil.copy2(conf_path, f"{conf_path}.bak")
+        _etckeeper_commit(f"Commit {conf_path}.bak prior to update")
+        log.info(f"Created backup of {conf_path}")
+
+
+def _dhcp_ipv4(interface: str, action: str) -> None:
+    """
+    Enable or disable network interface IPv4 DHCP in dhcpcd.conf.
+
+    Effort is made to reduce risk of 
+    Note that this is somewhat fragile as only the exact block of text is
+    handled. If the dhcp config file has been modified manually there is risk
+    that the config may not be removed or be added again.
+
+    Args:
+        interface: Network interface name (e.g. 'eth0')
+        action: "enable" to remove the noipv4 block, "disable" to add it
+    """
+    if action not in ("enable", "disable"):
+        raise ValueError(
+            f"action must be 'enable' or 'disable', got: {action!r}",
+        )
+
+    config_path = '/etc/dhcpcd.conf'
+    _backup_conf(config_path)
+    disable_block = [
+        f"# static {interface} ipv4",
+        f"interface {interface}",
+        "    noipv4",
+    ]
+
+    with open(config_path) as fob:
+        conf_lines = fob.readlines()
+
+    conf_stripped = [line.rstrip('\n') for line in conf_lines]
+
+    # Find the index of the 3-line block (if it exists)
+    block_start = None
+    for i in range(len(conf_stripped) - 2):
+        if conf_stripped[i:i+3] == disable_block:
+            block_start = i
+            break
+
+    if action == "disable":
+        if block_start is not None:
+            log.info(f"{interface} DHCP already disabled - nothing to do")
+            return
+
+        # Double check for any existing "interface {interface}" line to
+        # reduce risk if user has manually edited conf (whitespace-tolerant)
+        interface_pattern = re.compile(
+            r"^\s*interface\s+" + re.escape(interface) + r"\s*$"
+        )
+        for line in conf_stripped:
+            if interface_pattern.match(line):
+                msg = (
+                    f"Cannot disable IPv4 for '{interface}': an 'interface"
+                    f" {interface}' entry already exists in {config_path}"
+                    " without the expected noipv4 block."
+                )
+                log.exception(msg)
+                raise RuntimeError(msg)
+
+        # Append the block - with a leading blank line if file doesn't end
+        # with one
+        new_lines = conf_lines[:]
+        if new_lines and new_lines[-1].rstrip("\n") != "":
+            new_lines.append("\n")
+        new_lines.extend(line + "\n" for line in disable_block)
+
+    elif action == "enable":
+        if block_start is None:
+            log.info(f"{interface} DHCP already enabled - nothing to do")
+            return
+        # Remove the 3 disable_block lines, and any immediately preceding
+        # blank line
+        start = block_start
+        if start > 0 and conf_stripped[start - 1] == "":
+            start -= 1
+        new_lines = conf_lines[:start] + conf_lines[block_start + 3:]
+
+    log.info(f"Updating {config_path}")
+    with open(config_path, "w") as fob:
+        fob.writelines(new_lines)
+    log.info(f"{config_path} updated to {action} DHCP")
+    _etckeeper_commit(f"Commit updated {config_path}.")
 
 
 def _preprocess_interface_config(config: str) -> list[str]:
@@ -55,7 +179,9 @@ def _preprocess_interface_config(config: str) -> list[str]:
         ):
             continue
         else:
-            raise BadIfConfigError(f"Unexpected config line: {line}")
+            msg = f"Unexpected config line: {line}"
+            log.exception(msg)
+            raise BadIfConfigError(msg)
     if len(new_lines) == 2 and hostname:
         new_lines.append(f"    hostname {hostname}")
     return new_lines
@@ -184,15 +310,17 @@ class NetworkInterfaces:
                 f"refusing to write to {self.CONF_FILE}\n"
                 f"header not found: {self.HEADER_UNCONFIGURED}"
             )
-
+        _backup_conf(self.CONF_FILE)
         with open(self.CONF_FILE, "w") as fob:
             fob.write(self.HEADER_UNCONFIGURED + "\n")
             for iface in self.conf.keys():
                 fob.write("\n\n")
                 fob.write("\n".join(self.conf[iface]))
                 fob.write("\n")
+        _etckeeper_commit(f"Commit /etc after update of {self.CONF_FILE}")
 
     def gen_default_if_config(self, ifname: str) -> None:
+        # TODO: add support for ipv6
         if ifname.startswith("e"):
             self.conf[ifname] = _preprocess_interface_config(
                 f"auto {ifname}\niface {ifname} inet dhcp"
@@ -207,10 +335,12 @@ class NetworkInterfaces:
         ifconf = _preprocess_interface_config("\n".join(self.conf[ifname]))
         ifconf[1] = f"iface {ifname} inet dhcp"
         self.conf[ifname] = ifconf
-
         self.write()
+        _dhcp_ipv4(ifname, "enable")
+
 
     def set_manual(self, ifname: str) -> None:
+        # TODO: handle DHCP config for manual interface
         if ifname not in self.conf:
             self.gen_default_if_config(ifname)
 
@@ -244,6 +374,7 @@ class NetworkInterfaces:
 
         self.conf[ifname] = ifconf
         self.write()
+        _dhcp_ipv4(ifname, "disable")
 
     def get_if_conf(self, ifname: str, key: str) -> list[str] | None:
         if ifname in self.conf:
