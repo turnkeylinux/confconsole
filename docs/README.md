@@ -21,13 +21,13 @@ The objective of Confconsole is to provide users with basic network
 information and perform some common tasks. Configuration is performed
 via menus, rather than requiring commands to be run within a terminal.
 
-Confconsole is licensed under <a class="reference external" href="https://www.gnu.org/licenses/gpl-3.0.txt">GPLv3</a>.
+Confconsole is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.txt).
 
 Main screen and basic functionality
 -----------------------------------
 
 When Confconsole is started, the main screen is displayed. At boot, Confconsole
-is invoked automatically on the default vt (virtual terminal). However until
+is invoked automatically on the default VT (virtual terminal). However until
 run as 'root', Confconsole runs in "limited" mode and no configuration is
 allowed.
 
@@ -119,10 +119,12 @@ for upgrades via apt:
 Plugins
 -------
 
-Most confconsole functionality is provided via a plugins system.
-The plugins system allows support for additional functionality via
-simply dropping a plugin file within the Confconsole file hierarchy.
-We aim to add additional functionality via plugins as we go.
+Most confconsole functionality is provided via an extendable plugins system.
+The plugins system allows support for additional functionality via simply
+dropping a python plugin file within the Confconsole file hierarchy. Any
+functionality available via non-interactive terminal commands can potentially
+be included in Confconsole. We aim to add additional functionality via plugins
+as we go but warmly welcome contributions.
 
 Developers may be interested in reading further about the
-<a href="/docs/confconsole/plugins">Plugins</a> system.
+[Plugins](/docs/confconsole/plugins) system.
