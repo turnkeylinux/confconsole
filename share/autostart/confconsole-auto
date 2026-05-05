@@ -23,7 +23,7 @@ if [ "$TERM" = "dumb" ]; then
 fi
 
 conf=/etc/confconsole/confconsole.conf
-autostart=$(grep "^autostart" $conf | tail -1 | cut -d' ' -f2)
+autostart=$(sed -En "s|^autostart +([a-z]+).*|\1|p" $conf)
 while true; do
     case "$autostart" in
         once)

@@ -7,6 +7,28 @@ Plugins are python source files which are placed within the ConfConsole
 directory. ConfConsole will load any applicable files and provide them 
 to the user as menu options.
 
+Contributing plugins
+--------------------
+
+Confconsole plugins generally fall into 3 categories and that is what dictates
+where the plugin code should be included in TurnKey Linux software/appliance
+build code - i.e. which GitHub repository a pull request should be opened
+against:
+
+General plugins - useful to all TurnKey Linux appliances:
+- included in the Confconsole debian package source code plugins.d/ directory
+  ('turnkeylinux/confconsole').
+
+General plugins - useful to a subset of TurnKey Linux appliances:
+- included as an overlay in the shared appliance build code repository
+  ('turnkeylinux/common'). E.g. an Apache related plugin that is relevant to
+  all appliances that include Apache would go in
+  'overlays/apache/usr/lib/confconsole/plugins.d/'.
+
+Appliance specific plugins - useful to a specific appliance:
+- included as an overlay in the relevant appliance buildcode repository - e.g.
+  'turnkeylinux-apps/wordpress'. They should be included within the
+  'overlay/usr/lib/confconsole/plugins.d/' directory.
 
 How are plugins loaded?
 -----------------------

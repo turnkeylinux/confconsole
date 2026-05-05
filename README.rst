@@ -6,21 +6,26 @@ TurnKey GNU/Linux Configuration Console
 Overview
 --------
 
-The objective of the Configuration Console (AKA confconsole) is to 
-provide the user with basic network configuration information and the
-ability to perform basic tasks, so as not to force the user to the
-command line.
+Configuration Console (AKA confconsole) provides basic network information
+and an interactive UI to easily perform basic system configuration tasks from
+a terminal without requiring any commandline knowledge.
 
-It is licensed under `GPLv3`_. We aim to keep this documentation up to
-date, but the `Confconsole documentation source`_ should always be up to
-date.
+Confconsole includes a plugin framework which allows functionality to be
+extended by anyone with basic python knowledge.
+
+Confconsole ships with a number of plugins by default, including basic Network
+config, "Let's Encrypt" SSL/TLS certificates, hostname update and various
+Region/Locale configuration (e.g. keyboard layout, timezone).
+
+It is licensed under `GPLv3`_. Please see `Confconsole documentation source`_
+for latest usage and development docs.
 
 Main screen and basic functionality
 -----------------------------------
 
 The main screen of Confconsole provides the following information:
 
-- The currently bound IP address
+- The currently bound IP address/es
 - The listening services the user may connect to over the network
 
 .. image:: ./docs/images/00_confconsole_core_main.png
