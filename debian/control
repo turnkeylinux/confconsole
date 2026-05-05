@@ -3,18 +3,17 @@ Section: misc
 Priority: optional
 Maintainer: Stefan Davis <stefan@turnkeylinux.org>
 Build-Depends:
- debhelper (>= 10),
+ debhelper-compat (= 13),
  dh-python,
- python3-all (>= 3.11~),
-Standards-Version: 4.0.0
-X-Python-Version: >= 3.11
+ python3 (>= 3.13~),
+Standards-Version: 4.7.2
 
 Package: confconsole
 Architecture: all
 Depends:
  ${misc:Depends},
  ${python3:Depends},
- python3-dialog (>= 3.4),
+ python3-dialog (>= 3.5.3~),
  turnkey-netinfo,
  turnkey-conffile,
  libsasl2-modules,
@@ -26,5 +25,15 @@ Recommends:
  python3-bottle,
  resolvconf,
 Suggests:
- di-live,
-Description: TurnKey GNU/Linux Configuration Console
+ tkl-installer,
+Description: TurnKey GNU/Linux Configuration Console (confconsole)
+ Configuration Console (AKA confconsole) provides basic network information
+ and an interactive UI to easily perform basic system configuration tasks
+ from a terminal without requiring any command-line knowledge.
+ .
+ Confconsole includes a plugin framework which allows functionality to be
+ extended by anyone with basic python knowledge.
+ .
+ Confconsole ships with a number of plugins by default, including basic
+ Network config, "Let's Encrypt" SSL/TLS certificates, hostname update and
+ various Region/Locale configuration (e.g. keyboard layout, timezone).
