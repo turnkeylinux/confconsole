@@ -550,7 +550,8 @@ class TurnkeyConsole:
 
         if ipv6_addr:
             text += "\n"
-            text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
+            if t.startswith("Web"):
+                text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
             text += f"\nIPv6 SSH:  root@{ipv6_addr}"
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
