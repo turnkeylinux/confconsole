@@ -84,22 +84,21 @@ def test(randompath):
 def handle_token_input():
     host = "127.0.0.1"
     port = 9977
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((host, port))
-    sock.listen(1)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, port))
+        sock.listen(1)
 
-    # client will only send 1 token per connection, might be
-    # more effecient way of doing this, but unsure how with dehydrated
-    while True:
-        conn, addr = sock.accept()
+        # client will only send 1 token per connection, might be
+        # more effecient way of doing this, but unsure how with dehydrated
+        while True:
+            conn, addr = sock.accept()
 
-        token = conn.recv(4096).decode("utf8")
-        print(f"Got token {token} from {addr}: serving")
-        token_queue.put(token)
+            token = conn.recv(4096).decode("utf8")
+            print(f"Got token {token} from {addr}: serving")
+            token_queue.put(token)
 
-        conn.close()
-
-    sock.close()
+            conn.close()
 
 
 if __name__ == "__main__":
