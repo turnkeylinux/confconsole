@@ -1,0 +1,37 @@
+v2.2.0 Release Notes
+====================
+
+Bugfix, new features, linting, typing & formatting.
+
+*  Bugfixes:
+  - Support for firewall config when setting a static IP:
+    - Particularly affected OpenVPN (which ships with firewall enabled by
+      default).
+    - Closes https://github.com/turnkeylinux/tracker/issues/2037.
+  - Fix failing back-to-back runs:
+    - Closes https://github.com/turnkeylinux/tracker/issues/2121.
+
+* Features:
+  - "Proper" support for IPv6
+    - Show IPv6 info on "usage" page. Special thanks to Marcos:
+      - https://github.com/marcos-mendez
+      - https://popsolutions.co/
+    - Only show IPv6 web URL when Web address is shown (fix for Core & TKLDev).
+    - Improved logging to journal.
+
+* Code clean up and improvements:
+  - Linting, typing & formatting.
+  - Update gitignore to ignore common build asset & cache paths.
+  - Refactor/rewrite docs/README.
+  - Add more info comments in example lexicon yml conf files.
+  - Include stub ruff config.
+  - Implementation of ConfconsoleError class (replaces use of generic Error).
+  - Extended logging.
+
+* Packaging:
+  - Bump python version (v3.5 => v3.11) & dependencies.
+  - Remove python3-requests "Recommends" (already in "Depends").
+  - Replace di-live ("Recommends") with tkl-installer as "Suggests".
+  - Ensure python bytecode is not included in package.
+  - Support reproducable builds.
+  - General packaging updates/improvements.
