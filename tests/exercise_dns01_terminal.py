@@ -42,7 +42,7 @@ for cols in (60, 80, 120):
     assert "API token" in capture(child, screen, stream, f"{cols}-method")
     child.send("\r")
     text = capture(child, screen, stream, f"{cols}-token")
-    assert "API token:" in text and "Zone ID:" in text
+    assert "API token:" in text and "Zone ID (opt):" in text
     child.send("dummy-private-token")
     child.send("\x1bOB")
     child.send("a" * 32)

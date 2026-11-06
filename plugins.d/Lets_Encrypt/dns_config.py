@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """Provider settings editing, without changing files until the user saves."""
 
 import json
@@ -176,7 +177,7 @@ def edit_cloudflare(console, text: str) -> str | None:
                 )
             fields.append(
                 (
-                    "Zone ID:",
+                    "Zone ID (opt):",
                     len(fields) + 1,
                     0,
                     zone,
@@ -190,8 +191,8 @@ def edit_cloudflare(console, text: str) -> str | None:
             hint = (
                 (
                     "API token needs DNS edit access to your zone.\n"
-                    "Zone ID is required for a zone-scoped token; "
-                    "otherwise it is optional."
+                    "Zone ID is optional with Zone Read permission. "
+                    "Supply it if your token cannot list zones."
                 )
                 if method == "token"
                 else (

@@ -70,7 +70,8 @@ requests can trigger Let's Encrypt rate limits.
 
 For DNS-01, select your DNS provider. Cloudflare offers an API token form or a
 Global API key and account email form. Use a token with DNS edit access to the
-required zone. Supply the Zone ID for a token restricted to that zone. Secrets
+required zone. With Zone Read permission, the provider can discover your
+zone automatically. Otherwise supply the Zone ID. Secrets
 are masked; leaving the secret blank preserves the current credential when
 using the same authentication method.
 

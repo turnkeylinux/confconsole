@@ -1,4 +1,5 @@
 import importlib.util
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,6 +23,25 @@ wizard = load("get_certificate")
 
 
 class ProviderTests(unittest.TestCase):
+    def test_real_plugin_loader_registers_editor(self):
+        spec = importlib.util.spec_from_file_location(
+            "plugin", ROOT / "plugin.py"
+        )
+        plugin = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plugin)
+        with tempfile.TemporaryDirectory() as directory:
+            shutil.copytree(
+                ROOT / "plugins.d/Lets_Encrypt",
+                Path(directory) / "Lets_Encrypt",
+            )
+            manager = plugin.PluginManager(directory, {"console": Mock()})
+            editor = manager.impByPath("Lets_Encrypt/dns_config.py")
+            loaded_wizard = manager.impByPath(
+                "Lets_Encrypt/get_certificate.py"
+            )
+            self.assertIs(loaded_wizard.dns_config, editor)
+            self.assertTrue(callable(editor.edit_config))
+
     def test_templates_load_without_creating_files(self):
         with (
             tempfile.TemporaryDirectory() as path,

@@ -220,7 +220,7 @@ clean_exit() {
 
 trap '(exit 130)' INT
 trap '(exit 143)' TERM
-trap 'clean_exit' EXIT
+trap 'clean_exit "$?"' EXIT
 
 [[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
 [[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
@@ -261,6 +261,8 @@ copy_if_not_found "$CONFIG" "$SH_CONFIG"
 
 # shellcheck source=/dev/null
 source "$CONFIG"
+# Renewal has no --provider argument; the DNS hook needs the saved provider.
+export PROVIDER
 
 copy_if_not_found "$DOMAINS_TXT" "$SH_DOMAINS"
 
