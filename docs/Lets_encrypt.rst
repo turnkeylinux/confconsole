@@ -12,9 +12,9 @@ interact with ACME SSL/TLS providers and uses a custom mini-webserver (named
 `add-water`) to host the challenges required to prove your ownership of the
 domain name.
 
-To use this tool, you must already have configured DNS 'A' record(s) to point
-your server's public IP. A static IP is recommended, although so long as an
-'A' record points to your server when you `Get certificate`_.
+Choose HTTP-01 when your domain resolves to this server and public port 80
+is reachable. Choose DNS-01 when you can authorize changes through your DNS
+provider's API, including for wildcard certificates.
 
 Because it uses it's own built-in mini-server (`add-water`), this tool will
 work with any webserver included with any TurnKey appliance (or even no
@@ -42,13 +42,8 @@ doesn't exist in the cron.daily directory until you `Get certificate`_. This
 ensures that the cron job can't be enabled until a valid SSL/TLS cert has been
 generated.
 
-**Note:** TurnKey Let's Encrypt integration **does not** currently
-support wildcard certificates. That requires the DNS validation
-method, which is not currently an option by default. If you need wildcard
-certificates, you will need to either use Dehydrated directly (with
-an appropriate hook script to make the required DNS records), or
-use an alternate tool (that supports the `DNS-01` validation method)
-to get your SSL/TLS certificates.
+DNS-01 provider credentials are reused for renewal. If credentials change,
+run `Get certificate`_ again and update the provider settings.
 
 For more info about what the cron job actually does, please see `Cron
 job details`_ below.
@@ -69,12 +64,22 @@ than one certificate, manual configuration is required. Please see
 `Advanced - create multiple certificates (&/or more than 5 domains)`_
 below.
 
-**Note:** Before you attempt to retrieve a certificate, you must have your
-domain's nameservers correctly configured with 'A' records which resolve all
-of your selected domains to the server you are running confconsole. Failure
-to do so will cause the Let's Encrypt challenges to fail (so you won't get a
-certificate). Repeated failures may cause your server to be blocked (for up to
-a week - perhaps longer) from further attempts.
+For HTTP-01, ensure all selected domains resolve to this server and that
+public port 80 is reachable before requesting the certificate. Repeated failed
+requests can trigger Let's Encrypt rate limits.
+
+For DNS-01, select your DNS provider. Cloudflare offers an API token form or a
+Global API key and account email form. Use a token with DNS edit access to the
+required zone. Supply the Zone ID for a token restricted to that zone. Secrets
+are masked; leaving the secret blank preserves the current credential when
+using the same authentication method.
+
+Other providers use a scrolling configuration editor with provider examples.
+Remove the comment marker from the keys you need and replace the example
+values. Use arrow keys to scroll and Tab to reach Save or Cancel. The full
+editor displays credentials, so use it in a private terminal. Cloudflare's
+full editor is also available for advanced settings. Cancel leaves saved
+provider settings unchanged.
 
 Getting a certificate - Behind the scenes
 -----------------------------------------

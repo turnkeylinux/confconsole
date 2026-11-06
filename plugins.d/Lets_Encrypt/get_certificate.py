@@ -38,9 +38,10 @@ example_domain = "example.com"
 
 
 def doOnce() -> None:
-    global dns_01
+    global dns_01, dns_config
     # impByPath inherited so doesn't need to be defined
     dns_01 = impByPath("Lets_Encrypt/dns_01.py")
+    dns_config = impByPath("Lets_Encrypt/dns_config.py")
 
 
 def read_conf(path: str) -> list[str]:
@@ -278,7 +279,8 @@ def run() -> None:
         write_conf(d_conf)
 
     elif challenge == "dns-01":
-        dns_01.initial_setup()
+        if not dns_01.initial_setup():
+            return
         conf = ""
         l_conf_possible = glob(join(dns_01.LEXICON_CONF_DIR, "lexicon_*.yml"))
         if len(l_conf_possible) == 0:
@@ -331,45 +333,31 @@ def run() -> None:
                     return
             if not provider:
                 console.msgbox("Error", "No provider selected", autosize=True)
+                return
 
-        d_conf = initial_load_conf(provider)
-        conf_file, config = dns_01.load_config(provider)
-        if len(config) > 12:
+        try:
+            conf_file, config = dns_01.load_config(provider)
+        except OSError:
             console.msgbox(
-                "Error",
-                "Config file too big - needs to be 12 lines or less",
+                "Could not read settings",
+                "Check that the provider configuration and Confconsole "
+                "templates are readable, then retry.",
                 autosize=True,
             )
             return
-        elif len(config) < 12:
-            config.extend([""] * (12 - len(config)))
-        fields = [
-            ("", 1, 0, config[0], 1, 10, field_width, 255),
-            ("", 2, 0, config[1], 2, 10, field_width, 255),
-            ("", 3, 0, config[2], 3, 10, field_width, 255),
-            ("", 4, 0, config[3], 4, 10, field_width, 255),
-            ("", 5, 0, config[4], 5, 10, field_width, 255),
-            ("", 6, 0, config[5], 6, 10, field_width, 255),
-            ("", 7, 0, config[6], 7, 10, field_width, 255),
-            ("", 8, 0, config[7], 8, 10, field_width, 255),
-            ("", 9, 0, config[8], 9, 10, field_width, 255),
-            ("", 10, 0, config[9], 10, 10, field_width, 255),
-            ("", 11, 0, config[10], 11, 10, field_width, 255),
-            ("", 12, 0, config[11], 12, 10, field_width, 255),
-        ]
-        ret, values = console.form(
-            "Lexicon configuration",
-            "Review and adjust current lexicon configuration as"
-            "necessary.\n\n Please see https://www.turnkeylinux.org/docs/"
-            "confconsole/letsencrypt#dns-01",
-            fields,
-            autosize=True,
-        )
-        if ret != "ok":
+        values = dns_config.edit_config(console, provider, config)
+        if values is None:
             return
-
-        if config != values:
+        try:
             dns_01.save_config(conf_file, values)
+        except OSError:
+            console.msgbox(
+                "Could not save settings",
+                "Check available disk space and permissions, then retry.",
+                autosize=True,
+            )
+            return
+        d_conf = initial_load_conf(provider)
 
     domains, alias = load_domains()
     m = invalid_domains(domains, challenge)

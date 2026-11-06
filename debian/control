@@ -18,6 +18,7 @@ Depends:
  turnkey-conffile,
  libsasl2-modules,
  python3-requests,
+ python3-yaml,
 Recommends:
  authbind,
  dehydrated,

@@ -3,9 +3,10 @@ import sys
 import subprocess
 import re
 
-from os import makedirs, chmod, chown
+from os import makedirs, chmod, chown, replace
 from os.path import isfile, join, exists, dirname
-from shutil import which, copy
+from shutil import which
+from tempfile import NamedTemporaryFile
 
 from typing import Optional
 
@@ -27,27 +28,30 @@ def load_config(provider: str) -> tuple[str, list[str]]:
         )
     conf_file = join(LEXICON_CONF_DIR, f"lexicon_{provider}.yml")
     config = []
-    if not isfile(conf_file):
-        copy(example_conf, conf_file)
-        # ensure root read/write only as file contains sensitive info
-        chown(conf_file, 0, 0)  # chown root:root
-        chmod(conf_file, 0o600)  # chmod 600 (owner read/write only)
-    with open(conf_file) as fob:
+    source = conf_file if isfile(conf_file) else example_conf
+    with open(source) as fob:
         for line in fob:
-            config.append(line.rstrip())
+            config.append(line.rstrip("\n"))
 
     return conf_file, config
 
 
 def save_config(conf_file: str, config: list[str]) -> None:
     """Saves lexicon configuration"""
-    with open(conf_file, "w") as fob:
-        for line in config:
-            if line:
-                fob.write(line.rstrip() + "\n")
-    # ensure root read/write only as file contains sensitive info
-    chown(conf_file, 0, 0)  # chown root:root
-    chmod(conf_file, 0o600)  # chmod 600 (owner read/write only)
+    from os import unlink
+
+    with NamedTemporaryFile(mode="w", dir=dirname(conf_file),
+                            prefix=".lexicon-", delete=False) as fob:
+        temporary = fob.name
+        try:
+            chown(temporary, 0, 0)
+            chmod(temporary, 0o600)
+            fob.write("\n".join(config) + "\n")
+            fob.close()
+            replace(temporary, conf_file)
+        finally:
+            if exists(temporary):
+                unlink(temporary)
 
 
 def run_command(
@@ -96,10 +100,10 @@ def check_pkg(pkg: str) -> bool:
     return False  # package not installed
 
 
-def initial_setup() -> None:
+def initial_setup() -> bool:
     """Check lexicon and deps are installed and ready to go
 
-    Returns a tuple of exit code (0 = success) and message
+    Return True only when the dependency setup completed successfully.
     """
     msg_start = "lexicon tool is required for dns-01 challenge, "
     msg_mid = ""
@@ -125,7 +129,7 @@ def initial_setup() -> None:
         # console is inherited so doesn't need to be defined
         ret = console.yesno(msg, autosize=True)
         if ret != "ok":
-            return
+            return False
     if install_venv or unexpected:
         pkgs = []
         pip = which("pip")
@@ -142,6 +146,7 @@ def initial_setup() -> None:
                 console.msgbox(
                     "Error", f"Apt installing {pkgs_l} failed:\n\n{msg}"
                 )
+                return False
         makedirs(dirname(venv), exist_ok=True)
         venv_pip = join(venv, "bin/pip")
         for comment_command in [
@@ -159,7 +164,7 @@ def initial_setup() -> None:
             if exit_code != 0:
                 com = " ".join(command)
                 console.msgbox("Error", f"Command '{com}' failed:\n\n{msg}")
-                return None
+                return False
 
         lexicon_bin = which("turnkey-lexicon")
         if not lexicon_bin:
@@ -168,7 +173,9 @@ def initial_setup() -> None:
                 "Could not find 'turnkey-lexicon'? Should be installed with"
                 " Confconsole.",
             )
-        return None
+            return False
+
+    return True
 
 
 def get_providers() -> tuple[list[tuple[str, str]] | None, str | None]:
