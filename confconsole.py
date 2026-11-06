@@ -20,6 +20,7 @@ import ipaddress
 import shlex
 from string import Template
 from io import StringIO
+from shutil import get_terminal_size
 import traceback
 
 import dialog
@@ -669,8 +670,11 @@ class TurnkeyConsole:
                 errors.append(f"Invalid netmask: {netmask}")
 
             for nameserver in nameservers:
-                if nameserver and not ipaddr.is_legal_ip(nameserver):
-                    errors.append(f"Invalid nameserver: {nameserver}")
+                if nameserver:
+                    try:
+                        ipaddress.ip_address(nameserver)
+                    except ValueError:
+                        errors.append(f"Invalid nameserver: {nameserver}")
 
             if len(nameservers) != len(set(nameservers)):
                 errors.append("Duplicate nameservers specified")
@@ -752,6 +756,7 @@ class TurnkeyConsole:
             log.warning(warning_last_line)
             self.console.msgbox(
                 "Warning", "\n".join([*warnings, warning_last_line]),
+                autosize=True,
             )
 
         value = [addr, netmask, gateway]
@@ -764,7 +769,7 @@ class TurnkeyConsole:
         if value[-1]:
             value.append("")
 
-        field_width = 30
+        field_width = min(30, max(15, (get_terminal_size().columns - 10) // 2))
         field_limit = 15
 
         while 1:
@@ -776,7 +781,7 @@ class TurnkeyConsole:
 
             for i in range(len(value[3:])):
                 pre_fields.append(
-                    ("Name Server", value[3 + i], field_width, field_limit)
+                    ("Name Server", value[3 + i], field_width, 64)
                 )
 
             fields: list[tuple[str, int, int, str, int, int, int, int]] = (
@@ -784,7 +789,7 @@ class TurnkeyConsole:
             )
             text = f"Static IP configuration ({self.ifname})"
             retcode, input = self.console.form(
-                "Network settings", text, fields
+                "Network settings", text, fields, autosize=True
             )
             log.debug("static ip fields: %s", fields)
             log.debug("static ip input: %s", input)
@@ -793,7 +798,8 @@ class TurnkeyConsole:
                 break
 
             # remove any whitespaces the user might of included
-            input = list(map(str.strip, input))
+            value = list(map(str.strip, input))
+            input = value.copy()
 
             # unconfigure the nic if all entries are empty
             if not input[0] and not input[1] and not input[2] and not input[3]:
@@ -808,7 +814,7 @@ class TurnkeyConsole:
             err_parts = _validate(addr, netmask, gateway, nameservers)
             if err_parts:
                 err: str = "\n".join(err_parts)
-                self.console.msgbox("Error", err)
+                self.console.msgbox("Error", err, autosize=True)
             else:
                 in_ssh = "SSH_CONNECTION" in os.environ
                 if not in_ssh or (
@@ -825,7 +831,7 @@ class TurnkeyConsole:
                     )
                     if maybe_err is None:
                         break
-                    self.console.msgbox("Error", maybe_err)
+                    self.console.msgbox("Error", maybe_err, autosize=True)
                 else:
                     break
 

@@ -39,8 +39,12 @@ as follows:
   it's probably 255.255.255.0)
 - Default Gateway: The internet Gateway IP address (your router IP if on
   a LAN)
-- Name Server(s): The IP address(es) of DNS servers to use. Currently
-  allows up to 3.
+- Name Server(s): IPv4 or IPv6 addresses of DNS servers to use. Existing
+  resolvers are shown with an additional blank field.
+
+If validation or applying the settings fails, the form keeps your entries
+so you can correct them or retry. Cancel leaves the form without applying
+another change.
 
 Notes
 -----
@@ -54,7 +58,9 @@ survive reboot (see limitations below).
 Limitations
 -----------
 
-Only IPv4 addresses are currently supported.
+The static address, netmask and gateway fields configure IPv4. DNS server
+addresses may use IPv4 or IPv6; IPv6 resolvers require a reachable IPv6
+network.
 
 In most build types, by default TurnKey Linux sets an IP address via
 DHCP. The exceptions to that are Proxmox/LXC and Docker. Generally these

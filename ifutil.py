@@ -632,8 +632,8 @@ def get_nameservers(ifname: str) -> list[str]:
     return _parse_resolv("/etc/resolv.conf")
 
 
-def ifup(ifname: str, force: bool = False) -> str:
-    # force will add the '--force' switch and ignore errors
+def ifup(ifname: str, force: bool = False, *, check: bool = False) -> str:
+    # Recovery callers may ignore forced errors; checked applies must report them.
     ifup_args = ["/usr/sbin/ifup"]
     if force:
         ifup_args.append("--force")
@@ -646,7 +646,7 @@ def ifup(ifname: str, force: bool = False) -> str:
         ifup_cmd.returncode,
         ifup_cmd.stderr,
     )
-    if not force and ifup_cmd.returncode != 0:
+    if (check or not force) and ifup_cmd.returncode != 0:
         log.error("failed to bring up %r: %s", ifname, ifup_cmd.stderr)
         raise BadIfConfigError(
             f"failed to bring up interface {ifname!r} error:"
@@ -744,7 +744,7 @@ def set_static(
             backup_interfaces.write()
             raise e
         finally:
-            output = ifup(ifname, True)
+            output = ifup(ifname, True, check=True)
 
         net = InterfaceInfo(ifname)
         if not net.address:
