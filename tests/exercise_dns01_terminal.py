@@ -17,7 +17,7 @@ def start(mode, cols):
         ["tests/dns01_terminal_fixture.py", mode],
         encoding="utf-8",
         dimensions=(24, cols),
-        env={**os.environ, "TERM": "xterm"},
+        env={**os.environ, "TERM": "xterm", "NCURSES_NO_UTF8_ACS": "1"},
         timeout=10,
     )
     screen = pyte.Screen(cols, 24)
@@ -72,3 +72,59 @@ for cols in (60, 80, 120):
 print(
     "Actual terminal save, masking and scrolling passed at 60/80/120 columns."
 )
+
+# Exercise recovery and cancellation with real widgets as well as unit tests.
+for cols in (60, 80):
+    child, screen, stream = start("cloudflare", cols)
+    capture(child, screen, stream, f"{cols}-retry-menu")
+    child.send("\r")
+    capture(child, screen, stream, f"{cols}-retry-form")
+    child.send("dummy-private-token\x1bOBbad\t\r")
+    text = capture(child, screen, stream, f"{cols}-invalid-zone")
+    assert "32 hexadecimal" in text
+    assert "dummy-private-token" not in text
+    child.send("\r")
+    text = capture(child, screen, stream, f"{cols}-correct-zone")
+    assert "keep the current credential" in text
+    child.send("\x1bOB\x15" + "b" * 32 + "\t\r")
+    child.expect("SAVED")
+    child.expect("VALID")
+    child.expect(pexpect.EOF)
+    child.close()
+    assert child.exitstatus == 0
+
+    child, screen, stream = start("cloudflare", cols)
+    capture(child, screen, stream, f"{cols}-key-menu")
+    child.send("\x1bOB\r")
+    text = capture(child, screen, stream, f"{cols}-global-key")
+    assert "Account email:" in text and "Global API key:" in text
+    child.send("dummy-global-key\x1bOBqa@example.invalid\t\r")
+    child.expect("SAVED")
+    child.expect("VALID")
+    child.expect(pexpect.EOF)
+    child.close()
+    assert child.exitstatus == 0
+
+    child, screen, stream = start("cloudflare", cols)
+    capture(child, screen, stream, f"{cols}-cancel-menu")
+    child.send("\r")
+    capture(child, screen, stream, f"{cols}-cancel-form")
+    child.send("unsaved-secret\t\t\r")
+    text = capture(child, screen, stream, f"{cols}-back-to-method")
+    assert "API token (recommended)" in text
+    child.send("\t\r")
+    child.expect("CANCELLED")
+    child.expect(pexpect.EOF)
+    child.close()
+    assert child.exitstatus == 0
+
+    child, screen, stream = start("generic", cols)
+    capture(child, screen, stream, f"{cols}-generic-cancel-instructions")
+    child.send("\r")
+    capture(child, screen, stream, f"{cols}-generic-cancel")
+    child.send("unsaved\t\t\r")
+    child.expect("CANCELLED")
+    child.expect(pexpect.EOF)
+    child.close()
+    assert child.exitstatus == 0
+print("Actual invalid-zone recovery, global-key save, Back and Cancel passed.")

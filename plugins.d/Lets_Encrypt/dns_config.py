@@ -42,6 +42,11 @@ def cloudflare_values(text: str) -> dict[str, str]:
         values[key] = value
     # The form preserves other options verbatim. Complex YAML credentials can
     # still be edited intact with the full editor.
+    if any(
+        isinstance(token, (yaml.tokens.AnchorToken, yaml.tokens.AliasToken))
+        for token in yaml.scan(text)
+    ):
+        raise ConfigError("Use the full editor for anchored settings.")
     node = yaml.compose(text)
     if node:
         if node.flow_style or any(key.value == "<<" for key, _ in node.value):

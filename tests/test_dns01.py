@@ -94,6 +94,14 @@ class ProviderTests(unittest.TestCase):
             ):
                 config.cloudflare_values(text)
 
+    def test_anchored_credential_uses_full_editor(self):
+        text = "auth_token: &credential old\nother_option: *credential\n"
+        console = Mock()
+        console.editbox.return_value = ("ok", text)
+        self.assertEqual(config.edit_cloudflare(console, text), text)
+        console._wrapper.assert_not_called()
+        self.assertEqual(config.parse_config(text)["other_option"], "old")
+
     def test_invalid_yaml_does_not_expose_secret_in_error(self):
         for text in (
             "auth_token: [SECRET",

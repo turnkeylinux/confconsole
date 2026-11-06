@@ -13,10 +13,12 @@ The unit suite exercises pristine provider templates, existing credentials,
 authentication changes, malformed settings, cancellation, retry and private
 atomic persistence. The terminal exercise drives the real Dialog widgets in
 60x24, 80x24 and 120x24 PTYs. It verifies saving Cloudflare credentials,
-secret masking and scrolling a 60-line generic configuration. Rendered terminal
+secret masking and scrolling a 60-line generic configuration. At 60 and 80
+columns it also exercises invalid-zone recovery, Global API key entry, Back
+and cancellation for both editors. Rendered terminal
 states are written under `terminal-evidence/` for inspection.
 
-On 2026-11-06, all 15 unit cases and these terminal journeys passed on Debian
+On 2026-11-06, all 16 unit cases and these terminal journeys passed on Debian
 13.6. The captured layouts kept fields, guidance and Save/Back actions visible
 at each size. A QA-only Debian binary build with `dpkg-buildpackage -us -uc -b`
 also succeeded. This repository omits `debian/changelog`; the build fixture
@@ -26,6 +28,9 @@ No CI or pre-existing runtime test suite is declared in this checkout. Full
 Ruff inspection was compared with source `0f37b487`: baseline 180 findings,
 candidate 178, with no introduced diagnostic by file, code and message.
 Existing lint debt remains; focused checks of the new editor and tests pass.
+
+Anchored or aliased YAML credentials use the full editor to preserve references.
+A regression covers an anchored secret referenced by another setting.
 
 Certificate issuance, service deployment, renewal and a trusted browser
 connection still need the separate ACME acceptance journey on a task-owned
