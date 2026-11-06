@@ -6,7 +6,7 @@ import subprocess
 from os import remove
 from os.path import join, exists, isfile, isdir, basename, dirname
 from shutil import copyfile, which
-from json import JSONDecodeError
+from urllib.parse import urlparse
 from glob import glob
 
 LE_INFO_URL = "https://acme-v02.api.letsencrypt.org/directory"
@@ -215,19 +215,56 @@ def run() -> None:
 
     canceled = False
 
-    tos_url = None
     msg = ""
     try:
-        response = requests.get(LE_INFO_URL)
-        tos_url = response.json()["meta"]["termsOfService"]
-    except ConnectionError:
-        msg = "Connection error. Failed to connect to " + LE_INFO_URL
-    except JSONDecodeError:
-        msg = "Data error, no JSON data found"
-    except KeyError:
-        msg = "Data error, no value found for 'terms-of-service'"
-    if not tos_url:
-        console.msgbox("Error", msg, autosize=True)
+        response = requests.get(LE_INFO_URL, timeout=(5, 15))
+        response.raise_for_status()
+    except requests.exceptions.SSLError:
+        msg = (
+            "The ACME server's TLS certificate could not be verified.\n\n"
+            "Check the system clock and trusted CA certificates. If a proxy "
+            "inspects HTTPS, ask your administrator to configure its trusted "
+            "CA or use a trusted connection."
+        )
+    except requests.exceptions.Timeout:
+        msg = (
+            "The ACME directory request timed out. Check internet access "
+            "and proxy settings."
+        )
+    except requests.exceptions.ConnectionError:
+        msg = (
+            "Could not connect to the ACME server. Check DNS, internet "
+            "access and proxy settings."
+        )
+    except requests.exceptions.HTTPError:
+        msg = "The ACME server returned an HTTP error. Try again later."
+    except requests.exceptions.RequestException:
+        msg = (
+            "The ACME directory request failed. Check internet access "
+            "and proxy settings."
+        )
+    else:
+        try:
+            tos_url = response.json()["meta"]["termsOfService"]
+            if (
+                not isinstance(tos_url, str)
+                or not tos_url.startswith("https://")
+                or not urlparse(tos_url).hostname
+                or any(char.isspace() for char in tos_url)
+            ):
+                raise ValueError("Invalid terms URL")
+        except (ValueError, KeyError, TypeError):
+            msg = (
+                "The ACME directory returned invalid terms-of-service "
+                "information. Try again later; if this persists, check "
+                "whether a proxy is replacing the server's response."
+            )
+    if msg:
+        console.msgbox(
+            "Let's Encrypt unavailable",
+            msg + "\n\nChoose Get certificate to retry after resolving this.",
+            autosize=True,
+        )
         return
 
     ret = console.yesno(
