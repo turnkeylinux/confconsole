@@ -23,3 +23,6 @@ debian/files
 tmp
 tags
 *.tar.bz2
+
+# Terminal regression snapshots
+/terminal-evidence/

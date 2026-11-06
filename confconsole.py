@@ -131,7 +131,8 @@ class Console:
 
         while 1:
             try:
-                ret = method(f"\n{text}", *args, **kws)
+                contents = text if dialog == "editbox_str" else f"\n{text}"
+                ret = method(contents, *args, **kws)
             except DialogError as e:
                 if "Can't make new window" in e.message:
                     self.console.msgbox(
@@ -257,6 +258,14 @@ class Console:
         )
         assert isinstance(v, tuple)
         return v
+
+    def editbox(self, title: str, contents: str) -> tuple[str, str]:
+        result = self._wrapper(
+            "editbox_str", contents, height=0, width=0, title=title,
+            ok_label="Save", cancel_label="Cancel",
+        )
+        assert isinstance(result, tuple)
+        return result
 
 
 class Installer:
