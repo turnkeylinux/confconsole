@@ -248,6 +248,38 @@ class ProviderTests(unittest.TestCase):
             "route53 settings (YAML)", text
         )
 
+    def test_generic_editor_accepts_default_chain_configuration(self):
+        for text in ("", "{}", "# use instance role\n"):
+            with self.subTest(text=text):
+                console = Mock()
+                console.editbox.return_value = ("ok", text)
+                self.assertEqual(
+                    config.edit_yaml(console, "route53", text), text
+                )
+                console.editbox.assert_called_once()
+                console.msgbox.assert_called_once()
+
+    def test_generic_default_chain_cancel_preserves_configuration(self):
+        for text in ("", "{}", "# use instance role\n"):
+            with self.subTest(text=text):
+                console = Mock()
+                console.editbox.return_value = ("cancel", "unsaved change")
+                self.assertIsNone(config.edit_yaml(console, "route53", text))
+                console.editbox.assert_called_once_with(
+                    "route53 settings (YAML)", text
+                )
+
+    def test_generic_editor_still_rejects_placeholder_values(self):
+        console = Mock()
+        console.editbox.side_effect = [
+            ("ok", "auth_token: YOUR_TOKEN\n"),
+            ("cancel", ""),
+        ]
+        self.assertIsNone(config.edit_yaml(console, "route53", ""))
+        self.assertIn(
+            "Replace the example values", console.msgbox.call_args.args[1]
+        )
+
     def test_generic_editor_retries_invalid_input_and_cancels(self):
         console = Mock()
         console.editbox.side_effect = [

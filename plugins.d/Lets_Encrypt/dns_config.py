@@ -107,6 +107,8 @@ def edit_yaml(console, provider: str, text: str) -> str | None:
         "DNS provider settings",
         "Edit the authentication settings for " + provider + ".\n\n"
         "Remove # from the example keys you need and enter their values. "
+        "Leave settings empty to use credentials supplied by the environment "
+        "or an instance role, if your provider supports them.\n\n"
         "Use the arrow keys to scroll and Tab to reach Save or Cancel. "
         "Credentials are visible in this full editor.",
         autosize=True,
@@ -117,10 +119,6 @@ def edit_yaml(console, provider: str, text: str) -> str | None:
             return None
         try:
             data = parse_config(edited)
-            if not data:
-                raise ConfigError(
-                    "Enter the provider's authentication settings."
-                )
             if any(
                 isinstance(v, str) and v.startswith("YOUR_")
                 for v in data.values()
