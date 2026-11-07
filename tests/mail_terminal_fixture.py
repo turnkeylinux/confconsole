@@ -39,7 +39,7 @@ def invoke(*args, payload=None):
         return {"status": "ready"}
     if args[0] == "test":
         return {"status": "queued", "message": "Test message accepted by the local mail queue. Check the recipient inbox for delivery."}
-    if args[0] == "reset":
+    if args[0] == "reset-mail":
         return {"status": "disconnected"}
     raise AssertionError(args)
 

@@ -174,9 +174,9 @@ def run():
                 if show(result):
                     message(TITLE, result["message"])
         elif choice == "Reset mail":
-            if console.yesno("Restore the mail settings that were in place before this connection? You can connect again later.", autosize=True) == "ok":
-                result = invoke("reset")
+            if console.yesno("Restore the mail settings that were in place before this connection? Your Hub link and dynamic DNS will stay configured.", autosize=True) == "ok":
+                result = invoke("reset-mail")
                 if show(result):
-                    message(TITLE, "Previous mail settings restored. To revoke this appliance credential, open its settings in the Hub. Your cloud server is unchanged.")
+                    message(TITLE, "Previous mail settings restored. Your Hub link and dynamic DNS are unchanged. To revoke this appliance credential, open its settings in the Hub.")
     finally:
         console.width, console.height = width, height
