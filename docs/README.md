@@ -128,3 +128,10 @@ as we go but warmly welcome contributions.
 
 Developers may be interested in reading further about the
 [Plugins](/docs/confconsole/plugins) system.
+
+The Hub services menu uses the shared inithooks helper. A linked appliance can
+select Use Hub email without pairing again. Custom SMTP and Reset mail preserve
+the connection, DNS and backup access. Backup permission and storage setup stay
+in the browser, including legacy storage migration. Install inithooks 2.3.6+11
+or later with this Confconsole release. Reconnect to Hub remains available
+when a revoked connection needs fresh authorization.

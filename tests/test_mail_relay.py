@@ -22,6 +22,24 @@ class MailRelayTest(unittest.TestCase):
         patch.object(wizard.os.path, "isfile", return_value=True).start()
         patch.object(wizard.shutil, "get_terminal_size", return_value=os.terminal_size((60, 24))).start()
 
+    def test_linked_manual_smtp_uses_existing_connection_without_pairing(self):
+        self.console.menu.return_value = ("ok", "Hub")
+        with patch.object(wizard, "invoke", side_effect=[
+                {"status": "ready", "connection_status": "linked", "mode": "custom", "host": "smtp.custom"},
+                {"status": "ready", "connection_status": "linked"}]) as invoke:
+            wizard.run()
+        self.assertEqual(invoke.call_args_list[1].args, ("use-hub",))
+        self.assertIn("Use Hub email", str(self.console.menu.call_args.args[2]))
+
+    def test_linked_appliance_keeps_reconnect_available_for_revocation_recovery(self):
+        self.console.menu.return_value = ("ok", "Reconnect")
+        with patch.object(wizard, "invoke", return_value={"status": "ready", "connection_status": "linked", "mode": "hub"}), \
+                patch.object(wizard, "connect") as connect:
+            wizard.run()
+        connect.assert_called_once_with()
+        self.assertIn("Reconnect", [item[0] for item in self.console.menu.call_args.args[2]])
+        self.assertEqual("Sync", self.console.menu.call_args.args[2][0][0])
+
     def test_disconnected_menu_hides_irrelevant_test_and_disconnect(self):
         self.console.menu.return_value = ("cancel", "")
         with patch.object(wizard, "invoke", return_value={"status": "disconnected"}) as invoke:

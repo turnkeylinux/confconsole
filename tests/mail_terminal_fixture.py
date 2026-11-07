@@ -20,6 +20,8 @@ polls = 0
 def invoke(*args, payload=None):
     global polls
     if args[0] == "status":
+        if mode in ("manual", "backup-setup", "backup-migration", "reconnect-linked"):
+            return {"status": "linked", "connection_status": "linked", "mail_preference": "manual", "services": {"backup": {"status": "migration_required" if mode == "backup-migration" else "setup_required"}}}
         if mode == "disconnected":
             return {"status": "disconnected"}
         return {"status": "revoked" if mode == "revoked" else "ready", "domain": "sample.tklapp.com", "host": "smtp.example"}
@@ -34,6 +36,8 @@ def invoke(*args, payload=None):
         if mode == "pending" and polls == 1:
             return {"status": "pending"}
         return {"status": "ready", "domain": "sample.tklapp.com"}
+    if args[0] == "use-hub":
+        return {"status": "ready", "connection_status": "linked"}
     if args[0] == "configure":
         assert payload["password"] == "fixture-private-password"
         return {"status": "ready"}
@@ -45,9 +49,9 @@ def invoke(*args, payload=None):
 
 
 wizard.invoke = invoke
-if mode in ("disconnected", "connected", "reset"):
+if mode in ("disconnected", "connected", "reset", "manual", "reconnect-linked"):
     wizard.run()
-elif mode == "revoked":
+elif mode in ("revoked", "backup-setup", "backup-migration"):
     wizard.status()
 elif mode == "reconnect":
     wizard.run()

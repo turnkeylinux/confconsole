@@ -13,6 +13,7 @@ Architecture: all
 Depends:
  ${misc:Depends},
  ${python3:Depends},
+ inithooks (>= 2.3.6+11),
  python3-dialog (>= 3.5.3~),
  turnkey-netinfo,
  turnkey-conffile,

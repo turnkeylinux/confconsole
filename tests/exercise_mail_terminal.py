@@ -42,6 +42,29 @@ def finish(child):
 
 
 for cols in (60, 80, 120):
+    for mode in ("backup-setup", "backup-migration"):
+        child, screen, stream = start(mode, cols)
+        text = capture(child, screen, stream, f"{cols}-{mode}-status")
+        assert "Hub linked" in text and "Backup:" in text
+        assert ("migration required" if mode == "backup-migration" else "setup required") in text
+        finish(child)
+    child, screen, stream = start("reconnect-linked", cols)
+    text = capture(child, screen, stream, f"{cols}-reconnect-linked-menu")
+    assert "Reconnect to Hub" in text
+    child.send("\x1b[B" * 3 + "\r")
+    text = capture(child, screen, stream, f"{cols}-reconnect-linked-code")
+    assert "ABCD&1234" in text
+    child.send("\r")
+    text = capture(child, screen, stream, f"{cols}-reconnect-linked-result")
+    assert "Hub linked" in text
+    finish(child)
+    child, screen, stream = start("manual", cols)
+    text = capture(child, screen, stream, f"{cols}-manual-menu")
+    assert "Use Hub email" in text
+    child.send("\r")
+    text = capture(child, screen, stream, f"{cols}-use-hub-result")
+    assert "Hub email is selected" in text
+    finish(child)
     for mode in ("disconnected", "connected"):
         child, screen, stream = start(mode, cols)
         text = capture(child, screen, stream, f"{cols}-{mode}-menu")

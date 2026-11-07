@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import textwrap
 
-TITLE = "App email"
+TITLE = "Hub services and app email"
 HELPER = "/usr/lib/inithooks/bin/turnkey-mail"
 TEXT = (
     "Link your appliance to TurnKey Hub for app email and dynamic DNS. A free account includes"
@@ -82,10 +82,10 @@ def connect():
         result = invoke("connect", "--poll")
         if not show(result):
             return
-        if result.get("domain"):
+        if result.get("connection_status") == "linked" or result.get("domain"):
             connected_text = ("Your appliance is linked. App email and dynamic DNS are configured." if result.get("status") == "ready" else
                        "Your connection is saved. Messages will queue while the sending domain is verified.")
-            message("Hub linked", "%s\n\nSending domain: %s\n\nUse Send test email to check delivery." % (connected_text, result["domain"]))
+            message("Hub linked", "%s\n\nSending domain: %s\n\nUse Send test email to check delivery." % (connected_text, result.get("domain") or result.get("services", {}).get("dns", {}).get("hostname", "Check services in the Hub")))
             return
         status = result.get("status")
         if status == "pending":
@@ -126,21 +126,25 @@ def custom():
         return
 
 
-def status():
-    result = invoke("status")
+def status(result=None):
+    if result is None:
+        result = invoke("status")
     if show(result):
         details = {"ready": "Connected", "pending": "Waiting for domain verification",
-                   "connecting": "Connection setup is pending", "disconnected": "Not connected",
+                   "linked": "Hub linked", "connecting": "Connection setup is pending", "disconnected": "Not connected",
                    "revoked": "Connection revoked", "suspended": "Sending suspended", "expired": "Authorization renewal is pending"}
         text = details.get(result.get("status"), "Check the connection in the Hub")
         if result.get("domain"):
             text += "\n\nSending domain: " + result["domain"]
+        for service, state in result.get("services", {}).items():
+            if service in ("mail", "backup"):
+                text += "\n" + service.capitalize() + ": " + state.get("status", "pending").replace("_", " ")
         if result.get("message"):
             text += "\n\n" + result["message"]
         if result.get("status") in ("revoked", "expired"):
             text += "\n\nChoose Link to Hub to authorize this appliance again."
         text += "\n\nManage Hub connections at https://hub.turnkeylinux.org/email/"
-        message("Email connection status", text)
+        message("Hub connection status" if result.get("connection_status") == "linked" else "Email connection status", text)
 
 
 def run():
@@ -152,7 +156,11 @@ def run():
     console.width = min(width, max(40, shutil.get_terminal_size((80, 24)).columns - 4))
     try:
         current = invoke("status", "--local")
-        choices = [("Hub", "Link to TurnKey Hub"), ("Custom", "Use another SMTP provider")]
+        linked = current.get("connection_status") == "linked"
+        default = ("Sync", "Refresh Hub services") if linked and current.get("mode") == "hub" and current.get("mail_preference") != "manual" else ("Hub", "Use Hub email" if linked else "Link to TurnKey Hub")
+        choices = [default, ("Custom", "Use another SMTP provider")]
+        if linked:
+            choices.append(("Reconnect", "Reconnect to Hub"))
         if current.get("status") not in ("disconnected", "error"):
             choices[1:1] = [("Status", "Check connection status")]
             if current.get("host"):
@@ -161,8 +169,23 @@ def run():
         code, choice = choose(TITLE, TEXT, choices)
         if code != "ok":
             return
-        if choice == "Hub":
+        if choice == "Sync":
+            status(invoke("sync"))
+        elif choice == "Reconnect":
             connect()
+        elif choice == "Hub":
+            if current.get("connection_status") == "linked":
+                result = invoke("use-hub")
+                if show(result):
+                    if result.get("services", {}).get("mail", {}).get("enabled") is False:
+                        text = "Email is disabled in the Hub. Enable it in this appliance's Hub settings."
+                    elif result.get("mode") == "hub" and result.get("status") == "ready":
+                        text = "Hub email is configured. Use Send test email to check delivery."
+                    else:
+                        text = "Hub email is selected. Check connection status for verification or setup details."
+                    message("Use Hub email", text)
+            else:
+                connect()
         elif choice == "Custom":
             custom()
         elif choice == "Status":
@@ -174,7 +197,7 @@ def run():
                 if show(result):
                     message(TITLE, result["message"])
         elif choice == "Reset mail":
-            if console.yesno("Restore the mail settings that were in place before this connection? Your Hub link and dynamic DNS will stay configured.", autosize=True) == "ok":
+            if console.yesno("Restore the mail settings that were in place before this connection? Your Hub link, dynamic DNS and backup access will stay configured.", autosize=True) == "ok":
                 result = invoke("reset-mail")
                 if show(result):
                     message(TITLE, "Previous mail settings restored. Your Hub link and dynamic DNS are unchanged. To revoke this appliance credential, open its settings in the Hub.")
