@@ -1,65 +1,40 @@
-Confconsole - Mail relay
-========================
+Confconsole - App email
+======================
 
-.. contents::
+Link to TurnKey Hub
+------------------
 
-Overview
---------
+Choose **Advanced**, **Mail relaying**, then **Mail relay** and
+**Link to TurnKey Hub**. Open
+https://hub.turnkeylinux.org/link on your phone or computer, sign in or
+create a free account, and enter the displayed code, such as ``ABCD&1234``.
+Then select **Check** in Confconsole.
 
-Confconsole Mail relay plugin allows, users to easily configure a remote
-SMTP relay to send emails through. 
+A free account includes app email delivery, a tklapp.com hostname and
+dynamic DNS. Paid accounts can use a custom sending domain. Hub-launched
+appliances link automatically.
 
-.. image:: ./images/04_confconsole_mail_relay.png
+Apps that send through the appliance's system mail service use the relay
+without separate app configuration. Choose **Test** to submit a test email,
+then check the recipient's inbox to confirm delivery. Incoming email remains
+with your existing mailbox provider.
 
-By default TurnKey Linux appliances send email directly. However to
-provide more robust email delivery, it is highly recommended to use a
-third party SMTP relay.
-
-SendinBlue
-----------
-
-We have researched the available third party SMTP relay options and
-have concluded that SendinBlue are currently providing the best mix
-of features and value for money.
-
-A free SendinBlue account allows sending up to 9000 emails per
-month, so should provide sufficient capabilities for general 
-low-medium email traffic use. If you wish to send mass-marketing
-emails or are sending large volumes of transactional emails, you may
-be better served by upgrading to a paid plan.
-
-To sign up for a free SendinBlue account, please browse to:
-
-https://hub.turnkeylinux.org/email/ 
-
-You should only need to enter your Login (SendinBlue username) and
-Password. The host and Port should be pre-configured within 
-Confconsole.
-
-Custom
-------
-
-The custom option allows you to configure your server to use an
-alternate SMTP relay service. It should work with all avaialble SMTP
-relays (public or private). 
-
-Some additional configuration may be required for some SMTP relay
-services. E.g. to use Google SMTP you need to adjust the config of
-your account to allow "less secure applications". Please consult
-with your remote SMTP relay provider for relevant details.
-
-Deconfigure
+Custom SMTP
 -----------
 
-This option removes all configuration and returns TurnKey to it's
-default config.
+Choose **Custom** to use another SMTP provider. Enter its host, port,
+username and password. The connection requires authenticated SMTP with a
+verified TLS certificate. Port 587 uses STARTTLS; port 465 uses implicit TLS.
+Settings are applied only after the encrypted connection is verified.
 
-Notes
------
+Status and recovery
+-------------------
 
-The SMTP relay authentication procedure requires the SMTP relay user
-password to be stored in plain text at `/etc/postfix/sasl_passwd`
-(readable only by root). As a general rule, so long as no other users
-are granted read access, that should be sufficently secure. However,
-if you have concerns about someone else (who has root access)
-accessing this then you are advised to consider an alternate path.
+**Status** checks the current connection. If the link request expires or is
+denied, choose **Link to TurnKey Hub** to start again. Cancelling keeps the
+working mail settings.
+
+**Reset mail** restores the previous local mail settings. Revoke an old
+appliance credential in the Hub when it is no longer needed. Resetting local
+mail settings does not delete a cloud server or revoke a source server's
+credentials when preparing a clone.

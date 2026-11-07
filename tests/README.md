@@ -41,3 +41,18 @@ fixture connection. The host's trust store remains unchanged.
 Inspect `acme-terminal-evidence/` for the 60, 80 and 120-column states. Success
 stops at declining the terms prompt, so these checks request no certificates.
 Stop the proxy and remove its certificate/key directory after testing.
+
+# App email
+
+The full suite covers Hub pairing, cancellation, expired and denied approval,
+masked custom SMTP credentials and delegation to the shared inithooks helper.
+The helper owns Postfix and credential writes; the console supplies JSON through
+stdin, without passwords in command arguments.
+
+Run `python3 tests/exercise_mail_terminal.py EVIDENCE_DIRECTORY` in an isolated
+Debian environment with pexpect and pyte. It uses real dialog widgets with
+fixture service responses at 60, 80 and 120 columns, covering disconnected and
+connected menus, browser approval, pending, expired, denied, unavailable and
+success states, and custom SMTP password masking. The portable capture uses a
+Linux terminal and ASCII borders. Inspect the captured screens as well as the
+functional assertions. The fixture sends no email and changes no services.
