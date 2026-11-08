@@ -4,12 +4,13 @@ import os
 import shutil
 import subprocess
 import textwrap
+from libinithooks import onboarding
 
 TITLE = "TurnKey Hub services"
 HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 TEXT = (
     "Link this appliance to your Hub account to manage app email, dynamic DNS,"
-    " backups and migration.\n\n"
+    " backups and migration, and security announcements.\n\n"
     "A free account includes app email and a tklapp.com hostname with dynamic DNS."
 )
 
@@ -64,27 +65,35 @@ def show(result):
 
 
 def connect():
+    onboarding.start_flow("confconsole")
+    onboarding.observe("link_started")
     result = invoke("connect", "--start")
     if not show(result):
+        onboarding.observe("error", error_code="link_start_failed")
         return
-    instructions = (
-        "On your phone or computer, open:\n\n%s\n\n"
-        "Enter this code:\n\n%s\n\n"
-        "Sign in or create a free account, then approve this appliance."
-    ) % (result["verification_uri"].split("?", 1)[0], result["user_code"])
+    pairing = result
+    pending = False
+    onboarding.observe("prompt_shown")
     while True:
-        if not confirm_connection(instructions):
+        answer = confirm_connection(onboarding.link_instructions(pairing, pending))
+        if answer != "ok":
+            if answer == "cancel":
+                onboarding.observe("skipped")
             return
+        onboarding.observe("approval_checked")
         result = invoke("connect", "--poll")
         if not show(result):
+            onboarding.observe("error", error_code="link_check_failed")
             return
         if result.get("connection_status") == "linked" or result.get("domain"):
+            onboarding.observe("link_completed")
             message("Hub linked", "Your appliance is linked to your Hub account.\n\nManage app email, dynamic DNS, backups and migration in the Hub.")
             return
         status = result.get("status")
         if status == "pending":
-            instructions = "Waiting for approval in your browser.\n\n" + instructions.split("Waiting for approval in your browser.\n\n")[-1]
+            pending = True
         else:
+            onboarding.observe("error", error_code=status if status in ("denied", "expired") else "link_check_failed")
             message("Connection %s" % status,
                            "This connection request %s. Choose Link to Hub to start again. Your existing settings were kept." % status)
             return
@@ -97,8 +106,8 @@ def confirm_connection(instructions):
                 for line in instructions.splitlines())
     return console._wrapper(
         "yesno", instructions, height=min(terminal.lines - 2, lines + 6), width=width,
-        title="Link to TurnKey Hub", yes_label="Check connection", no_label="Back",
-    ) == "ok"
+        title="Link to TurnKey Hub", yes_label="I've entered the code", no_label="Skip",
+    )
 
 
 def custom():

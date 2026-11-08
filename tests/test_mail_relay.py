@@ -18,6 +18,8 @@ class MailRelayTest(unittest.TestCase):
         self.console = Mock()
         self.console.width = 65
         self.addCleanup(patch.stopall)
+        self.observe = patch.object(wizard.onboarding, "observe").start()
+        patch.object(wizard.onboarding, "start_flow").start()
         patch.object(wizard, "console", self.console, create=True).start()
         patch.object(wizard.os.path, "isfile", return_value=True).start()
         patch.object(wizard.shutil, "get_terminal_size", return_value=os.terminal_size((60, 24))).start()
@@ -89,12 +91,28 @@ class MailRelayTest(unittest.TestCase):
         call = self.console._wrapper.call_args
         self.assertEqual(call.args[0], "yesno")
         self.assertIn("https://hub.turnkeylinux.org/link\n\nEnter this code:\n\nD34C-F5A9", call.args[1])
-        self.assertEqual(call.kwargs["yes_label"], "Check connection")
-        self.assertEqual(call.kwargs["no_label"], "Back")
+        self.assertEqual(call.kwargs["yes_label"], "I've entered the code")
+        self.assertEqual(call.kwargs["no_label"], "Skip")
         self.assertLessEqual(call.kwargs["width"], 56)
         self.assertLessEqual(call.kwargs["height"], 22)
         self.assertNotIn("mail settings", call.args[1])
         self.assertIn("backups and migration", wizard.TEXT)
+
+    def test_escape_is_not_reported_as_skip(self):
+        self.console._wrapper.return_value = "esc"
+        with patch.object(wizard, "invoke", return_value={
+                "verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}):
+            wizard.connect()
+        self.assertNotIn(unittest.mock.call("skipped"), self.observe.call_args_list)
+
+    def test_explicit_skip_and_manual_check_have_distinct_events(self):
+        self.console._wrapper.side_effect = ["ok", "cancel"]
+        with patch.object(wizard, "invoke", side_effect=[
+                {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
+                {"status": "pending"}]):
+            wizard.connect()
+        self.assertEqual([c.args[0] for c in self.observe.call_args_list],
+                         ["link_started", "prompt_shown", "approval_checked", "skipped"])
 
     def test_custom_form_masks_password_and_sends_it_only_through_stdin(self):
         self.console._wrapper.return_value = ("ok", ["smtp.example.net", "587", "user", "private-password"])

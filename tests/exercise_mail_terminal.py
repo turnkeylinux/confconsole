@@ -106,7 +106,7 @@ for cols in (60, 80, 120):
     for mode in ("ready", "pending", "expired", "denied", "error"):
         child, screen, stream = start(mode, cols)
         text = capture(child, screen, stream, f"{cols}-{mode}-approval")
-        assert "D34C-F5A9" in text and "Check connection" in text
+        assert "D34C-F5A9" in text and "I've entered the code" in text
         child.send("\r")
         text = capture(child, screen, stream, f"{cols}-{mode}-result")
         if mode == "pending":
