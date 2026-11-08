@@ -1,16 +1,16 @@
-"""Link Hub app email and DNS, or configure custom SMTP."""
+"""Link Hub services, manage app email, or configure custom SMTP."""
 import json
 import os
 import shutil
 import subprocess
 import textwrap
 
-TITLE = "Hub services and app email"
-HELPER = "/usr/lib/inithooks/bin/turnkey-mail"
+TITLE = "TurnKey Hub services"
+HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 TEXT = (
-    "Link your appliance to TurnKey Hub for app email and dynamic DNS. A free account includes"
-    " a tklapp.com hostname.\n\n"
-    "Paid accounts can use a custom sending domain."
+    "Link this appliance to your Hub account to manage app email, dynamic DNS,"
+    " backups and migration.\n\n"
+    "A free account includes app email and a tklapp.com hostname with dynamic DNS."
 )
 
 
@@ -28,7 +28,7 @@ def invoke(*arguments, payload=None):
             raise ValueError()
         return response
     except (OSError, ValueError, subprocess.TimeoutExpired):
-        return {"status": "error", "message": "Mail setup could not finish. Check that inithooks is up to date, then try again."}
+        return {"status": "error", "message": "Hub services setup could not finish. Check that inithooks is up to date, then try again."}
 
 
 def message(title, text):
@@ -58,7 +58,7 @@ def choose(title, text, choices):
 
 def show(result):
     if result.get("status") == "error":
-        message(TITLE, result.get("message", "Mail setup could not finish. Try again."))
+        message(TITLE, result.get("message", "Hub services setup could not finish. Try again."))
         return False
     return True
 
@@ -68,32 +68,37 @@ def connect():
     if not show(result):
         return
     instructions = (
-        "Open this address on your phone or computer:\n\n%s\n\n"
-        "Link code: %s\n\nSign in or create a free Hub account and approve"
-        " this appliance using the code. Then check the connection here."
+        "On your phone or computer, open:\n\n%s\n\n"
+        "Enter this code:\n\n%s\n\n"
+        "Sign in or create a free account, then approve this appliance."
     ) % (result["verification_uri"].split("?", 1)[0], result["user_code"])
     while True:
-        code, choice = choose(
-            "Link to TurnKey Hub", instructions,
-            [("Check", "Check browser approval"), ("Back", "Keep current mail settings")],
-        )
-        if code != "ok" or choice != "Check":
+        if not confirm_connection(instructions):
             return
         result = invoke("connect", "--poll")
         if not show(result):
             return
         if result.get("connection_status") == "linked" or result.get("domain"):
-            connected_text = ("Your appliance is linked. App email and dynamic DNS are configured." if result.get("status") == "ready" else
-                       "Your connection is saved. Messages will queue while the sending domain is verified.")
-            message("Hub linked", "%s\n\nSending domain: %s\n\nUse Send test email to check delivery." % (connected_text, result.get("domain") or result.get("services", {}).get("dns", {}).get("hostname", "Check services in the Hub")))
+            message("Hub linked", "Your appliance is linked to your Hub account.\n\nManage app email, dynamic DNS, backups and migration in the Hub.")
             return
         status = result.get("status")
         if status == "pending":
             instructions = "Waiting for approval in your browser.\n\n" + instructions.split("Waiting for approval in your browser.\n\n")[-1]
         else:
             message("Connection %s" % status,
-                           "This connection request %s. Choose Link to Hub to start again. Your existing mail settings were kept." % status)
+                           "This connection request %s. Choose Link to Hub to start again. Your existing settings were kept." % status)
             return
+
+
+def confirm_connection(instructions):
+    terminal = shutil.get_terminal_size((80, 24))
+    width = min(console.width, max(40, terminal.columns - 4))
+    lines = sum(max(1, len(textwrap.wrap(line, max(20, width - 6))))
+                for line in instructions.splitlines())
+    return console._wrapper(
+        "yesno", instructions, height=min(terminal.lines - 2, lines + 6), width=width,
+        title="Link to TurnKey Hub", yes_label="Check connection", no_label="Back",
+    ) == "ok"
 
 
 def custom():
@@ -149,7 +154,7 @@ def status(result=None):
 
 def run():
     if not os.path.isfile(HELPER):
-        message(TITLE, "Update the inithooks package to connect app email. Your existing mail settings are unchanged.")
+        message(TITLE, "Update the inithooks package to link Hub services. Your existing settings are unchanged.")
         return
     width, height = console.width, console.height
     console.height = 0

@@ -3,7 +3,7 @@
 set -eu
 set +x
 case "${1:-}" in
-    deconfigure) exec /usr/lib/inithooks/bin/turnkey-mail reset ;;
-    --stdin) exec /usr/lib/inithooks/bin/turnkey-mail configure --stdin ;;
-    *) echo 'Use turnkey-mail configure --stdin; credentials must not be passed as command arguments.' >&2; exit 2 ;;
+    deconfigure) exec /usr/lib/inithooks/bin/turnkey-hub reset ;;
+    --stdin) exec /usr/lib/inithooks/bin/turnkey-hub configure --stdin ;;
+    *) echo 'Use turnkey-hub configure --stdin; credentials must not be passed as command arguments.' >&2; exit 2 ;;
 esac

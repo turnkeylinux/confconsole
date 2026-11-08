@@ -50,9 +50,11 @@ The helper owns Postfix and credential writes; the console supplies JSON through
 stdin, without passwords in command arguments.
 
 Run `python3 tests/exercise_mail_terminal.py EVIDENCE_DIRECTORY` in an isolated
-Debian environment with pexpect and pyte. It uses real dialog widgets with
+Debian environment with pexpect, pyte, Pillow and DejaVu Sans Mono. It uses real dialog widgets with
 fixture service responses at 60, 80 and 120 columns, covering disconnected and
 connected menus, browser approval, pending, expired, denied, unavailable and
 success states, and custom SMTP password masking. The portable capture uses a
 Linux terminal and ASCII borders. Inspect the captured screens as well as the
 functional assertions. The fixture sends no email and changes no services.
+The ready approval screen is also captured as a PNG from the terminal cell
+buffer, preserving the dialog's colors for visual review.

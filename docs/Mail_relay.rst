@@ -7,9 +7,10 @@ Link to TurnKey Hub
 Choose **Advanced**, **Mail relaying**, then **Mail relay** and
 **Link to TurnKey Hub**. Open
 https://hub.turnkeylinux.org/link on your phone or computer, sign in or
-create a free account, and enter the displayed code, such as ``ABCD&1234``.
-Then select **Check** in Confconsole.
+create a free account, and enter the displayed code, such as ``D34C-F5A9``.
+Then select **Check connection** in Confconsole.
 
+Manage email, DNS, backup and migration services in the Hub after linking.
 A free account includes app email delivery, a tklapp.com hostname and
 dynamic DNS. Paid accounts can use a custom sending domain. Hub-launched
 appliances link automatically.

@@ -55,31 +55,46 @@ class MailRelayTest(unittest.TestCase):
         invoke.assert_called_once_with("status", "--local")
 
     def test_pairing_pending_then_success_keeps_action_obvious(self):
-        self.console.menu.side_effect = [("ok", "Check"), ("ok", "Check")]
+        self.console._wrapper.return_value = "ok"
         with patch.object(wizard, "invoke", side_effect=[
-            {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "ABCD&1234"},
+            {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
             {"status": "pending"}, {"status": "ready", "domain": "sample.tklapp.com"},
         ]):
             wizard.connect()
-        self.assertIn("Waiting for approval", self.console.menu.call_args.args[1])
-        self.assertIn("sample.tklapp.com", self.console.msgbox.call_args.args[1])
+        self.assertIn("Waiting for approval", self.console._wrapper.call_args.args[1])
+        self.assertIn("backups and migration", self.console.msgbox.call_args.args[1])
 
     def test_pairing_expired_denied_and_error_have_recovery(self):
         for status in ("expired", "denied", "error"):
             with self.subTest(status=status):
-                self.console.menu.return_value = ("ok", "Check")
+                self.console._wrapper.return_value = "ok"
                 with patch.object(wizard, "invoke", side_effect=[
-                    {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "ABCD&1234"},
+                    {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
                     {"status": status, "message": "Try again from the Hub."},
                 ]):
                     wizard.connect()
                 self.assertTrue(self.console.msgbox.called)
 
     def test_pairing_cancel_never_polls_or_reconfigures(self):
-        self.console.menu.return_value = ("ok", "Back")
-        with patch.object(wizard, "invoke", return_value={"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "ABCD&1234"}) as invoke:
+        self.console._wrapper.return_value = "cancel"
+        with patch.object(wizard, "invoke", return_value={"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}) as invoke:
             wizard.connect()
         invoke.assert_called_once_with("connect", "--start")
+
+    def test_link_prompt_uses_browser_code_with_two_clear_actions(self):
+        self.console._wrapper.return_value = "cancel"
+        with patch.object(wizard, "invoke", return_value={
+                "verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}):
+            wizard.connect()
+        call = self.console._wrapper.call_args
+        self.assertEqual(call.args[0], "yesno")
+        self.assertIn("https://hub.turnkeylinux.org/link\n\nEnter this code:\n\nD34C-F5A9", call.args[1])
+        self.assertEqual(call.kwargs["yes_label"], "Check connection")
+        self.assertEqual(call.kwargs["no_label"], "Back")
+        self.assertLessEqual(call.kwargs["width"], 56)
+        self.assertLessEqual(call.kwargs["height"], 22)
+        self.assertNotIn("mail settings", call.args[1])
+        self.assertIn("backups and migration", wizard.TEXT)
 
     def test_custom_form_masks_password_and_sends_it_only_through_stdin(self):
         self.console._wrapper.return_value = ("ok", ["smtp.example.net", "587", "user", "private-password"])
@@ -90,6 +105,7 @@ class MailRelayTest(unittest.TestCase):
         self.assertEqual(fields[-1][-1], 1)
         self.assertLessEqual(fields[-1][-3], 37)
         self.assertNotIn("private-password", repr(run.call_args.args[0]))
+        self.assertEqual(run.call_args.args[0][0], "/usr/lib/inithooks/bin/turnkey-hub")
         self.assertEqual(json.loads(run.call_args.kwargs["input"])["password"], "private-password")
         self.assertNotIn("private-password", repr(self.console.msgbox.call_args_list))
 

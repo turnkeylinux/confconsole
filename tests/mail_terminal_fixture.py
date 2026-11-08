@@ -11,7 +11,7 @@ spec = importlib.util.spec_from_file_location("mail_relay", ROOT / "plugins.d/Ma
 wizard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wizard)
 wizard.HELPER = __file__
-wizard.console = confconsole.Console("TurnKey app email QA", width=min(65, __import__("shutil").get_terminal_size().columns - 4), height=0)
+wizard.console = confconsole.Console("TurnKey GNU/Linux Configuration Console", width=min(65, __import__("shutil").get_terminal_size().columns - 4), height=0)
 wizard.console.console.add_persistent_args(["--ascii-lines"])
 mode = sys.argv[1]
 polls = 0
@@ -26,7 +26,7 @@ def invoke(*args, payload=None):
             return {"status": "disconnected"}
         return {"status": "revoked" if mode == "revoked" else "ready", "domain": "sample.tklapp.com", "host": "smtp.example"}
     if args[:2] == ("connect", "--start"):
-        return {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "ABCD&1234"}
+        return {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}
     if args[:2] == ("connect", "--poll"):
         polls += 1
         if mode in ("denied", "expired"):

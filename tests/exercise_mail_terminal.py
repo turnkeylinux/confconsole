@@ -6,6 +6,7 @@ import time
 
 import pexpect
 import pyte
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "mail-terminal-evidence")
@@ -29,6 +30,30 @@ def capture(child, screen, stream, name):
             pass
     result = "\n".join(screen.display)
     (OUT / (name + ".txt")).write_text(result + "\n")
+    if name.endswith("ready-approval"):
+        # Render the actual terminal cell buffer, including dialog colors.
+        colors = {"black": "#000000", "red": "#aa0000", "green": "#00aa00",
+                  "brown": "#aa5500", "blue": "#0000aa", "magenta": "#aa00aa",
+                  "cyan": "#00aaaa", "white": "#aaaaaa"}
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16)
+        cell_width, cell_height = 10, 20
+        bitmap = Image.new("RGB", (screen.columns * cell_width, screen.lines * cell_height))
+        draw = ImageDraw.Draw(bitmap)
+        for y in range(screen.lines):
+            for x in range(screen.columns):
+                cell = screen.buffer[y][x]
+                foreground = colors.get(cell.fg, "#ffffff" if cell.fg == "default" else "#" + cell.fg)
+                if cell.bold and cell.fg in colors:
+                    foreground = {"black": "#555555", "red": "#ff5555", "green": "#55ff55",
+                                  "brown": "#ffff55", "blue": "#5555ff", "magenta": "#ff55ff",
+                                  "cyan": "#55ffff", "white": "#ffffff"}[cell.fg]
+                background = colors.get(cell.bg, "#000000" if cell.bg == "default" else "#" + cell.bg)
+                if cell.reverse:
+                    foreground, background = background, foreground
+                left, top = x * cell_width, y * cell_height
+                draw.rectangle((left, top, left + cell_width, top + cell_height), fill=background)
+                draw.text((left, top), cell.data, font=font, fill=foreground)
+        bitmap.save(OUT / (name + ".png"))
     assert "Terminal too small" not in result, result
     return result
 
@@ -53,7 +78,7 @@ for cols in (60, 80, 120):
     assert "Reconnect to Hub" in text
     child.send("\x1b[B" * 3 + "\r")
     text = capture(child, screen, stream, f"{cols}-reconnect-linked-code")
-    assert "ABCD&1234" in text
+    assert "D34C-F5A9" in text
     child.send("\r")
     text = capture(child, screen, stream, f"{cols}-reconnect-linked-result")
     assert "Hub linked" in text
@@ -81,7 +106,7 @@ for cols in (60, 80, 120):
     for mode in ("ready", "pending", "expired", "denied", "error"):
         child, screen, stream = start(mode, cols)
         text = capture(child, screen, stream, f"{cols}-{mode}-approval")
-        assert "ABCD&1234" in text and "Check browser approval" in text
+        assert "D34C-F5A9" in text and "Check connection" in text
         child.send("\r")
         text = capture(child, screen, stream, f"{cols}-{mode}-result")
         if mode == "pending":
@@ -89,7 +114,7 @@ for cols in (60, 80, 120):
             child.send("\r")
             text = capture(child, screen, stream, f"{cols}-{mode}-connected")
         if mode in ("ready", "pending"):
-            assert "sample.tklapp.com" in text and "Hub linked" in text
+            assert "Hub linked" in text and "migration" in text
         elif mode == "error":
             assert "temporarily unavailable" in text
         else:
@@ -97,7 +122,7 @@ for cols in (60, 80, 120):
         finish(child)
     child, screen, stream = start("cancel", cols)
     text = capture(child, screen, stream, f"{cols}-cancel-approval")
-    child.send("\x1b[B\r")
+    child.send("\t\r")
     child.expect("FINISHED")
     child.expect(pexpect.EOF)
     child.close()
@@ -110,7 +135,7 @@ for cols in (60, 80, 120):
     capture(child, screen, stream, f"{cols}-reconnect-menu")
     child.send("\r")
     text = capture(child, screen, stream, f"{cols}-reconnect-approval")
-    assert "ABCD&1234" in text
+    assert "D34C-F5A9" in text
     child.send("\r")
     text = capture(child, screen, stream, f"{cols}-reconnect-result")
     assert "Hub linked" in text
