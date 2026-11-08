@@ -13,8 +13,9 @@ Architecture: all
 Depends:
  ${misc:Depends},
  ${python3:Depends},
- inithooks (>= 2.3.6+11),
+ inithooks (>= 2.3.6+23),
  python3-dialog (>= 3.5.3~),
+ python3-systemd,
  turnkey-netinfo,
  turnkey-conffile,
  libsasl2-modules,
