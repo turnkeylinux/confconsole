@@ -22,7 +22,7 @@ def start(mode, cols):
 
 
 def capture(child, screen, stream, name):
-    end = time.monotonic() + 0.35
+    end = time.monotonic() + 0.8
     while time.monotonic() < end:
         try:
             stream.feed(child.read_nonblocking(65536, timeout=0.05))
@@ -118,7 +118,7 @@ for cols in (60, 80, 120):
         elif mode == "error":
             assert "temporarily unavailable" in text
         else:
-            assert mode in text and "again." in text
+            assert mode in text and "reconnect." in text
         finish(child)
     child, screen, stream = start("cancel", cols)
     text = capture(child, screen, stream, f"{cols}-cancel-approval")

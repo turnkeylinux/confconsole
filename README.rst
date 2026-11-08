@@ -67,7 +67,7 @@ The Advanced menu provides the below functionality in all appliances
   - Enable/disable auto SSL cert update
   - Get SSL certificate from Let's Encrypt
 
-- `Mail relaying`_:
+- `Hub services`_:
 
   - configure and enable remote SMTP email relay
 
@@ -131,7 +131,7 @@ Developers may be interested in reading further about the `Plugin`_ system.
 .. _Plugin: ./docs/Plugins.rst
 .. _Networking: ./docs/Networking.rst
 .. _Let's Encrypt: ./docs/Lets_encrypt.rst
-.. _Mail relaying: ./docs/Mail_relay.rst
+.. _Hub services: ./docs/Mail_relay.rst
 .. _Proxy settings: ./docs/Proxy_settings.rst
 .. _Region config: ./docs/Region_config.rst
 .. _System settings: ./docs/System_settings.rst

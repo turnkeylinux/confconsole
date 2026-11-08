@@ -2,21 +2,21 @@
 import importlib.util
 from pathlib import Path
 import sys
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import confconsole
 
-spec = importlib.util.spec_from_file_location("mail_relay", ROOT / "plugins.d/Mail_Relaying/mail_relay.py")
+spec = importlib.util.spec_from_file_location("mail_relay", ROOT / "plugins.d/Hub_services/hub_services.py")
 wizard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wizard)
-import tempfile
-state = tempfile.TemporaryDirectory()
-wizard.onboarding.STATE_DIR = Path(state.name)
 wizard.HELPER = __file__
+wizard.CONNECT = str(ROOT / 'tests/shared_connect_fixture.py')
 wizard.console = confconsole.Console("TurnKey GNU/Linux Configuration Console", width=min(65, __import__("shutil").get_terminal_size().columns - 4), height=0)
 wizard.console.console.add_persistent_args(["--ascii-lines"])
 mode = sys.argv[1]
+os.environ['CONNECT_FIXTURE_MODE'] = mode
 polls = 0
 
 

@@ -4,14 +4,14 @@ import os
 import shutil
 import subprocess
 import textwrap
-from libinithooks import onboarding
 
 TITLE = "TurnKey Hub services"
 HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
+CONNECT = "/usr/lib/inithooks/bin/hubservices.py"
 TEXT = (
-    "Link this appliance to your Hub account to manage app email, dynamic DNS,"
+    "Link this appliance to your Hub account to manage app email delivery, dynamic DNS,"
     " backups and migration, and security announcements.\n\n"
-    "A free account includes app email and a tklapp.com hostname with dynamic DNS."
+    "A free account includes app email delivery and a tklapp.com hostname with dynamic DNS."
 )
 
 
@@ -65,49 +65,14 @@ def show(result):
 
 
 def connect():
-    onboarding.start_flow("confconsole")
-    onboarding.observe("link_started")
-    result = invoke("connect", "--start")
-    if not show(result):
-        onboarding.observe("error", error_code="link_start_failed")
-        return
-    pairing = result
-    pending = False
-    onboarding.observe("prompt_shown")
-    while True:
-        answer = confirm_connection(onboarding.link_instructions(pairing, pending))
-        if answer != "ok":
-            if answer == "cancel":
-                onboarding.observe("skipped")
-            return
-        onboarding.observe("approval_checked")
-        result = invoke("connect", "--poll")
-        if not show(result):
-            onboarding.observe("error", error_code="link_check_failed")
-            return
-        if result.get("connection_status") == "linked" or result.get("domain"):
-            onboarding.observe("link_completed")
-            message("Hub linked", "Your appliance is linked to your Hub account.\n\nManage app email, dynamic DNS, backups and migration in the Hub.")
-            return
-        status = result.get("status")
-        if status == "pending":
-            pending = True
-        else:
-            onboarding.observe("error", error_code=status if status in ("denied", "expired") else "link_check_failed")
-            message("Connection %s" % status,
-                           "This connection request %s. Choose Link to Hub to start again. Your existing settings were kept." % status)
-            return
-
-
-def confirm_connection(instructions):
-    terminal = shutil.get_terminal_size((80, 24))
-    width = min(console.width, max(40, terminal.columns - 4))
-    lines = sum(max(1, len(textwrap.wrap(line, max(20, width - 6))))
-                for line in instructions.splitlines())
-    return console._wrapper(
-        "yesno", instructions, height=min(terminal.lines - 2, lines + 6), width=width,
-        title="Link to TurnKey Hub", yes_label="I've entered the code", no_label="Skip",
-    )
+    # Confconsole already runs as root. Inherit the terminal for the shared UI
+    # and let its existing dialogs handle approval, Skip and cancellation.
+    try:
+        result = subprocess.run([CONNECT, "--relink"], stderr=subprocess.PIPE, text=True)
+    except OSError:
+        result = None
+    if result is None or result.returncode not in (0, 1, 130) or result.stderr:
+        message(TITLE, "The Hub connection could not finish. Check the network and the inithooks package, then try Link to Hub again.")
 
 
 def custom():

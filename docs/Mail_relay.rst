@@ -1,14 +1,15 @@
-Confconsole - App email
-======================
+Confconsole - Hub services
+==========================
 
 Link to TurnKey Hub
 ------------------
 
-Choose **Advanced**, **Mail relaying**, then **Mail relay** and
+Choose **Advanced**, **Hub services**, then **Hub services** and
 **Link to TurnKey Hub**. Open
 https://hub.turnkeylinux.org/link on your phone or computer, sign in or
 create a free account, and enter the displayed code, such as ``D34C-F5A9``.
-Then select **Check connection** in Confconsole.
+The appliance continues when approval arrives. If notifications are unavailable,
+select **I've entered the code** to check manually.
 
 Manage email, DNS, backup and migration services in the Hub after linking.
 A free account includes app email delivery, a tklapp.com hostname and

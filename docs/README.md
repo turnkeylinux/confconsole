@@ -68,7 +68,7 @@ additional options, but the options available in all appliances are:
       - Enable/disable auto SSL cert update
       - Get SSL certificate from Let's Encrypt (via HTTP-01 or DNS-01)
 
-    - Mail relaying (see docs/Mail_relay.rst):
+    - Hub services (see docs/Mail_relay.rst):
       - Configure and enable remote SMTP email relay
 
     - Proxy settings (see docs/Proxy_settings.rst):

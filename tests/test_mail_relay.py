@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("mail_relay", ROOT / "plugins.d/Mail_Relaying/mail_relay.py")
+spec = importlib.util.spec_from_file_location("mail_relay", ROOT / "plugins.d/Hub_services/hub_services.py")
 wizard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wizard)
 
@@ -18,8 +18,6 @@ class MailRelayTest(unittest.TestCase):
         self.console = Mock()
         self.console.width = 65
         self.addCleanup(patch.stopall)
-        self.observe = patch.object(wizard.onboarding, "observe").start()
-        patch.object(wizard.onboarding, "start_flow").start()
         patch.object(wizard, "console", self.console, create=True).start()
         patch.object(wizard.os.path, "isfile", return_value=True).start()
         patch.object(wizard.shutil, "get_terminal_size", return_value=os.terminal_size((60, 24))).start()
@@ -56,63 +54,37 @@ class MailRelayTest(unittest.TestCase):
             wizard.run()
         invoke.assert_called_once_with("status", "--local")
 
-    def test_pairing_pending_then_success_keeps_action_obvious(self):
-        self.console._wrapper.return_value = "ok"
-        with patch.object(wizard, "invoke", side_effect=[
-            {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
-            {"status": "pending"}, {"status": "ready", "domain": "sample.tklapp.com"},
-        ]):
+    def test_connect_uses_shared_live_terminal_ui_without_duplicate_pairing(self):
+        with patch.object(wizard.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run, \
+                patch.object(wizard, "invoke") as invoke:
             wizard.connect()
-        self.assertIn("Waiting for approval", self.console._wrapper.call_args.args[1])
-        self.assertIn("backups and migration", self.console.msgbox.call_args.args[1])
+        run.assert_called_once_with(["/usr/lib/inithooks/bin/hubservices.py", "--relink"],
+                                    stderr=subprocess.PIPE, text=True)
+        invoke.assert_not_called()
+        self.console.msgbox.assert_not_called()
 
-    def test_pairing_expired_denied_and_error_have_recovery(self):
-        for status in ("expired", "denied", "error"):
-            with self.subTest(status=status):
-                self.console._wrapper.return_value = "ok"
-                with patch.object(wizard, "invoke", side_effect=[
-                    {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
-                    {"status": status, "message": "Try again from the Hub."},
-                ]):
-                    wizard.connect()
-                self.assertTrue(self.console.msgbox.called)
-
-    def test_pairing_cancel_never_polls_or_reconfigures(self):
-        self.console._wrapper.return_value = "cancel"
-        with patch.object(wizard, "invoke", return_value={"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}) as invoke:
+    def test_shared_ui_cancel_returns_to_parent_without_an_error(self):
+        with patch.object(wizard.subprocess, "run", return_value=subprocess.CompletedProcess([], 130)):
             wizard.connect()
-        invoke.assert_called_once_with("connect", "--start")
+        self.console.msgbox.assert_not_called()
 
-    def test_link_prompt_uses_browser_code_with_two_clear_actions(self):
-        self.console._wrapper.return_value = "cancel"
-        with patch.object(wizard, "invoke", return_value={
-                "verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}):
+    def test_shared_ui_reported_error_is_not_displayed_twice(self):
+        with patch.object(wizard.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stderr="")):
             wizard.connect()
-        call = self.console._wrapper.call_args
-        self.assertEqual(call.args[0], "yesno")
-        self.assertIn("https://hub.turnkeylinux.org/link\n\nEnter this code:\n\nD34C-F5A9", call.args[1])
-        self.assertEqual(call.kwargs["yes_label"], "I've entered the code")
-        self.assertEqual(call.kwargs["no_label"], "Skip")
-        self.assertLessEqual(call.kwargs["width"], 56)
-        self.assertLessEqual(call.kwargs["height"], 22)
-        self.assertNotIn("mail settings", call.args[1])
-        self.assertIn("backups and migration", wizard.TEXT)
+        self.console.msgbox.assert_not_called()
 
-    def test_escape_is_not_reported_as_skip(self):
-        self.console._wrapper.return_value = "esc"
-        with patch.object(wizard, "invoke", return_value={
-                "verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"}):
-            wizard.connect()
-        self.assertNotIn(unittest.mock.call("skipped"), self.observe.call_args_list)
-
-    def test_explicit_skip_and_manual_check_have_distinct_events(self):
-        self.console._wrapper.side_effect = ["ok", "cancel"]
-        with patch.object(wizard, "invoke", side_effect=[
-                {"verification_uri": "https://hub.turnkeylinux.org/link", "user_code": "D34C-F5A9"},
-                {"status": "pending"}]):
-            wizard.connect()
-        self.assertEqual([c.args[0] for c in self.observe.call_args_list],
-                         ["link_started", "prompt_shown", "approval_checked", "skipped"])
+    def test_shared_ui_failure_is_actionable_and_does_not_echo_raw_stderr(self):
+        for outcome in (OSError("missing"), subprocess.CompletedProcess([], 1, stderr="Traceback private-token")):
+            with patch.object(wizard.subprocess, "run") as run:
+                if isinstance(outcome, OSError):
+                    run.side_effect = outcome
+                else:
+                    run.return_value = outcome
+                wizard.connect()
+            message = self.console.msgbox.call_args.args[1]
+            self.assertIn("try Link to Hub again", message)
+            self.assertNotIn("Traceback", message)
+            self.assertNotIn("private-token", message)
 
     def test_custom_form_masks_password_and_sends_it_only_through_stdin(self):
         self.console._wrapper.return_value = ("ok", ["smtp.example.net", "587", "user", "private-password"])
