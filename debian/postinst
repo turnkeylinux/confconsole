@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+# Existing installations retain the generated renewal schedule on upgrades.
+if [ "$1" = configure ] && [ -f /etc/cron.daily/confconsole-dehydrated ]; then
+    chmod +x /etc/cron.daily/confconsole-dehydrated
+fi
+
+#DEBHELPER#
