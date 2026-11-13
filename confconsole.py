@@ -57,12 +57,12 @@ def hub_link_status() -> str:
         )
         state = json.loads(result.stdout).get("connection_status")
         if state == "linked":
-            return "Hub: Linked"
+            return "hub.turnkeylinux.org: CONNECTED"
         if state == "disconnected":
-            return "Hub: Not linked"
+            return "hub.turnkeylinux.org: NOT CONNECTED"
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
         pass
-    return "Hub: Status unavailable"
+    return "hub.turnkeylinux.org: STATUS UNAVAILABLE"
 
 
 class ConfconsoleError(Exception):
@@ -589,7 +589,6 @@ class TurnkeyConsole:
 
         log.info(log_msg)
         text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
-        text += "\n\nhttps://hub.turnkeylinux.org"
 
         retcode = self.console.msgbox(
             f"{hostname} app services",
