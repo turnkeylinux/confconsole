@@ -29,6 +29,7 @@ AUTHBIND80=/etc/authbind/byport/80
 [[ -f "$AUTHBIND80" ]] || touch "$AUTHBIND80"
 AUTHBIND_USR=$(stat --format '%U' $AUTHBIND80)
 EXIT_CODE=0
+HTTP_STARTED=0
 
 # space separated list of systemd services to restart
 SERVICES_TO_RESTART="webmin.service"
@@ -48,9 +49,9 @@ export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
 export TKL_COMBINED="/etc/ssl/private/cert.pem"
 export TKL_DHPARAM="/etc/ssl/private/dhparams.pem"
-cp $TKL_CERTFILE $TKL_CERTFILE.bak
-cp $TKL_KEYFILE $TKL_KEYFILE.bak
-cp $TKL_COMBINED $TKL_COMBINED.bak
+cp -p "$TKL_CERTFILE" "$TKL_CERTFILE.bak"
+cp -p "$TKL_KEYFILE" "$TKL_KEYFILE.bak"
+cp -p "$TKL_COMBINED" "$TKL_COMBINED.bak"
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
 export HTTP="add-water-client"
@@ -175,13 +176,10 @@ restart_servers() {
 clean_exit() {
     # ideally do not use 'fatal' in this function
     EXIT_CODE=$1
-    if [[ "$PORT" == "80" ]]; then
-        check_port_80=$(check_port 80)
-        if [[ "$check_port_80" == 'python' ]] || [[ "$check_port_80" == 'python3' ]]; then
-            warning "Python is still listening on port $PORT"
-            info "attempting to kill add-water server"
-            systemctl stop add-water
-        fi
+    if [[ "$HTTP_STARTED" -eq 1 ]]; then
+        # Stop our helper even while its listener is still starting.
+        info "stopping add-water server"
+        systemctl stop add-water || EXIT_CODE=1
     fi
     [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
     if [[ $EXIT_CODE -ne 0 ]]; then
@@ -210,7 +208,6 @@ clean_exit() {
     else
         info "$APP completed successfully."
     fi
-    systemctl stop add-water
     # don't quote exit code as it may be empty (exit 0)
     # shellcheck disable=SC2086
     exit $EXIT_CODE
@@ -334,7 +331,10 @@ else
     info "No process found listening on port $PORT; continuing"
 fi
 
-[[ "$CHALLENGETYPE" != "dns-01" ]] && systemctl start add-water
+if [[ "$CHALLENGETYPE" != "dns-01" ]]; then
+    HTTP_STARTED=1
+    systemctl start add-water
+fi
 info "running dehydrated"
 if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
     dehydrated --cron $force --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
