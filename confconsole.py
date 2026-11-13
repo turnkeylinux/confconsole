@@ -10,6 +10,7 @@ Options:
 
 """
 
+import json
 import logging
 import os
 import sys
@@ -45,6 +46,23 @@ handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger().addHandler(handler)
 log = logging.getLogger(__name__)
+
+
+def hub_link_status() -> str:
+    """Read the locally stored Hub link state without contacting the Hub."""
+    try:
+        result = subprocess.run(
+            ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--local", "--json"],
+            capture_output=True, text=True, timeout=5, check=True,
+        )
+        state = json.loads(result.stdout).get("connection_status")
+        if state == "linked":
+            return "Hub: Linked"
+        if state == "disconnected":
+            return "Hub: Not linked"
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        pass
+    return "Hub: Status unavailable"
 
 
 class ConfconsoleError(Exception):
@@ -570,16 +588,11 @@ class TurnkeyConsole:
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
         log.info(log_msg)
-        gap = self.height - len(text.splitlines()) - 11
-        gap = gap if gap >= 1 else 1
-
-        text += f"\n\n{tklbam_status}"
-        text += "\n" * gap
-        text += "         TurnKey Backups and Cloud Deployment\n"
-        text += "             https://hub.turnkeylinux.org"
+        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
+        text += "\n\nhttps://hub.turnkeylinux.org"
 
         retcode = self.console.msgbox(
-            f"{hostname} appliance services",
+            f"{hostname} app services",
             text,
             button_label=default_button_label,
         )
