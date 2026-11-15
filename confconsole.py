@@ -1018,5 +1018,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        subprocess.run(["stty", "sane"])
-        traceback.print_exc()
+        subprocess.run(["stty", "sane"], check=False)
+        sys.exit(130)
