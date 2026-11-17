@@ -416,7 +416,7 @@ class TurnkeyConsole:
     ]:
         items = []
         if conf.Conf().networking:
-            items.append(("Networking", "Configure appliance networking"))
+            items.append(("Networking", "Configure networking"))
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
@@ -441,8 +441,8 @@ class TurnkeyConsole:
                     )
                 plugin_map[plug.module_name.capitalize()] = plug
 
-        items.append(("Reboot", "Reboot the appliance"))
-        items.append(("Shutdown", "Shutdown the appliance"))
+        items.append(("Reboot", "Reboot this server"))
+        items.append(("Shutdown", "Shut down this server"))
         items.append(("Quit", "Quit the configuration console"))
 
         return items, plugin_map
@@ -908,10 +908,10 @@ class TurnkeyConsole:
         return "advanced"
 
     def _adv_reboot(self) -> str:
-        return self._shutdown("Reboot the appliance?", "-r")
+        return self._shutdown("Reboot this server?", "-r")
 
     def _adv_shutdown(self) -> str:
-        return self._shutdown("Shutdown the appliance?", "-h")
+        return self._shutdown("Shut down this server?", "-h")
 
     def _adv_quit(self) -> str:
         if not self.advanced_enabled:

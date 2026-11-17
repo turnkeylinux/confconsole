@@ -129,7 +129,7 @@ for cols in (60, 80, 120):
     assert child.exitstatus == 0
     child, screen, stream = start("revoked", cols)
     text = capture(child, screen, stream, f"{cols}-revoked-status")
-    assert "Connection revoked" in text and "authorize this appliance" in text
+    assert "Connection revoked" in text and "connect again" in text
     finish(child)
     child, screen, stream = start("reconnect", cols)
     capture(child, screen, stream, f"{cols}-reconnect-menu")

@@ -86,8 +86,8 @@ additional options, but the options available in all appliances are:
       - Update hostname
 
     - Installing the system to the hard disk (only when running live)
-    - Reboot the appliance
-    - Shut down the appliance
+    - Reboot this server
+    - Shut down this server
     - Quit (back to command line)
 
 Network config notes

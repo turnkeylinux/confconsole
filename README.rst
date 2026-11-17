@@ -88,8 +88,8 @@ The Advanced menu provides the below functionality in all appliances
   - update hostname
 
 - Install the system to the hard disk (only available when running live)
-- Reboot the appliance
-- Shut down the appliance
+- Reboot this server
+- Shut down this server
 - Quit (return to commandline)
 
 Installation

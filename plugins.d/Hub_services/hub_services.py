@@ -9,7 +9,7 @@ TITLE = "TurnKey Hub services"
 HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 CONNECT = "/usr/lib/inithooks/bin/hubservices.py"
 TEXT = (
-    "Link this appliance to your Hub account to manage app email delivery, dynamic DNS,"
+    "Connect to your Hub account to manage app email delivery, dynamic DNS,"
     " backups and migration, and security announcements.\n\n"
     "A free account includes app email delivery and a tklapp.com hostname with dynamic DNS."
 )
@@ -91,7 +91,7 @@ def status(result=None):
         if result.get("message"):
             text += "\n\n" + result["message"]
         if result.get("status") in ("revoked", "expired"):
-            text += "\n\nChoose Link to Hub to authorize this appliance again."
+            text += "\n\nChoose Link to Hub to connect again."
         text += "\n\nManage Hub connections at https://hub.turnkeylinux.org/email/"
         message("Hub connection status" if result.get("connection_status") == "linked" else "Email connection status", text)
 
@@ -128,7 +128,7 @@ def run():
                 result = invoke("use-hub")
                 if show(result):
                     if result.get("services", {}).get("mail", {}).get("enabled") is False:
-                        text = "Email is disabled in the Hub. Enable it in this appliance's Hub settings."
+                        text = "Email is disabled in the Hub. Enable it in Hub settings."
                     elif result.get("mode") == "hub" and result.get("status") == "ready":
                         text = "Hub email is configured. Use Send test email to check delivery."
                     else:
