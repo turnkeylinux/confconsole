@@ -116,7 +116,6 @@ def run():
         if current.get("status") not in ("disconnected", "error"):
             if current.get("host"):
                 choices.append(("Test", "Send test email"))
-            choices.append(("Reset mail", "Restore previous mail settings"))
         if linked:
             choices.append(("Reconnect", "Reconnect to Hub"))
         code, choice = choose(TITLE, TEXT, choices)
@@ -145,10 +144,5 @@ def run():
                 result = invoke("test", "--recipient", recipient)
                 if show(result):
                     message(TITLE, result["message"])
-        elif choice == "Reset mail":
-            if console.yesno("Restore the mail settings that were in place before this connection? Your Hub link, dynamic DNS and backup access will stay configured.", autosize=True) == "ok":
-                result = invoke("reset-mail")
-                if show(result):
-                    message(TITLE, "Previous mail settings restored. Your Hub link and dynamic DNS are unchanged. To revoke this appliance credential, open its settings in the Hub.")
     finally:
         console.width, console.height = width, height

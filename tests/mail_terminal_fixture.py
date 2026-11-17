@@ -46,13 +46,11 @@ def invoke(*args, payload=None):
         return {"status": "ready"}
     if args[0] == "test":
         return {"status": "queued", "message": "Test message accepted by the local mail queue. Check the recipient inbox for delivery."}
-    if args[0] == "reset-mail":
-        return {"status": "disconnected"}
     raise AssertionError(args)
 
 
 wizard.invoke = invoke
-if mode in ("disconnected", "connected", "reset", "manual", "reconnect-linked"):
+if mode in ("disconnected", "connected", "manual", "reconnect-linked"):
     wizard.run()
 elif mode in ("revoked", "backup-setup", "backup-migration"):
     wizard.status()

@@ -96,18 +96,8 @@ class MailRelayTest(unittest.TestCase):
         self.assertEqual(labels.count("Status"), 1)
         self.assertNotIn("Sync", labels)
         self.assertNotIn("Custom", labels)
+        self.assertNotIn("Reset mail", labels)
         self.assertIn("Test", labels)
-
-    def test_reset_mail_does_not_request_full_device_reset(self):
-        self.console.menu.return_value = ("ok", "Reset mail")
-        self.console.yesno.return_value = "ok"
-        with patch.object(wizard, "invoke", side_effect=[
-            {"status": "ready", "host": "smtp.example"}, {"status": "disconnected"},
-        ]) as invoke:
-            wizard.run()
-        self.assertEqual(invoke.call_args.args, ("reset-mail",))
-        self.assertIn("dynamic DNS", self.console.yesno.call_args.args[0])
-        self.assertIn("dynamic DNS are unchanged", self.console.msgbox.call_args.args[1])
 
     def test_helper_failure_does_not_echo_stderr(self):
         response = subprocess.CompletedProcess([], 1, stdout="not-json", stderr="private-password")

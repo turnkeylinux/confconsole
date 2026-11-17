@@ -140,13 +140,4 @@ for cols in (60, 80, 120):
     text = capture(child, screen, stream, f"{cols}-reconnect-result")
     assert "Hub linked" in text
     finish(child)
-    child, screen, stream = start("reset", cols)
-    capture(child, screen, stream, f"{cols}-reset-menu")
-    child.send("\x1b[B" * 4 + "\r")
-    text = capture(child, screen, stream, f"{cols}-reset-confirmation")
-    assert "Restore the mail settings" in text
-    child.send("\r")
-    text = capture(child, screen, stream, f"{cols}-reset-result")
-    assert "Previous mail settings restored" in text and "unchanged" in text
-    finish(child)
 print("App email terminal paths passed at 60/80/120 columns.")

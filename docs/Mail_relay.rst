@@ -26,9 +26,3 @@ Status and recovery
 **Refresh connection status** checks the Hub and applies updated service settings. If the link request expires or is
 denied, choose **Link to TurnKey Hub** to start again. Cancelling keeps the
 working mail settings.
-
-**Reset mail** restores the previous local mail settings while preserving the
-Hub link and dynamic DNS. Revoke an old
-appliance credential in the Hub when it is no longer needed. Resetting local
-mail settings does not delete a cloud server or revoke a source server's
-credentials when preparing a clone.
