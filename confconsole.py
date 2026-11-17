@@ -105,6 +105,14 @@ def format_fields(
 WrapperReturn = str | tuple[str, str]
 
 
+def dialog_config() -> str | None:
+    """Use the console palette unless the administrator supplied a dialog theme."""
+    if os.environ.get("DIALOGRC") or os.path.isfile(os.path.expanduser("~/.dialogrc")) or os.path.isfile("/etc/dialogrc"):
+        return None
+    path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "conf", "dialogrc")
+    return path if os.path.isfile(path) else None
+
+
 class Console:
     def __init__(
         self,
@@ -115,7 +123,7 @@ class Console:
         self.width = width
         self.height = height
 
-        self.console = dialog.Dialog(dialog="dialog")
+        self.console = dialog.Dialog(dialog="dialog", DIALOGRC=dialog_config())
         self.console.add_persistent_args(["--no-collapse"])
         self.console.add_persistent_args(["--ok-label", "Select"])
         self.console.add_persistent_args(["--cancel-label", "Back"])

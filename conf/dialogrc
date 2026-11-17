@@ -1,0 +1,2 @@
+# Darker unselected menu labels on dialog's default light background.
+tag_color = (BLUE,WHITE,OFF)
