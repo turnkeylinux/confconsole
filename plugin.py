@@ -160,10 +160,22 @@ class PluginDir:
 
     def doOnce(self): ...
 
+    def selectable(self) -> list["Plugin | PluginDir"]:
+        return [p for p in self.plugins if isinstance(p, PluginDir)
+                or (isinstance(p, Plugin) and hasattr(p.module, "run"))]
+
     def run(self) -> str | None:
+        selectable = self.selectable()
+        if not selectable:
+            self.module_globals["console"].msgbox(
+                self.module_name.capitalize(), "No options are available.")
+            return self.parent or "advanced"
+        if len(selectable) == 1:
+            return selectable[0].path
+
         items = []
         plugin_map: dict[str, Plugin | PluginDir] = {}
-        for plugin in self.plugins:
+        for plugin in selectable:
             if isinstance(plugin, Plugin) and hasattr(plugin.module, "run"):
                 items.append(
                     (
@@ -257,6 +269,17 @@ class PluginManager:
                 v = self.path_map[key]
                 assert isinstance(v, PluginDir)
                 v.plugins = list(sub_plugins)
+
+        # Back skips every collapsed ancestor and lands on a visible menu.
+        for item in self.path_map.values():
+            parent = item.parent
+            while parent in self.path_map:
+                directory = self.path_map[parent]
+                assert isinstance(directory, PluginDir)
+                if len(directory.selectable()) != 1:
+                    break
+                parent = directory.parent
+            item.parent = parent or "advanced"
 
     def updateGlobals(self, newglobals: dict[str, Any]) -> None:
         for plugin in self.path_map.values():

@@ -4,8 +4,7 @@ Confconsole - Hub services
 Link to TurnKey Hub
 ------------------
 
-Choose **Advanced**, **Hub services**, then **Hub services** and
-**Link to TurnKey Hub**. Open
+Choose **Advanced**, **Hub services**, then **Link to TurnKey Hub**. Open
 https://hub.turnkeylinux.org/link on your phone or computer, sign in or
 create a free account, and enter the displayed code, such as ``D34C-F5A9``.
 The appliance continues when approval arrives. If notifications are unavailable,
