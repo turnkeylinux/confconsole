@@ -58,8 +58,6 @@ elif mode in ("revoked", "backup-setup", "backup-migration"):
     wizard.status()
 elif mode == "reconnect":
     wizard.run()
-elif mode == "custom":
-    wizard.custom()
 else:
     wizard.connect()
 print("FINISHED")

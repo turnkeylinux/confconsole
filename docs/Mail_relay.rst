@@ -20,23 +20,15 @@ without separate app configuration. Choose **Test** to submit a test email,
 then check the recipient's inbox to confirm delivery. Incoming email remains
 with your existing mailbox provider.
 
-Custom SMTP
------------
-
-Choose **Custom** to use another SMTP provider. Enter its host, port,
-username and password. The connection requires authenticated SMTP with a
-verified TLS certificate. Port 587 uses STARTTLS; port 465 uses implicit TLS.
-Settings are applied only after the encrypted connection is verified.
-
 Status and recovery
 -------------------
 
-**Status** checks the current connection. If the link request expires or is
+**Refresh connection status** checks the Hub and applies updated service settings. If the link request expires or is
 denied, choose **Link to TurnKey Hub** to start again. Cancelling keeps the
 working mail settings.
 
 **Reset mail** restores the previous local mail settings while preserving the
-Hub link and dynamic DNS. Custom SMTP also leaves dynamic DNS configured. Revoke an old
+Hub link and dynamic DNS. Revoke an old
 appliance credential in the Hub when it is no longer needed. Resetting local
 mail settings does not delete a cloud server or revoke a source server's
 credentials when preparing a clone.

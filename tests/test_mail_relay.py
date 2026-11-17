@@ -38,13 +38,13 @@ class MailRelayTest(unittest.TestCase):
             wizard.run()
         connect.assert_called_once_with()
         self.assertIn("Reconnect", [item[0] for item in self.console.menu.call_args.args[2]])
-        self.assertEqual("Sync", self.console.menu.call_args.args[2][0][0])
+        self.assertEqual("Status", self.console.menu.call_args.args[2][0][0])
 
     def test_disconnected_menu_hides_irrelevant_test_and_disconnect(self):
         self.console.menu.return_value = ("cancel", "")
         with patch.object(wizard, "invoke", return_value={"status": "disconnected"}) as invoke:
             wizard.run()
-        self.assertEqual([item[0] for item in self.console.menu.call_args.args[2]], ["Hub", "Custom"])
+        self.assertEqual([item[0] for item in self.console.menu.call_args.args[2]], ["Hub"])
         invoke.assert_called_once_with("status", "--local")
         self.assertEqual(self.console.width, 65)
 
@@ -86,25 +86,17 @@ class MailRelayTest(unittest.TestCase):
             self.assertNotIn("Traceback", message)
             self.assertNotIn("private-token", message)
 
-    def test_custom_form_masks_password_and_sends_it_only_through_stdin(self):
-        self.console._wrapper.return_value = ("ok", ["smtp.example.net", "587", "user", "private-password"])
-        response = subprocess.CompletedProcess([], 0, stdout=json.dumps({"status": "ready"}), stderr="")
-        with patch.object(wizard.subprocess, "run", return_value=response) as run:
-            wizard.custom()
-        fields = self.console._wrapper.call_args.args[2]
-        self.assertEqual(fields[-1][-1], 1)
-        self.assertLessEqual(fields[-1][-3], 37)
-        self.assertNotIn("private-password", repr(run.call_args.args[0]))
-        self.assertEqual(run.call_args.args[0][0], "/usr/lib/inithooks/bin/turnkey-hub")
-        self.assertEqual(json.loads(run.call_args.kwargs["input"])["password"], "private-password")
-        self.assertNotIn("private-password", repr(self.console.msgbox.call_args_list))
-
-    def test_custom_cancel_and_invalid_input_never_apply(self):
-        self.console._wrapper.side_effect = [("ok", ["smtp.example", "invalid", "user", "secret"]), ("cancel", [])]
-        with patch.object(wizard, "invoke") as invoke:
-            wizard.custom()
-        invoke.assert_not_called()
-        self.assertIn("port", self.console.msgbox.call_args.args[1])
+    def test_linked_status_refreshes_once_without_duplicate_sync(self):
+        self.console.menu.return_value = ("ok", "Status")
+        local = {"status": "ready", "connection_status": "linked", "mode": "hub", "host": "smtp.example"}
+        with patch.object(wizard, "invoke", side_effect=[local, local]) as invoke:
+            wizard.run()
+        self.assertEqual(invoke.call_args_list[1].args, ("status",))
+        labels = [item[0] for item in self.console.menu.call_args.args[2]]
+        self.assertEqual(labels.count("Status"), 1)
+        self.assertNotIn("Sync", labels)
+        self.assertNotIn("Custom", labels)
+        self.assertIn("Test", labels)
 
     def test_reset_mail_does_not_request_full_device_reset(self):
         self.console.menu.return_value = ("ok", "Reset mail")

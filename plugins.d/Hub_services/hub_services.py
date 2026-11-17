@@ -1,4 +1,4 @@
-"""Link Hub services, manage app email, or configure custom SMTP."""
+"""Connect email, DNS, backups and migration through the Hub."""
 import json
 import os
 import shutil
@@ -75,36 +75,6 @@ def connect():
         message(TITLE, "The Hub connection could not finish. Check the network and the inithooks package, then try Link to Hub again.")
 
 
-def custom():
-    columns = shutil.get_terminal_size((80, 24)).columns
-    field_width = max(15, min(42, columns - 23))
-    values = ["", "587", "", ""]
-    while True:
-        fields = [(label, row, 0, value, row, 11, field_width, 255, 1 if label == "Password" else 0)
-                  for row, (label, value) in enumerate(zip(("SMTP host", "Port", "Username", "Password"), values), 1)]
-        code, entered = console._wrapper(
-            "mixedform", "Enter your SMTP provider's settings. An authenticated, encrypted connection is required.",
-            fields, height=0, width=0, form_height=4, title="Custom SMTP",
-            ok_label="Connect", cancel_label="Back", insecure=True,
-        )
-        if code != "ok":
-            return
-        host, port, username, password = entered
-        try:
-            port = int(port)
-            if not host or not username or not password or not 1 <= port <= 65535:
-                raise ValueError()
-        except ValueError:
-            values = [host, str(port), username, ""]
-            message("Check SMTP settings", "Enter the host, username, password and a port from 1 to 65535. Port 587 uses STARTTLS; port 465 uses implicit TLS.")
-            continue
-        console.infobox("Checking the encrypted SMTP connection and applying settings...")
-        result = invoke("configure", "--stdin", payload={"smtp": {"host": host, "port": port, "username": username}, "password": password})
-        if show(result):
-            message("SMTP connected", "Your appliance now uses this SMTP relay. Use Send test email to check delivery.")
-        return
-
-
 def status(result=None):
     if result is None:
         result = invoke("status")
@@ -136,21 +106,23 @@ def run():
     try:
         current = invoke("status", "--local")
         linked = current.get("connection_status") == "linked"
-        default = ("Sync", "Refresh Hub services") if linked and current.get("mode") == "hub" and current.get("mail_preference") != "manual" else ("Hub", "Use Hub email" if linked else "Link to TurnKey Hub")
-        choices = [default, ("Custom", "Use another SMTP provider")]
+        choices = []
+        if not linked:
+            choices.append(("Hub", "Link to TurnKey Hub"))
+        elif current.get("mode") != "hub" or current.get("mail_preference") == "manual":
+            choices.append(("Hub", "Use Hub email"))
+        if linked:
+            choices.append(("Status", "Refresh connection status"))
+        if current.get("status") not in ("disconnected", "error"):
+            if current.get("host"):
+                choices.append(("Test", "Send test email"))
+            choices.append(("Reset mail", "Restore previous mail settings"))
         if linked:
             choices.append(("Reconnect", "Reconnect to Hub"))
-        if current.get("status") not in ("disconnected", "error"):
-            choices[1:1] = [("Status", "Check connection status")]
-            if current.get("host"):
-                choices[2:2] = [("Test", "Send test email")]
-            choices.append(("Reset mail", "Restore previous mail settings"))
         code, choice = choose(TITLE, TEXT, choices)
         if code != "ok":
             return
-        if choice == "Sync":
-            status(invoke("sync"))
-        elif choice == "Reconnect":
+        if choice == "Reconnect":
             connect()
         elif choice == "Hub":
             if current.get("connection_status") == "linked":
@@ -165,8 +137,6 @@ def run():
                     message("Use Hub email", text)
             else:
                 connect()
-        elif choice == "Custom":
-            custom()
         elif choice == "Status":
             status()
         elif choice == "Test":

@@ -149,14 +149,4 @@ for cols in (60, 80, 120):
     text = capture(child, screen, stream, f"{cols}-reset-result")
     assert "Previous mail settings restored" in text and "unchanged" in text
     finish(child)
-    child, screen, stream = start("custom", cols)
-    text = capture(child, screen, stream, f"{cols}-custom-empty")
-    assert "Password" in text and "SMTP host" in text
-    child.send("smtp.example.net\x1b[B\x1b[Bfixture-user\x1b[Bfixture-private-password")
-    text = capture(child, screen, stream, f"{cols}-custom-masked")
-    assert "fixture-private-password" not in text
-    child.send("\t\r")
-    text = capture(child, screen, stream, f"{cols}-custom-connected")
-    assert "SMTP connected" in text
-    finish(child)
 print("App email terminal paths passed at 60/80/120 columns.")
