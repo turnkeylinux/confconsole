@@ -11,6 +11,16 @@ class BackupMenuTests(unittest.TestCase):
         self.ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
         self.ui.console = Mock()
 
+    def test_padding_row_is_not_an_action(self):
+        console = confconsole.Console.__new__(confconsole.Console)
+        console.width, console.height = 65, 22
+        console._wrapper = Mock(side_effect=[('ok', ''), ('ok', 'Backup')])
+        with patch('confconsole.get_terminal_size', return_value=confconsole.os.terminal_size((80, 24))):
+            code, choice = console.menu('Backups', 'Status', [('Backup', 'Create a backup')], compact=True, pad=True)
+        self.assertEqual((code, choice), ('ok', 'Backup'))
+        self.assertEqual(console._wrapper.call_count, 2)
+        self.assertEqual(console._wrapper.call_args.kwargs['default_item'], 'Backup')
+
     @patch('confconsole.conf.Conf')
     def test_advanced_menu_places_backup_after_networking(self, conf):
         conf.return_value.networking = True

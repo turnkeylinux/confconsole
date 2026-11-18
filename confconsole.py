@@ -349,23 +349,21 @@ class Console:
         menu_height = len(choices) + 1
         if compact:
             terminal = get_terminal_size((80, 24))
-            extra_row = 1 if pad else 0
-            if pad:
-                text += "\n "
-            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_row))
-            menu_height = min(len(choices) + extra_row, max(1, height - len(text.splitlines()) - 6))
-        v = self._wrapper(
-            "menu",
-            text,
-            height,
-            self.width,
-            menu_height=menu_height,
-            title=title,
-            choices=choices,
-            no_cancel=no_cancel,
-        )
-        assert isinstance(v, tuple)
-        return v
+            extra_rows = 2 if pad else 0
+            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_rows))
+            menu_height = min(len(choices) + extra_rows, max(1, height - len(text.splitlines()) - 6))
+        options = {"title": title, "choices": choices, "no_cancel": no_cancel}
+        if pad and choices and menu_height >= len(choices) + 2:
+            # dialog's menu widget has no nonselectable padding rows. Keep its
+            # initial focus on the first action and ignore the empty row if it
+            # is selected with the keyboard.
+            options["choices"] = [("", "")] + choices
+            options["default_item"] = choices[0][0]
+        while True:
+            v = self._wrapper("menu", text, height, self.width, menu_height=menu_height, **options)
+            assert isinstance(v, tuple)
+            if not (pad and v[0] == "ok" and not v[1]):
+                return v
 
     def form(
         self,
