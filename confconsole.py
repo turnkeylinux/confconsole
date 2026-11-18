@@ -685,23 +685,20 @@ class TurnkeyConsole:
         log.info(log_msg)
         text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
 
-        if backup_state == 11:
+        if backup_action:
             retcode = self.console.actionbox(
-                f"{hostname} app services", text, "Set up backups", default_button_label,
+                f"{hostname} app services", text, backup_action, default_button_label,
             )
             if retcode == self.OK:
-                return "backup_setup"
+                return "backup_setup" if backup_state == 11 else "backup_create"
             return default_return_value
 
         retcode = self.console.msgbox(
             f"{hostname} app services",
             text,
             button_label=default_button_label,
-            extra_label=backup_action,
         )
 
-        if retcode == "extra" and backup_action:
-            return "backup_setup" if backup_state == 11 else "backup_create"
         if retcode is not self.OK:
             self.running = False
 

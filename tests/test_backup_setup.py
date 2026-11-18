@@ -90,7 +90,7 @@ class BackupSetupTests(unittest.TestCase):
 
 
 class MainScreenTests(unittest.TestCase):
-    def run_screen(self, choice, advanced_enabled=True):
+    def run_screen(self, choice, advanced_enabled=True, backup_state=11):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
         ui.advanced_enabled = advanced_enabled
         ui.console = Mock()
@@ -100,7 +100,7 @@ class MainScreenTests(unittest.TestCase):
         ui._get_public_ipaddr = Mock(return_value='192.0.2.1')
         ui.appname = 'Test'
         commands = [subprocess.CompletedProcess([], 0, '/usr/bin/tklbam-status\n', ''),
-                    subprocess.CompletedProcess([], 11, 'TKLBAM: NOT INITIALIZED\n', '')]
+                    subprocess.CompletedProcess([], backup_state, 'TKLBAM status\n', '')]
         with patch('confconsole.subprocess.run', side_effect=commands), \
              patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED'), \
              patch.object(confconsole.ifutil, 'get_ipv6conf', return_value=(None, None)), \
@@ -115,8 +115,16 @@ class MainScreenTests(unittest.TestCase):
         self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Advanced Menu'))
 
     def test_secondary_action_opens_advanced_menu(self):
-        _, result = self.run_screen('cancel')
-        self.assertEqual(result, 'advanced')
+        for backup_state in (10, 11):
+            with self.subTest(backup_state=backup_state):
+                _, result = self.run_screen('cancel', backup_state=backup_state)
+                self.assertEqual(result, 'advanced')
+
+    def test_first_backup_action_is_first(self):
+        ui, result = self.run_screen('ok', backup_state=10)
+        self.assertEqual(result, 'backup_create')
+        self.assertIn('Backups: Ready for first backup', ui.console.actionbox.call_args.args[1])
+        self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Create backup', 'Advanced Menu'))
 
     def test_usage_only_secondary_action_quits(self):
         ui, result = self.run_screen('cancel', advanced_enabled=False)
