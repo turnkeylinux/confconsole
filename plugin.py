@@ -166,6 +166,8 @@ class PluginDir:
 
     def run(self) -> str | None:
         selectable = self.selectable()
+        selectable.sort(key=lambda p: getattr(p.module, "menu_order", 0)
+                        if isinstance(p, Plugin) else 0)
         if not selectable:
             self.module_globals["console"].msgbox(
                 self.module_name.capitalize(), "No options are available.")
@@ -177,13 +179,9 @@ class PluginDir:
         plugin_map: dict[str, Plugin | PluginDir] = {}
         for plugin in selectable:
             if isinstance(plugin, Plugin) and hasattr(plugin.module, "run"):
-                items.append(
-                    (
-                        plugin.module_name.capitalize(),
-                        str(plugin.module.__doc__),
-                    )
-                )
-                plugin_map[plugin.module_name.capitalize()] = plugin
+                label = getattr(plugin.module, "menu_label", plugin.module_name.capitalize())
+                items.append((label, str(plugin.module.__doc__)))
+                plugin_map[label] = plugin
             elif isinstance(plugin, PluginDir):
                 items.append(
                     (plugin.module_name.capitalize(), plugin.description)

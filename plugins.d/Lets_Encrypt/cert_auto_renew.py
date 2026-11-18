@@ -1,4 +1,7 @@
-"""Enable/Disable cert auto-renew"""
+"""Toggle automatic renewal"""
+
+menu_label = "Autorenew"
+menu_order = -1
 
 from os import chmod, stat, path
 

@@ -1,4 +1,6 @@
-"""Get Let's Encrypt SSl cert"""
+"""Get Let's Encrypt SSL cert"""
+
+menu_order = -2
 
 import requests
 import subprocess

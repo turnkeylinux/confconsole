@@ -437,15 +437,30 @@ class Console:
             extra_rows = 2 if pad else 0
             height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_rows))
             menu_height = min(len(choices) + extra_rows, max(1, height - len(text.splitlines()) - 6))
-        if preserve_tags and choices:
-            # Leave room for dialog borders and the gap between columns.
+        backend = getattr(self, "console", None)
+        palette = getattr(backend, "DIALOGRC", None)
+        menu_palette = None
+        if not no_tags and choices:
             width = min(self.width, get_terminal_size((80, 24)).columns)
             longest_tag = max(len(tag) for tag, _ in choices)
+            # Leave room for dialog's borders and built-in column gap.
             limit = max(1, width - longest_tag - 10)
-            choices = [
-                (tag, desc if len(desc) <= limit else desc[:limit - 1] + "…")
-                for tag, desc in choices
-            ]
+            if preserve_tags:
+                choices = [
+                    (tag, desc if len(desc) <= limit else desc[:limit - 1] + "…")
+                    for tag, desc in choices
+                ]
+            if palette and palette == dialog_config():
+                # Use a tag-only highlight so the added gutter stays dark.
+                candidate = palette + "-menu"
+                longest_desc = max(len(desc) for _, desc in choices)
+                gap = min(4, limit - longest_desc)
+                if longest_desc and gap > 0 and os.path.isfile(candidate):
+                    menu_palette = candidate
+                    choices = [
+                        (tag, " " * gap + desc if desc else desc)
+                        for tag, desc in choices
+                    ]
         options = {"title": title, "choices": choices, "no_cancel": no_cancel}
         if no_tags:
             options["no_tags"] = True
@@ -455,11 +470,18 @@ class Console:
             # is selected with the keyboard.
             options["choices"] = [("", "")] + choices
             options["default_item"] = choices[0][0]
-        while True:
-            v = self._wrapper("menu", text, height, self.width, menu_height=menu_height, **options)
-            assert isinstance(v, tuple)
-            if not (pad and v[0] == "ok" and not v[1]):
-                return v
+        if menu_palette:
+            backend.DIALOGRC = menu_palette
+        try:
+            while True:
+                result = self._wrapper("menu", text, height, self.width,
+                                       menu_height=menu_height, **options)
+                assert isinstance(result, tuple)
+                if not (pad and result[0] == "ok" and not result[1]):
+                    return result
+        finally:
+            if menu_palette:
+                backend.DIALOGRC = palette
 
     def form(
         self,

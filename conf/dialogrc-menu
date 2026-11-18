@@ -1,0 +1,11 @@
+# Match dialogrc, with selection highlighted on the option label only.
+menubox_color = (WHITE,BLACK,OFF)
+menubox_border_color = (WHITE,BLACK,OFF)
+tag_color = (CYAN,BLACK,OFF)
+tag_key_color = (CYAN,BLACK,ON)
+item_color = (WHITE,BLACK,OFF)
+tag_selected_color = (BLACK,CYAN,OFF)
+tag_key_selected_color = (BLACK,CYAN,OFF)
+item_selected_color = (WHITE,BLACK,OFF)
+button_label_inactive_color = (BLACK,WHITE,OFF)
+button_key_inactive_color = (BLACK,WHITE,OFF)
