@@ -195,6 +195,7 @@ class PluginDir:
             self.module_name.capitalize() + "\n",
             items,
             no_cancel=False,
+            preserve_tags=True,
         )
 
         if retcode != "ok":

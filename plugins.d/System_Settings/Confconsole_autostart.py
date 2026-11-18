@@ -26,12 +26,12 @@ def check_autostart() -> str | bool:
 def run():
     enabled = check_autostart()
     if enabled == "fail":
-        msg = "Auto-start file for Confconsole does not exist.\n"
+        msg = "Confconsole autostart file is missing.\n"
         # console is inherited so doesn't need to be defined
         r = console.msgbox("Error", msg)
     else:
         status = "enabled" if enabled else "disabled"
-        msg = """Confconsole Auto start is currently {}"""
+        msg = """Confconsole autostart is currently {}"""
         r = console._wrapper(
             "yesno",
             msg.format(status),

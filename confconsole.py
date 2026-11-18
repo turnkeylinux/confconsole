@@ -428,6 +428,7 @@ class Console:
         compact: bool = False,
         pad: bool = False,
         no_tags: bool = False,
+        preserve_tags: bool = False,
     ) -> tuple[str, str]:
         height = self.height
         menu_height = len(choices) + 1
@@ -436,6 +437,15 @@ class Console:
             extra_rows = 2 if pad else 0
             height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_rows))
             menu_height = min(len(choices) + extra_rows, max(1, height - len(text.splitlines()) - 6))
+        if preserve_tags and choices:
+            # Leave room for dialog borders and the gap between columns.
+            width = min(self.width, get_terminal_size((80, 24)).columns)
+            longest_tag = max(len(tag) for tag, _ in choices)
+            limit = max(1, width - longest_tag - 10)
+            choices = [
+                (tag, desc if len(desc) <= limit else desc[:limit - 1] + "…")
+                for tag, desc in choices
+            ]
         options = {"title": title, "choices": choices, "no_cancel": no_cancel}
         if no_tags:
             options["no_tags"] = True
