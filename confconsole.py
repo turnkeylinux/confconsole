@@ -15,6 +15,7 @@ import errno
 import fcntl
 import pty
 import re
+import secrets
 import signal
 import logging
 import os
@@ -217,6 +218,7 @@ class Console:
     ) -> None:
         self.width = width
         self.height = height
+        self.title = title
 
         self.console = dialog.Dialog(dialog="dialog", DIALOGRC=dialog_config())
         self.console.add_persistent_args(["--no-collapse"])
@@ -373,9 +375,48 @@ class Console:
 
     def passwordbox(self, title: str, text: str) -> tuple[str, str]:
         v = self._wrapper("passwordbox", text, 0, 0, title=title,
-                          ok_label="Continue", cancel_label="Back")
+                          ok_label="Continue", cancel_label="Back", insecure=True)
         assert isinstance(v, tuple)
         return v
+
+    def show_generated_passphrase(self, password: str) -> bool:
+        """Display the generated passphrase without placing it in argv or a file."""
+        text = ("Generated backup passphrase:\n\n" + password +
+                "\n\nSave it somewhere safe. You will need it to restore this backup.")
+        args = ["--no-collapse", "--colors", "--backtitle", self.title or "TurnKey GNU/Linux",
+                "--title", "Generated passphrase", "--yes-label", "Use passphrase", "--no-label", "Back",
+                "--yesno", text, "0", "0"]
+        if conf.Conf().copy_paste:
+            args.insert(0, "--no-mouse")
+        payload = " ".join('"' + arg.replace("\\", "\\\\").replace('"', '\\"') + '"' for arg in args).encode()
+        env = os.environ.copy()
+        theme = dialog_config()
+        if theme:
+            env["DIALOGRC"] = theme
+        while True:
+            reader, writer = os.pipe()
+            try:
+                os.write(writer, payload)
+                os.close(writer)
+                writer = None
+                try:
+                    result = subprocess.run(["dialog", "--file", f"/proc/self/fd/{reader}"],
+                                            pass_fds=(reader,), env=env)
+                except KeyboardInterrupt:
+                    self.confirm_quit()
+                    continue
+            finally:
+                os.close(reader)
+                if writer is not None:
+                    os.close(writer)
+            if result.returncode == 0:
+                return True
+            if result.returncode == 1:
+                return False
+            if result.returncode == 255:
+                self.confirm_quit()
+                continue
+            raise ConfconsoleError("Could not display the generated passphrase.")
 
     def menu(
         self,
@@ -993,18 +1034,36 @@ class TurnkeyConsole:
     def _backup_passphrase(self) -> None:
         code, password = self.console.passwordbox(
             "Backup passphrase", "Set a passphrase to protect your backup encryption key.\n\n"
-            "Save it somewhere safe. You will need it to restore your backup.")
+            "Save it somewhere safe. You will need it to restore your backup.\n\n"
+            "Leave blank to generate a strong passphrase.")
         if code != self.OK:
             return
-        if not password or password != password.rstrip():
+        if not password:
+            try:
+                from libinithooks import passwords
+                password = passwords.generate()
+            except (ImportError, OSError, ValueError):
+                try:
+                    password = secrets.token_urlsafe(24)
+                except OSError:
+                    self.console.msgbox("Backup passphrase", "Could not generate a passphrase. Enter one and try again.", autosize=True)
+                    return
+            try:
+                if not self.console.show_generated_passphrase(password):
+                    return
+            except (OSError, ConfconsoleError):
+                self.console.msgbox("Backup passphrase", "Could not display the generated passphrase. Enter one and try again.", autosize=True)
+                return
+        elif password != password.rstrip():
             self.console.msgbox("Backup passphrase", "Enter a passphrase without trailing spaces.", autosize=True)
             return
-        code, confirm = self.console.passwordbox("Confirm passphrase", "Enter the passphrase again:")
-        if code != self.OK:
-            return
-        if password != confirm:
-            self.console.msgbox("Backup passphrase", "The passphrases did not match. Try again.", autosize=True)
-            return
+        else:
+            code, confirm = self.console.passwordbox("Confirm passphrase", "Enter the passphrase again:")
+            if code != self.OK:
+                return
+            if password != confirm:
+                self.console.msgbox("Backup passphrase", "The passphrases did not match. Try again.", autosize=True)
+                return
         try:
             self.console.progress("Backup passphrase", "Saving the passphrase. This may take a moment.")
             result = subprocess.run(["tklbam-passphrase"], input=password + "\n", capture_output=True, text=True)

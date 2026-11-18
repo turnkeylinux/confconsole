@@ -2,6 +2,8 @@
 import subprocess
 import os
 import signal
+import sys
+import types
 import unittest
 from unittest.mock import Mock, patch
 
@@ -72,6 +74,62 @@ class BackupMenuTests(unittest.TestCase):
         self.ui.console.passwordbox.side_effect = [('ok', 'one'), ('ok', 'two')]
         self.ui._backup_passphrase()
         run.assert_not_called()
+
+    def test_password_fields_display_asterisks(self):
+        console = confconsole.Console.__new__(confconsole.Console)
+        console._wrapper = Mock(return_value=('ok', 'secret'))
+        self.assertEqual(console.passwordbox('Title', 'Enter:'), ('ok', 'secret'))
+        self.assertTrue(console._wrapper.call_args.kwargs['insecure'])
+
+    @patch('confconsole.subprocess.run')
+    def test_blank_generates_displays_and_saves_passphrase(self, run):
+        run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        self.ui.console.passwordbox.return_value = ('ok', '')
+        self.ui.console.show_generated_passphrase.return_value = True
+        module = types.ModuleType('libinithooks')
+        module.passwords = Mock(generate=Mock(return_value='generated-secret'))
+        with patch.dict(sys.modules, {'libinithooks': module}):
+            self.ui._backup_passphrase()
+        self.ui.console.passwordbox.assert_called_once()
+        self.ui.console.show_generated_passphrase.assert_called_once_with('generated-secret')
+        run.assert_called_once_with(['tklbam-passphrase'], input='generated-secret\n', capture_output=True, text=True)
+
+    @patch('confconsole.subprocess.run')
+    def test_cancelling_generated_passphrase_does_not_change_key(self, run):
+        self.ui.console.passwordbox.return_value = ('ok', '')
+        self.ui.console.show_generated_passphrase.return_value = False
+        module = types.ModuleType('libinithooks')
+        module.passwords = Mock(generate=Mock(return_value='generated-secret'))
+        with patch.dict(sys.modules, {'libinithooks': module}):
+            self.ui._backup_passphrase()
+        run.assert_not_called()
+
+    @patch('confconsole.subprocess.run')
+    def test_generation_falls_back_when_inithooks_generator_is_unavailable(self, run):
+        run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        self.ui.console.passwordbox.return_value = ('ok', '')
+        self.ui.console.show_generated_passphrase.return_value = True
+        module = types.ModuleType('libinithooks')
+        with patch.dict(sys.modules, {'libinithooks': module}), \
+             patch('confconsole.secrets.token_urlsafe', return_value='fallback-secret'):
+            self.ui._backup_passphrase()
+        self.ui.console.show_generated_passphrase.assert_called_once_with('fallback-secret')
+        run.assert_called_once_with(['tklbam-passphrase'], input='fallback-secret\n', capture_output=True, text=True)
+
+    def test_generated_passphrase_is_passed_to_dialog_through_pipe(self):
+        console = confconsole.Console.__new__(confconsole.Console)
+        console.title = 'Test'
+        secret = 'Generated-credential-123'
+        payloads = []
+        def run(args, **kwargs):
+            self.assertNotIn(secret, ' '.join(args))
+            self.assertNotIn(secret, str(kwargs.get('env', {})))
+            payloads.append(os.read(kwargs['pass_fds'][0], 4096).decode())
+            return subprocess.CompletedProcess(args, 0)
+        with patch('confconsole.conf.Conf') as conf, patch('confconsole.subprocess.run', side_effect=run):
+            conf.return_value.copy_paste = False
+            self.assertTrue(console.show_generated_passphrase(secret))
+        self.assertIn(secret, payloads[0])
 
     def test_restore_lists_completed_records_and_sends_password_to_selected_id(self):
         self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess(
