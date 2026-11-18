@@ -35,7 +35,18 @@ class BackupMenuTests(unittest.TestCase):
         title, text, choices = self.ui.console.menu.call_args.args
         self.assertEqual(title, 'Backups')
         self.assertIn('Ready to set up', text)
+        self.assertNotIn('rollback', text.lower())
         self.assertEqual([name for name, _ in choices], ['Setup', 'Restore'])
+
+    @patch('confconsole.os.path.isdir', return_value=True)
+    def test_menu_offers_rollback_only_as_an_available_action(self, _isdir):
+        self.ui._backup_connect = Mock(return_value=True)
+        self.ui._backup_status = Mock(return_value=(0, 'Backups: Backup ID #1'))
+        self.ui.console.menu.return_value = ('cancel', '')
+        self.assertEqual(self.ui._adv_backup(), 'advanced')
+        _, text, choices = self.ui.console.menu.call_args.args
+        self.assertNotIn('rollback', text.lower())
+        self.assertIn('Rollback', [name for name, _ in choices])
 
     @patch('confconsole.subprocess.run')
     def test_passphrase_is_confirmed_and_sent_over_stdin(self, run):

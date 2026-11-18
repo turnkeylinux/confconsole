@@ -348,8 +348,8 @@ class Console:
         menu_height = len(choices) + 1
         if compact:
             terminal = get_terminal_size((80, 24))
-            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 8))
-            menu_height = min(menu_height, max(1, height - len(text.splitlines()) - 7))
+            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7))
+            menu_height = min(len(choices), max(1, height - len(text.splitlines()) - 6))
         v = self._wrapper(
             "menu",
             text,
@@ -1100,7 +1100,6 @@ class TurnkeyConsole:
         while True:
             state, status = self._backup_status()
             rollback = os.path.isdir("/var/backups/tklbam-rollback")
-            status += "\nRestore rollback: " + ("Available" if rollback else "Not available")
             choices = []
             if state == 11:
                 choices.append(("Setup", "Set up backups"))
