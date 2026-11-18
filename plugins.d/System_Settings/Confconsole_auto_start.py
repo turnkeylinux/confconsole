@@ -1,4 +1,4 @@
-"""Enable/Disable Confconsole autostart on login"""
+"""Start Confconsole at login"""
 
 from os import chmod, stat, path
 

@@ -63,6 +63,7 @@ additional options, but the options available in all appliances are:
       - Set a static IP address or enable DHCP
         - IMPORTANT: this should not be changed when network configuration
           is handled externally
+      - Configure the APT proxy (see docs/Proxy_settings.rst)
 
     - Let's Encrypt (see docs/Lets_encrypt.rst):
       - Enable/disable auto SSL cert update
@@ -71,15 +72,9 @@ additional options, but the options available in all appliances are:
     - Hub services (see docs/Mail_relay.rst):
       - Configure and enable remote SMTP email relay
 
-    - Proxy settings (see docs/Proxy_settings.rst):
-      - Configure apt proxy
-
-    - Region config (see docs/Region_config.rst):
-      - Keyboard layout
-      - Locales and language
-      - Tzdata (timezone)
-
     - System settings (see docs/System_settings.rst):
+      - Region config: keyboard layout, locales and time zone
+        (see docs/Region_config.rst)
       - Enable/Disable Confconsole autostart
       - Config SecUpdate default behavior
       - Install security updates

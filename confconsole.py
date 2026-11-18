@@ -50,6 +50,7 @@ USAGE: str = __doc__ if __doc__ else ""
 PLUGIN_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "plugins.d"
 )
+PROXY_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Proxy_Settings")
 BACKUP_LOG = "/var/log/tklbam-backup"
 TKLBAM_PLAN_LIMIT = 12
 
@@ -538,6 +539,13 @@ class TurnkeyConsole:
         self.eventManager = eventManager
         self.pluginManager = pluginManager
         self.pluginManager.updateGlobals({"console": self.console})
+        # Redirect Back from the proxy menu and any collapsed proxy actions.
+        for path, item in self.pluginManager.path_map.items():
+            in_proxy_group = path == PROXY_PLUGIN_PATH or path.startswith(
+                PROXY_PLUGIN_PATH + os.sep
+            )
+            if in_proxy_group and item.parent == "advanced":
+                item.parent = "_adv_networking"
 
     @staticmethod
     def _get_filtered_ifnames() -> list[str]:
@@ -608,8 +616,8 @@ class TurnkeyConsole:
         list[tuple[str, str]], dict[str, plugin.Plugin | plugin.PluginDir]
     ]:
         items = []
-        if conf.Conf().networking:
-            items.append(("Networking", "Configure networking"))
+        if self._get_networking_menu():
+            items.append(("Networking", "Network and proxy settings"))
 
         items.append(("Backup", "Manage backups and restores"))
 
@@ -618,8 +626,9 @@ class TurnkeyConsole:
 
         plugin_map = {}
 
-        for path in self.pluginManager.path_map:
-            plug = self.pluginManager.path_map[path]
+        for path, plug in self.pluginManager.path_map.items():
+            if path == PROXY_PLUGIN_PATH:
+                continue
             if os.path.dirname(path) == PLUGIN_PATH:
                 if isinstance(plug, plugin.Plugin) and hasattr(
                     plug.module, "run"
@@ -1300,7 +1309,7 @@ class TurnkeyConsole:
         if len(ifnames) == 0:
             log.warning("no interfaces found")
             self.console.msgbox("Error", "No network adapters detected")
-            return "advanced"
+            return "_adv_networking"
 
         log.info(f"{len(ifnames)} interface/s found: {', '.join(ifnames)}")
         # if only 1 interface, dont display menu - just configure it
@@ -1318,7 +1327,7 @@ class TurnkeyConsole:
         )
 
         if retcode is not self.OK:
-            return "advanced"
+            return "_adv_networking"
 
         return "ifconf"
 
@@ -1334,7 +1343,7 @@ class TurnkeyConsole:
             if len(self._get_filtered_ifnames()) > 1:
                 return "networking"
 
-            return "advanced"
+            return "_adv_networking"
 
         return "_ifconf_" + choice.lower()
 
@@ -1587,7 +1596,27 @@ class TurnkeyConsole:
 
         return "advanced"
 
-    _adv_networking = networking
+    def _get_networking_menu(self) -> list[tuple[str, str]]:
+        items = []
+        if conf.Conf().networking:
+            items.append(("Network adapters", "Configure IP settings"))
+        if PROXY_PLUGIN_PATH in self.pluginManager.path_map:
+            items.append(("Proxy settings", "Configure the APT proxy"))
+        return items
+
+    def _adv_networking(self) -> str:
+        items = self._get_networking_menu()
+        if not items:
+            return "advanced"
+        code, choice = self.console.menu(
+            "Networking", "Choose a setting", items, compact=True
+        )
+        if code != self.OK:
+            return "advanced"
+        if choice == "Proxy settings":
+            return PROXY_PLUGIN_PATH
+        return "networking"
+
     quit = _adv_quit
 
     def loop(self, dialog: str | Any | None = "usage") -> None:

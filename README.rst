@@ -61,6 +61,7 @@ The Advanced menu provides the below functionality in all appliances
 
   - Setting a static IP address
   - Requesting DHCP
+  - `Proxy settings`_: configure apt proxy
 
 - `Let's Encrypt`_:
 
@@ -71,18 +72,9 @@ The Advanced menu provides the below functionality in all appliances
 
   - configure and enable remote SMTP email relay
 
-- `Proxy settings`_:
-
-  - configure apt proxy
-
-- `Region config`_:
-
-  - Keyboard layout
-  - Locales and language
-  - Tzdata (timezone)
-
 - `System settings`_:
 
+  - `Region config`_: keyboard layout, locales and timezone
   - confconsole autostart config
   - install security updates
   - update hostname
