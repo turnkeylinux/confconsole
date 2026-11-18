@@ -1,4 +1,4 @@
-"""Config SecUpdate behaviour"""
+"""Set automatic update policy"""
 
 import os
 from os.path import exists, islink

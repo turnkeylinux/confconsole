@@ -76,7 +76,7 @@ The Advanced menu provides the below functionality in all appliances
 
   - `Region config`_: keyboard layout, locales and timezone
   - confconsole autostart config
-  - install security updates
+  - install security updates or configure automatic updates
   - update hostname
 
 - Install the system to the hard disk (only available when running live)

@@ -76,8 +76,7 @@ additional options, but the options available in all appliances are:
       - Region config: keyboard layout, locales and time zone
         (see docs/Region_config.rst)
       - Enable/Disable Confconsole autostart
-      - Config SecUpdate default behavior
-      - Install security updates
+      - Install security updates or configure automatic updates
       - Update hostname
 
     - Installing the system to the hard disk (only when running live)

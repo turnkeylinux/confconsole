@@ -1,4 +1,4 @@
-"""Install Security Updates"""
+"""Install security updates now"""
 
 from subprocess import check_call, CalledProcessError
 

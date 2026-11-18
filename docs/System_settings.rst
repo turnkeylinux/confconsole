@@ -14,22 +14,14 @@ functionality we wanted to include.
 Security updates
 ----------------
 
-This option manually checks for and installs Debian and TurnKey
-security updates for package managed software (i.e. the base OS and
-most; but not neccessarily all software pre-included).
+Open **Security updates** in **System settings** to choose an action:
 
-By default, all TurnKey servers automatically install security updates
-daily. This option allows you to manually trigger the updates.
+* **Security update** checks for and installs available Debian and TurnKey
+  security updates for software managed by APT.
+* **Secupdates adv conf** shows the current policy for handling package
+  removals during automatic security updates and lets you change it.
 
-This plugin leverages `turnkey-install-security-updates`, thus provides
-exactly the same functionality.
-
-**Note:** As stated, this only installs software that is covered by the
-Debian package management system. It does not apply to third party
-package management software (such as pip for python, cpan for perl,
-gem for ruby, composer for php, etc). More often than not, that also
-means NOT webapps installed direct from third parties. Upgrading
-third party software must be done manually.
+TurnKey servers install security updates daily by default.
 
 Hostname
 --------
