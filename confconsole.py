@@ -142,7 +142,7 @@ class Console:
 
     def confirm_quit(self) -> None:
         try:
-            answer = self.console.yesno("    Do you really want to quit?", height=7, width=39)
+            answer = self.console.yesno("\n    Do you really want to quit?", height=7, width=39)
         except KeyboardInterrupt:
             return
         if answer == self.console.OK:
