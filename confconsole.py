@@ -42,6 +42,7 @@ USAGE: str = __doc__ if __doc__ else ""
 PLUGIN_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "plugins.d"
 )
+BACKUP_LOG = "/var/log/tklbam-backup"
 
 handler = JournalHandler(SYSLOG_IDENTIFIER="confconsole")
 handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
@@ -65,6 +66,51 @@ def hub_link_status() -> str:
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
         pass
     return "hub.turnkeylinux.org: STATUS UNAVAILABLE"
+
+
+def backup_log_position() -> tuple[int, int, int] | None:
+    try:
+        stat = os.stat(BACKUP_LOG)
+        return stat.st_dev, stat.st_ino, stat.st_size
+    except OSError:
+        return None
+
+
+def backup_summary(position: tuple[int, int, int] | None) -> str:
+    """Read statistics written by this run without changing its live output."""
+    try:
+        with open(BACKUP_LOG, "rb") as log_file:
+            stat = os.fstat(log_file.fileno())
+            if position and ((stat.st_dev, stat.st_ino) != position[:2] or stat.st_size < position[2]):
+                return ""
+            start = position[2] if position else 0
+            log_file.seek(max(start, stat.st_size - 262144))
+            text = log_file.read(262144).decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+    marker = text.rfind("[ Backup Statistics ]")
+    if marker < 0:
+        return ""
+    values = {}
+    pattern = re.compile(r"^(ElapsedTime|NewFiles|ChangedFiles|DeletedFiles|TotalDestinationSizeChange|Errors)\s+([0-9.]+)(?:\s+\(([^()\r\n]{1,80})\))?\s*$")
+    for line in text[marker:].splitlines()[1:]:
+        match = pattern.match(line.strip())
+        if match:
+            values[match.group(1)] = (match.group(2), match.group(3))
+        elif line.strip().startswith("---"):
+            break
+    lines = []
+    if "ElapsedTime" in values:
+        number, pretty = values["ElapsedTime"]
+        lines.append("Duration: " + (pretty or number + " seconds"))
+    if "TotalDestinationSizeChange" in values:
+        number, pretty = values["TotalDestinationSizeChange"]
+        lines.append("Data uploaded: " + (pretty or number + " bytes"))
+    for key, label in (("NewFiles", "New files"), ("ChangedFiles", "Changed files"),
+                       ("DeletedFiles", "Deleted files"), ("Errors", "Errors")):
+        if key in values:
+            lines.append(label + ": " + values[key][0])
+    return "\n".join(lines)
 
 
 class ConfconsoleError(Exception):
@@ -746,6 +792,7 @@ class TurnkeyConsole:
     def backup_create(self, confirm: bool = True) -> str:
         if confirm and self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
             return "usage"
+        log_position = backup_log_position()
         self.console.clear_screen()
         print("Creating backup. Progress appears below.\n", flush=True)
         try:
@@ -756,7 +803,13 @@ class TurnkeyConsole:
         if result.returncode:
             self.console.msgbox("Backup could not finish", "Review the backup output or /var/log/tklbam-backup, then try again.", autosize=True)
         else:
-            self.console.msgbox("Backup complete", "Your first backup is complete.", autosize=True)
+            summary = backup_summary(log_position)
+            text = "Your first backup is complete."
+            if summary:
+                text += "\n\n" + summary
+            else:
+                text += "\n\nReview the terminal output for backup details."
+            self.console.msgbox("Backup complete", text, autosize=True)
         return "usage"
 
     def advanced(self) -> str:

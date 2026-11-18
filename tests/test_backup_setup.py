@@ -1,7 +1,9 @@
 """Backup setup navigation and recovery."""
 import subprocess
 import io
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import confconsole
@@ -120,6 +122,40 @@ class MainScreenTests(unittest.TestCase):
         ui, result = self.run_screen('cancel', advanced_enabled=False)
         self.assertEqual(result, 'quit')
         self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Quit'))
+
+
+class BackupSummaryTests(unittest.TestCase):
+    def test_current_run_statistics_are_shown_while_output_stays_live(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'backup.log'
+            log.write_text('---[ Backup Statistics ]---\nNewFiles 999\n---\n')
+            def run(*args, **kwargs):
+                with log.open('a') as stream:
+                    stream.write('---[ Backup Statistics ]---\nElapsedTime 8.00 (8 seconds)\n'
+                                 'NewFiles 3\nChangedFiles 2\nDeletedFiles 1\n'
+                                 'TotalDestinationSizeChange 1024 (1 KB)\nErrors 0\n---\n')
+                return subprocess.CompletedProcess(args[0], 0)
+            ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
+            ui.console = Mock()
+            with patch.object(confconsole, 'BACKUP_LOG', str(log)), patch('confconsole.subprocess.run', side_effect=run) as command:
+                self.assertEqual(ui.backup_create(confirm=False), 'usage')
+            command.assert_called_once_with(['tklbam-backup'], check=False)
+            message = ui.console.msgbox.call_args.args[1]
+            self.assertIn('Duration: 8 seconds', message)
+            self.assertIn('Data uploaded: 1 KB', message)
+            self.assertIn('New files: 3', message)
+            self.assertNotIn('999', message)
+
+    def test_missing_or_replaced_log_does_not_show_old_statistics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'backup.log'
+            log.write_text('---[ Backup Statistics ]---\nNewFiles 999\n---\n')
+            with patch.object(confconsole, 'BACKUP_LOG', str(log)):
+                position = confconsole.backup_log_position()
+                self.assertEqual(confconsole.backup_summary(position), '')
+                log.rename(log.with_suffix('.old'))
+                log.write_text('---[ Backup Statistics ]---\nNewFiles 1\n---\n')
+                self.assertEqual(confconsole.backup_summary(position), '')
 
 
 if __name__ == '__main__':
