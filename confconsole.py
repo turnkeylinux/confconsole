@@ -1123,7 +1123,6 @@ class TurnkeyConsole:
         saved_width, saved_height = self.console.width, self.console.height
         try:
             with redraw_dialog_on_resize(self.console) as resize:
-                reflowed = False
                 while True:
                     resize["changed"] = False
                     terminal = get_terminal_size((80, 24))
@@ -1143,11 +1142,9 @@ class TurnkeyConsole:
                         choices.append((backup_id, row.ljust(width - 10)))
                     self.console.width = width
                     self.console.height = terminal.lines - 2
-                    instruction = ("Resized: select again. Pass: passphrase required." if reflowed
-                                   else "Select a backup. Pass: passphrase required.")
                     try:
                         code, backup_id = self.console.menu(
-                            "Restore backup", instruction + "\n\n  " + prefix + "Label",
+                            "Restore backup", "Select a backup. Pass: passphrase required.\n\n  " + prefix + "Label",
                             choices, compact=True, no_tags=True)
                     except dialog.DialogTerminatedBySignal:
                         if not resize["changed"]:
@@ -1156,7 +1153,6 @@ class TurnkeyConsole:
                         resize["pid"] = None
                     if not resize["changed"]:
                         break
-                    reflowed = True
         finally:
             self.console.width, self.console.height = saved_width, saved_height
         record = next((record for record in records if record[0] == backup_id), None)

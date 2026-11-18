@@ -142,7 +142,7 @@ class BackupMenuTests(unittest.TestCase):
             self.ui._backup_restore()
         self.assertEqual(self.ui.backup_progress.call_count, 1)
         self.assertEqual(self.ui.console.menu.call_count, 2)
-        self.assertIn('Resized: select again.', self.ui.console.menu.call_args.args[1])
+        self.assertIn('Select a backup.', self.ui.console.menu.call_args.args[1])
         self.assertEqual(signal.getsignal(signal.SIGWINCH), original_handler)
 
     @patch('confconsole.os.path.isdir', return_value=True)
