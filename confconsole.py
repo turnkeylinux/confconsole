@@ -11,6 +11,7 @@ Options:
 """
 
 import json
+import re
 import logging
 import os
 import sys
@@ -185,13 +186,15 @@ class Console:
         assert isinstance(v, str)
         return v
 
-    def yesno(self, text: str, autosize: bool = False) -> str:
+    def yesno(self, text: str, autosize: bool = False,
+              ok_label: str = "Select", cancel_label: str = "Back") -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
         else:
             height, width = 10, 30
-        v = self._wrapper("yesno", text, height, width)
+        v = self._wrapper("yesno", text, height, width,
+                          ok_label=ok_label, cancel_label=cancel_label)
         assert isinstance(v, str)
         return v
 
@@ -201,6 +204,7 @@ class Console:
         text: str,
         button_label: str = "ok",
         autosize: bool = False,
+        extra_label: str | None = None,
     ) -> str:
         if autosize:
             text += "\n "
@@ -208,9 +212,10 @@ class Console:
         else:
             height, width = self.height, self.width
 
-        v = self._wrapper(
-            "msgbox", text, height, width, title=title, ok_label=button_label
-        )
+        options = {"title": title, "ok_label": button_label}
+        if extra_label:
+            options.update(extra_button=True, extra_label=extra_label, default_button="extra")
+        v = self._wrapper("msgbox", text, height, width, **options)
         assert isinstance(v, str)
         return v
 
@@ -556,16 +561,24 @@ class TurnkeyConsole:
             text=True,
         ).stdout.strip()
         if tklbamstatus_cmd:
-            tklbam_status = subprocess.run(
+            tklbam_result = subprocess.run(
                 [tklbamstatus_cmd, "--short"],
                 capture_output=True,
                 text=True,
-            ).stdout
+            )
+            tklbam_status = tklbam_result.stdout
+            backup_state = tklbam_result.returncode
         else:
+            backup_state = None
             tklbam_status = (
                 "TKLBAM not found - please check that it's installed."
             )
         log.info(tklbam_status)
+        backup_action = {11: "Set up backups", 10: "Create backup"}.get(backup_state)
+        if backup_state == 11:
+            tklbam_status = "Backups: Ready to set up"
+        elif backup_state == 10:
+            tklbam_status = "Backups: Ready for first backup"
 
         # display usage
         ip_addr = self._get_public_ipaddr()
@@ -602,12 +615,77 @@ class TurnkeyConsole:
             f"{hostname} app services",
             text,
             button_label=default_button_label,
+            extra_label=backup_action,
         )
 
+        if retcode == "extra" and backup_action:
+            return "backup_setup" if backup_state == 11 else "backup_create"
         if retcode is not self.OK:
             self.running = False
 
         return default_return_value
+
+    def backup_setup(self) -> str:
+        link_status = hub_link_status()
+        if link_status == "hub.turnkeylinux.org: STATUS UNAVAILABLE":
+            self.console.msgbox("Set up backups", "The Hub connection status is unavailable. Check that inithooks is installed and try again.")
+            return "usage"
+        if link_status != "hub.turnkeylinux.org: CONNECTED":
+            self.console.msgbox(
+                "Set up backups",
+                "First, connect this server to your TurnKey Hub account. "
+                "You will be asked to open the Hub in a browser and return here.",
+            )
+            try:
+                subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"], check=True)
+            except (OSError, subprocess.CalledProcessError):
+                self.console.msgbox("Set up backups", "Hub connection was not completed. Try again when you are ready.")
+                return "usage"
+            if hub_link_status() != "hub.turnkeylinux.org: CONNECTED":
+                return "usage"
+
+        while True:
+            self.console.infobox("Preparing backup setup. Please wait...")
+            try:
+                result = subprocess.run(["tklbam-init"], capture_output=True, text=True)
+            except OSError:
+                self.console.msgbox("Set up backups", "Backup setup could not start. Check that TKLBAM is installed and try again.")
+                return "usage"
+            if result.returncode == 0:
+                self.console.msgbox("Backups ready", "Backup setup is complete. Choose Create backup to make your first backup.")
+                return "usage"
+            error = result.stderr.strip()
+            if "connect your AWS account" in error or "Finish migrating your backup account" in error or "Enable backups for this server" in error:
+                if "Enable backups for this server" in error:
+                    instruction = "In the Hub, turn on backup access for this server:"
+                    url = "https://hub.turnkeylinux.org/email/"
+                else:
+                    instruction = ("Finish migrating your backup account in the Hub:" if "Finish migrating" in error
+                                   else "Set up backup storage and connect your AWS account in the Hub:")
+                    match = re.search(r"https://hub\.turnkeylinux\.org/[^\s]*", error)
+                    url = match.group(0) if match else "https://hub.turnkeylinux.org/backup/"
+                text = (instruction + "\n\n" + url + "\n\n"
+                        "Return here when finished and choose Continue. You can also return to the console and finish later.")
+                if self.console.yesno(text, autosize=True, ok_label="Continue", cancel_label="Back") == self.OK:
+                    continue
+                return "usage"
+            self.console.msgbox("Backup setup could not finish", error or "Check your network connection and try again.")
+            return "usage"
+
+    def backup_create(self) -> str:
+        if self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
+            return "usage"
+        self.console.infobox("Creating backup. This can take some time; please wait...")
+        try:
+            result = subprocess.run(["tklbam-backup"], capture_output=True, text=True)
+        except OSError:
+            self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.")
+            return "usage"
+        if result.returncode:
+            self.console.msgbox("Backup could not finish", result.stderr.strip() or "Check the backup settings in the Hub and try again.")
+        else:
+            self.console.msgbox("Backup complete", "Your first backup is complete.")
+        return "usage"
 
     def advanced(self) -> str:
         # dont display cancel button when no interfaces at all
