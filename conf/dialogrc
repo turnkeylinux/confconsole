@@ -1,2 +1,5 @@
-# Darker unselected menu labels on dialog's default light background.
-tag_color = (BLUE,WHITE,OFF)
+# Keep menu labels and their shortcut letters readable on the light background.
+tag_color = (BLACK,WHITE,OFF)
+tag_key_color = (BLACK,WHITE,OFF)
+tag_selected_color = (WHITE,BLUE,ON)
+tag_key_selected_color = (WHITE,BLUE,ON)

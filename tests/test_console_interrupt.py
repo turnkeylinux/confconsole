@@ -17,7 +17,7 @@ class ConsoleInterruptTests(unittest.TestCase):
         self.ui.console.yesno.return_value = 'cancel'
         self.assertEqual(self.ui.msgbox('Title', 'Content'), 'ok')
         self.assertEqual(self.ui.console.msgbox.call_count, 2)
-        self.ui.console.yesno.assert_called_once_with('Do you really want to quit?')
+        self.ui.console.yesno.assert_called_once_with('    Do you really want to quit?', height=7, width=39)
 
     def test_confirm_interrupt_exits_with_130(self):
         self.ui.console.msgbox.side_effect = KeyboardInterrupt
