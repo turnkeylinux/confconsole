@@ -136,11 +136,17 @@ class Console:
 
     def _handle_exitcode(self, retcode: str) -> bool:
         if retcode == "esc":
-            text = "Do you really want to quit?"
-            if self.console.yesno(text) == self.console.OK:
-                sys.exit(0)
+            self.confirm_quit()
             return False
         return True
+
+    def confirm_quit(self) -> None:
+        try:
+            answer = self.console.yesno("Do you really want to quit?")
+        except KeyboardInterrupt:
+            return
+        if answer == self.console.OK:
+            sys.exit(130)
 
     def _wrapper(
         self,
@@ -160,6 +166,9 @@ class Console:
             try:
                 contents = text if dialog == "editbox_str" else f"\n{text}"
                 ret = method(contents, *args, **kws)
+            except KeyboardInterrupt:
+                self.confirm_quit()
+                continue
             except DialogError as e:
                 if "Can't make new window" in e.message:
                     self.console.msgbox(
@@ -1036,10 +1045,7 @@ class TurnkeyConsole:
                 dialog = new_dialog
 
             except KeyboardInterrupt:
-                if self.console.yesno("Quit the configuration console?", autosize=True,
-                                      ok_label="Quit", cancel_label="Stay") == self.OK:
-                    self.running = False
-                    break
+                self.console.confirm_quit()
                 dialog = "usage"
                 standalone = False
             except Exception:  # TODO should only catch specific errors
