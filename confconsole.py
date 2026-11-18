@@ -20,6 +20,7 @@ from subprocess import CalledProcessError
 import getopt
 import ipaddress
 import shlex
+import time
 from string import Template
 from io import StringIO
 from shutil import get_terminal_size
@@ -195,15 +196,27 @@ class Console:
         assert isinstance(v, str)
         return v
 
+    def progress(self, title: str, text: str) -> None:
+        width = min(60, max(40, get_terminal_size((80, 24)).columns - 4))
+        self._wrapper("infobox", text, 9, width, title=title)
+
+    def clear_screen(self) -> None:
+        if sys.stdout.isatty():
+            sys.stdout.write("\033[2J\033[H")
+            sys.stdout.flush()
+
     def yesno(self, text: str, autosize: bool = False,
-              ok_label: str = "Yes", cancel_label: str = "No") -> str:
+              ok_label: str = "Yes", cancel_label: str = "No",
+              title: str | None = None) -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
         else:
             height, width = 10, 30
-        v = self._wrapper("yesno", text, height, width,
-                          yes_label=ok_label, no_label=cancel_label)
+        options = {"yes_label": ok_label, "no_label": cancel_label}
+        if title:
+            options["title"] = title
+        v = self._wrapper("yesno", text, height, width, **options)
         assert isinstance(v, str)
         return v
 
@@ -648,34 +661,69 @@ class TurnkeyConsole:
 
         return default_return_value
 
+    def backup_progress(self, command: list[str], title: str, text: str) -> subprocess.CompletedProcess:
+        frames = "|/-\\"
+        started = time.monotonic()
+        self.console.progress(title, text + "\n\nWorking |  0:00 elapsed")
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, stdin=subprocess.DEVNULL) as process:
+            frame = 0
+            try:
+                while True:
+                    try:
+                        stdout, stderr = process.communicate(timeout=1)
+                        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+                    except subprocess.TimeoutExpired:
+                        frame = (frame + 1) % len(frames)
+                        minutes, seconds = divmod(int(time.monotonic() - started), 60)
+                        self.console.progress(title, text + f"\n\nWorking {frames[frame]}  {minutes}:{seconds:02} elapsed")
+            except KeyboardInterrupt:
+                process.terminate()
+                try:
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate()
+                raise
+
     def backup_setup(self) -> str:
         link_status = hub_link_status()
         if link_status == "hub.turnkeylinux.org: STATUS UNAVAILABLE":
-            self.console.msgbox("Set up backups", "The Hub connection status is unavailable. Check that inithooks is installed and try again.")
+            self.console.msgbox("Set up backups", "The Hub connection status is unavailable. Check that inithooks is installed and try again.", autosize=True)
             return "usage"
         if link_status != "hub.turnkeylinux.org: CONNECTED":
             self.console.msgbox(
                 "Set up backups",
                 "First, connect this server to your TurnKey Hub account. "
                 "You will be asked to open the Hub in a browser and return here.",
+                autosize=True,
             )
             try:
                 subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"], check=True)
             except (OSError, subprocess.CalledProcessError):
-                self.console.msgbox("Set up backups", "Hub connection was not completed. Try again when you are ready.")
+                self.console.msgbox("Set up backups", "Hub connection was not completed. Try again when you are ready.", autosize=True)
                 return "usage"
             if hub_link_status() != "hub.turnkeylinux.org: CONNECTED":
                 return "usage"
 
         while True:
-            self.console.infobox("Preparing backup setup. Please wait...")
             try:
-                result = subprocess.run(["tklbam-init"], capture_output=True, text=True)
+                result = self.backup_progress(
+                    ["tklbam-init"], "Setting up backups",
+                    "Connecting to the Hub and preparing the backup profile.\n"
+                    "This may take a few minutes.",
+                )
             except OSError:
-                self.console.msgbox("Set up backups", "Backup setup could not start. Check that TKLBAM is installed and try again.")
+                self.console.msgbox("Set up backups", "Backup setup could not start. Check that TKLBAM is installed and try again.", autosize=True)
                 return "usage"
             if result.returncode == 0:
-                self.console.msgbox("Backups ready", "Backup setup is complete. Choose Create backup to make your first backup.")
+                if self.console.yesno(
+                    "Backup setup is complete. Create your first backup now?\n\n"
+                    "The backup may take some time and uses AWS storage.",
+                    autosize=True, title="Backups ready",
+                    ok_label="Create backup", cancel_label="Not now",
+                ) == self.OK:
+                    return self.backup_create(confirm=False)
                 return "usage"
             error = result.stderr.strip()
             if "connect your AWS account" in error or "Finish migrating your backup account" in error or "Enable backups for this server" in error:
@@ -692,22 +740,26 @@ class TurnkeyConsole:
                 if self.console.yesno(text, autosize=True, ok_label="Continue", cancel_label="Back") == self.OK:
                     continue
                 return "usage"
-            self.console.msgbox("Backup setup could not finish", error or "Check your network connection and try again.")
+            self.console.msgbox("Backup setup could not finish", error or "Check your network connection and try again.", autosize=True)
             return "usage"
 
-    def backup_create(self) -> str:
-        if self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
+    def backup_create(self, confirm: bool = True) -> str:
+        if confirm and self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
             return "usage"
-        self.console.infobox("Creating backup. This can take some time; please wait...")
+        self.console.clear_screen()
         try:
-            result = subprocess.run(["tklbam-backup"], capture_output=True, text=True)
+            result = self.backup_progress(
+                ["tklbam-backup"], "Creating backup",
+                "Preparing and uploading your backup.\n"
+                "This may take some time. Please wait.",
+            )
         except OSError:
-            self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.")
+            self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.", autosize=True)
             return "usage"
         if result.returncode:
-            self.console.msgbox("Backup could not finish", result.stderr.strip() or "Check the backup settings in the Hub and try again.")
+            self.console.msgbox("Backup could not finish", result.stderr.strip() or "Check the backup settings in the Hub and try again.", autosize=True)
         else:
-            self.console.msgbox("Backup complete", "Your first backup is complete.")
+            self.console.msgbox("Backup complete", "Your first backup is complete.", autosize=True)
         return "usage"
 
     def advanced(self) -> str:
