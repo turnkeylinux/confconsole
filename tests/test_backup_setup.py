@@ -51,11 +51,11 @@ class BackupSetupTests(unittest.TestCase):
 
 
 class MainScreenTests(unittest.TestCase):
-    def test_uninitialized_backups_offer_setup(self):
+    def run_screen(self, choice, advanced_enabled=True):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
-        ui.advanced_enabled = True
+        ui.advanced_enabled = advanced_enabled
         ui.console = Mock()
-        ui.console.msgbox.return_value = 'extra'
+        ui.console.actionbox.return_value = choice
         ui._get_filtered_ifnames = Mock(return_value=['eth0'])
         ui._get_default_nic = Mock(return_value='eth0')
         ui._get_public_ipaddr = Mock(return_value='192.0.2.1')
@@ -66,9 +66,23 @@ class MainScreenTests(unittest.TestCase):
              patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED'), \
              patch.object(confconsole.ifutil, 'get_ipv6conf', return_value=(None, None)), \
              patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
-            self.assertEqual(ui.usage(), 'backup_setup')
-        self.assertIn('Backups: Ready to set up', ui.console.msgbox.call_args.args[1])
-        self.assertEqual(ui.console.msgbox.call_args.kwargs['extra_label'], 'Set up backups')
+            result = ui.usage()
+        return ui, result
+
+    def test_uninitialized_backups_offer_setup_first(self):
+        ui, result = self.run_screen('ok')
+        self.assertEqual(result, 'backup_setup')
+        self.assertIn('Backups: Ready to set up', ui.console.actionbox.call_args.args[1])
+        self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Advanced Menu'))
+
+    def test_secondary_action_opens_advanced_menu(self):
+        _, result = self.run_screen('cancel')
+        self.assertEqual(result, 'advanced')
+
+    def test_usage_only_secondary_action_quits(self):
+        ui, result = self.run_screen('cancel', advanced_enabled=False)
+        self.assertEqual(result, 'quit')
+        self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Quit'))
 
 
 if __name__ == '__main__':

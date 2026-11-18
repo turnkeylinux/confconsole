@@ -228,6 +228,12 @@ class Console:
         assert isinstance(v, str)
         return v
 
+    def actionbox(self, title: str, text: str, primary: str, secondary: str) -> str:
+        v = self._wrapper("yesno", text, self.height, self.width, title=title,
+                          yes_label=primary, no_label=secondary)
+        assert isinstance(v, str)
+        return v
+
     def inputbox(
         self,
         title: str,
@@ -619,6 +625,14 @@ class TurnkeyConsole:
 
         log.info(log_msg)
         text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
+
+        if backup_state == 11:
+            retcode = self.console.actionbox(
+                f"{hostname} app services", text, "Set up backups", default_button_label,
+            )
+            if retcode == self.OK:
+                return "backup_setup"
+            return default_return_value
 
         retcode = self.console.msgbox(
             f"{hostname} app services",
