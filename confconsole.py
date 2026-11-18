@@ -747,17 +747,14 @@ class TurnkeyConsole:
         if confirm and self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
             return "usage"
         self.console.clear_screen()
+        print("Creating backup. Progress appears below.\n", flush=True)
         try:
-            result = self.backup_progress(
-                ["tklbam-backup"], "Creating backup",
-                "Preparing and uploading your backup.\n"
-                "This may take some time. Please wait.",
-            )
+            result = subprocess.run(["tklbam-backup"], check=False)
         except OSError:
             self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.", autosize=True)
             return "usage"
         if result.returncode:
-            self.console.msgbox("Backup could not finish", result.stderr.strip() or "Check the backup settings in the Hub and try again.", autosize=True)
+            self.console.msgbox("Backup could not finish", "Review the backup output or /var/log/tklbam-backup, then try again.", autosize=True)
         else:
             self.console.msgbox("Backup complete", "Your first backup is complete.", autosize=True)
         return "usage"

@@ -22,12 +22,14 @@ class BackupSetupTests(unittest.TestCase):
         self.assertEqual(self.ui.console.yesno.call_args.kwargs['title'], 'Backups ready')
 
     @patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED')
-    def test_success_can_start_first_backup_directly(self, _status):
+    @patch('confconsole.subprocess.run')
+    def test_success_can_start_first_backup_directly(self, run, _status):
         self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '', ''))
+        run.return_value = subprocess.CompletedProcess([], 0)
         self.ui.console.yesno.return_value = 'ok'
         self.assertEqual(self.ui.backup_setup(), 'usage')
-        self.assertEqual([call.args[0] for call in self.ui.backup_progress.call_args_list],
-                         [['tklbam-init'], ['tklbam-backup']])
+        self.ui.backup_progress.assert_called_once()
+        run.assert_called_once_with(['tklbam-backup'], check=False)
         self.assertEqual(self.ui.console.yesno.call_count, 1)
         self.ui.console.clear_screen.assert_called_once_with()
         self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup complete')
@@ -48,14 +50,15 @@ class BackupSetupTests(unittest.TestCase):
 
     def test_cancel_first_backup_does_not_start_it(self):
         self.ui.console.yesno.return_value = 'cancel'
-        self.ui.backup_progress = Mock()
-        self.ui.backup_create()
-        self.ui.backup_progress.assert_not_called()
+        with patch('confconsole.subprocess.run') as run:
+            self.ui.backup_create()
+        run.assert_not_called()
         self.ui.console.clear_screen.assert_not_called()
 
-    def test_failed_backup_reports_failure(self):
+    @patch('confconsole.subprocess.run')
+    def test_failed_backup_reports_failure(self, run):
         self.ui.console.yesno.return_value = 'ok'
-        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 1, '', 'Storage is unavailable'))
+        run.return_value = subprocess.CompletedProcess([], 1)
         self.ui.backup_create()
         self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup could not finish')
 
@@ -74,7 +77,7 @@ class BackupSetupTests(unittest.TestCase):
         process = popen.return_value.__enter__.return_value
         process.communicate.side_effect = [KeyboardInterrupt, ('', '')]
         with self.assertRaises(KeyboardInterrupt):
-            self.ui.backup_progress(['tklbam-backup'], 'Creating backup', 'Uploading.')
+            self.ui.backup_progress(['tklbam-init'], 'Setting up backups', 'Preparing.')
         process.terminate.assert_called_once_with()
 
     def test_clear_screen_resets_the_terminal(self):
