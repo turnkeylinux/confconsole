@@ -1,7 +1,11 @@
-# Keep menu labels and their shortcut letters readable on the light background.
-tag_color = (BLACK,WHITE,OFF)
-tag_key_color = (BLACK,WHITE,OFF)
-tag_selected_color = (WHITE,BLUE,ON)
-tag_key_selected_color = (WHITE,BLUE,ON)
+# Use a dark menu surface so colored labels stay readable across terminal palettes.
+menubox_color = (WHITE,BLACK,OFF)
+menubox_border_color = (WHITE,BLACK,OFF)
+tag_color = (CYAN,BLACK,OFF)
+tag_key_color = (CYAN,BLACK,ON)
+item_color = (WHITE,BLACK,OFF)
+tag_selected_color = (BLACK,CYAN,OFF)
+tag_key_selected_color = (BLACK,CYAN,OFF)
+item_selected_color = (BLACK,CYAN,OFF)
 button_label_inactive_color = (BLACK,WHITE,OFF)
 button_key_inactive_color = (BLACK,WHITE,OFF)
