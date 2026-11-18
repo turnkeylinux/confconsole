@@ -11,6 +11,9 @@ Options:
 """
 
 import json
+import errno
+import fcntl
+import pty
 import re
 import logging
 import os
@@ -20,6 +23,8 @@ from subprocess import CalledProcessError
 import getopt
 import ipaddress
 import shlex
+import struct
+import termios
 import time
 from string import Template
 from io import StringIO
@@ -292,6 +297,12 @@ class Console:
                           yes_label=primary, no_label=secondary)
         assert isinstance(v, str)
         return v
+
+    def scrollbox(self, title: str, text: str) -> None:
+        terminal = get_terminal_size((80, 24))
+        height = min(20, terminal.lines - 2, max(8, len(text.splitlines()) + 6))
+        self._wrapper("scrollbox", text, height,
+                      min(self.width, terminal.columns - 4), title=title, exit_label="Close")
 
     def inputbox(
         self,
@@ -776,7 +787,7 @@ class TurnkeyConsole:
                     instruction = ("Finish migrating your backup account in the Hub:" if "Finish migrating" in error
                                    else "Set up backup storage and connect your AWS account in the Hub:")
                     match = re.search(r"https://hub\.turnkeylinux\.org/[^\s]*", error)
-                    url = match.group(0) if match else "https://hub.turnkeylinux.org/backup/"
+                    url = match.group(0) if match else "https://hub.turnkeylinux.org/backups/"
                 text = (instruction + "\n\n" + url + "\n\n"
                         "Return here when finished and choose Continue. You can also return to the console and finish later.")
                 if self.console.yesno(text, autosize=True, ok_label="Continue", cancel_label="Back") == self.OK:
@@ -785,17 +796,82 @@ class TurnkeyConsole:
             self.console.msgbox("Backup setup could not finish", error or "Check your network connection and try again.", autosize=True)
             return "usage"
 
+    def run_backup(self) -> tuple[int, str]:
+        """Show output live and retain a bounded tail for the error dialog."""
+        master, slave = pty.openpty()
+        try:
+            terminal = get_terminal_size((80, 24))
+            fcntl.ioctl(slave, termios.TIOCSWINSZ,
+                        struct.pack("HHHH", terminal.lines, terminal.columns, 0, 0))
+            try:
+                process = subprocess.Popen(["tklbam-backup"], stdout=slave, stderr=slave)
+            finally:
+                os.close(slave)
+            tail = bytearray()
+            truncated = False
+            try:
+                while True:
+                    try:
+                        data = os.read(master, 8192)
+                    except OSError as error:
+                        if error.errno == errno.EIO:
+                            break
+                        raise
+                    if not data:
+                        break
+                    sys.stdout.buffer.write(data)
+                    sys.stdout.buffer.flush()
+                    tail.extend(data)
+                    if len(tail) > 65536:
+                        del tail[:-65536]
+                        truncated = True
+                status = process.wait()
+            except KeyboardInterrupt:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+        finally:
+            os.close(master)
+        output = tail.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+        output = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", output)
+        output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+        output = "".join(c for c in output if c in "\n\t" or (ord(c) >= 32 and ord(c) != 127))
+        lines = output.splitlines()
+        if len(lines) > 120:
+            truncated = True
+        output = "\n".join(lines[-120:]).strip()
+        if truncated:
+            output = "Showing the most recent backup output.\n\n" + output
+        return status, output
+
     def backup_create(self) -> str:
         log_position = backup_log_position()
         self.console.clear_screen()
         print("Creating backup. Progress appears below.\n", flush=True)
         try:
-            result = subprocess.run(["tklbam-backup"], check=False)
+            status, output = self.run_backup()
         except OSError:
             self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.", autosize=True)
             return "usage"
-        if result.returncode:
-            self.console.msgbox("Backup could not finish", "Review the backup output or /var/log/tklbam-backup, then try again.", autosize=True)
+        if status:
+            if "Backup plan record limit reached" in output:
+                text = ("Your Hub backup plan has reached its backup limit.\n\n"
+                        "Manage backups or your plan in the Hub:\n"
+                        "https://hub.turnkeylinux.org/backups/")
+            else:
+                text = "The backup could not finish."
+            if output:
+                text += "\n\nView the backup output for details?"
+                if self.console.yesno(text, autosize=True, title="Backup could not finish",
+                                      ok_label="View output", cancel_label="Back") == self.OK:
+                    self.console.scrollbox("Backup output (use arrows to scroll)", output)
+            else:
+                self.console.msgbox("Backup could not finish", text + "\n\nNo output was available. Try again.", autosize=True)
         else:
             summary = backup_summary(log_position)
             text = "Your first backup is complete."

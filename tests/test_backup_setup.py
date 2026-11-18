@@ -1,7 +1,9 @@
 """Backup setup navigation and recovery."""
 import subprocess
 import io
+import os
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -24,14 +26,13 @@ class BackupSetupTests(unittest.TestCase):
         self.assertEqual(self.ui.console.yesno.call_args.kwargs['title'], 'Backups ready')
 
     @patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED')
-    @patch('confconsole.subprocess.run')
-    def test_success_can_start_first_backup_directly(self, run, _status):
+    def test_success_can_start_first_backup_directly(self, _status):
         self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '', ''))
-        run.return_value = subprocess.CompletedProcess([], 0)
+        self.ui.run_backup = Mock(return_value=(0, 'Backup succeeded'))
         self.ui.console.yesno.return_value = 'ok'
         self.assertEqual(self.ui.backup_setup(), 'usage')
         self.ui.backup_progress.assert_called_once()
-        run.assert_called_once_with(['tklbam-backup'], check=False)
+        self.ui.run_backup.assert_called_once_with()
         self.assertEqual(self.ui.console.yesno.call_count, 1)
         self.ui.console.clear_screen.assert_called_once_with()
         self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup complete')
@@ -51,21 +52,35 @@ class BackupSetupTests(unittest.TestCase):
         run.assert_not_called()
 
     @patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED')
-    @patch('confconsole.subprocess.run')
-    def test_not_now_after_setup_does_not_start_backup(self, run, _status):
+    def test_not_now_after_setup_does_not_start_backup(self, _status):
         self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '', ''))
+        self.ui.run_backup = Mock()
         self.ui.console.yesno.return_value = 'cancel'
         self.assertEqual(self.ui.backup_setup(), 'usage')
-        run.assert_not_called()
+        self.ui.run_backup.assert_not_called()
         self.ui.console.clear_screen.assert_not_called()
 
-    @patch('confconsole.subprocess.run')
-    def test_failed_backup_reports_failure(self, run):
-        run.return_value = subprocess.CompletedProcess([], 1)
+    def test_failed_backup_offers_output_in_console(self):
+        self.ui.run_backup = Mock(return_value=(1, 'error: sample failure'))
+        self.ui.console.yesno.return_value = 'ok'
         self.ui.backup_create()
-        self.ui.console.yesno.assert_not_called()
-        run.assert_called_once_with(['tklbam-backup'], check=False)
-        self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup could not finish')
+        self.ui.run_backup.assert_called_once_with()
+        self.assertEqual(self.ui.console.yesno.call_args.kwargs['ok_label'], 'View output')
+        self.ui.console.scrollbox.assert_called_once_with('Backup output (use arrows to scroll)', 'error: sample failure')
+
+    def test_plan_limit_explains_hub_recovery_and_allows_back(self):
+        self.ui.run_backup = Mock(return_value=(1, 'APIError: Backup plan record limit reached'))
+        self.ui.console.yesno.return_value = 'cancel'
+        self.ui.backup_create()
+        text = self.ui.console.yesno.call_args.args[0]
+        self.assertIn('backup limit', text)
+        self.assertIn('https://hub.turnkeylinux.org/backups/', text)
+        self.ui.console.scrollbox.assert_not_called()
+
+    def test_failure_without_output_is_explained(self):
+        self.ui.run_backup = Mock(return_value=(1, ''))
+        self.ui.backup_create()
+        self.assertIn('No output was available', self.ui.console.msgbox.call_args.args[1])
 
     @patch('confconsole.subprocess.Popen')
     def test_progress_updates_while_command_runs(self, popen):
@@ -90,6 +105,30 @@ class BackupSetupTests(unittest.TestCase):
         with patch('confconsole.sys.stdout', output), patch.object(output, 'isatty', return_value=True):
             confconsole.Console.__new__(confconsole.Console).clear_screen()
         self.assertEqual(output.getvalue(), '\x1b[2J\x1b[H')
+
+    def test_backup_output_is_live_and_available_for_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            command = Path(directory) / 'tklbam-backup'
+            command.write_text('#!/bin/sh\n[ -t 1 ] || exit 90\nprintf "working\\n"\nprintf "error: sample failure\\n" >&2\nexit 42\n')
+            command.chmod(0o755)
+            output = types.SimpleNamespace(buffer=io.BytesIO())
+            with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ.get('PATH', '')}), \
+                 patch('confconsole.sys.stdout', output):
+                status, recorded = self.ui.run_backup()
+            self.assertEqual(status, 42)
+            self.assertIn('working', output.buffer.getvalue().decode())
+            self.assertIn('error: sample failure', output.buffer.getvalue().decode())
+            self.assertIn('error: sample failure', recorded)
+
+    @patch('confconsole.os.read', side_effect=KeyboardInterrupt)
+    @patch('confconsole.subprocess.Popen')
+    def test_interrupt_stops_the_backup(self, popen, _read):
+        process = popen.return_value
+        process.poll.return_value = None
+        with self.assertRaises(KeyboardInterrupt):
+            self.ui.run_backup()
+        process.terminate.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=5)
 
 
 class MainScreenTests(unittest.TestCase):
@@ -140,17 +179,17 @@ class BackupSummaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / 'backup.log'
             log.write_text('---[ Backup Statistics ]---\nNewFiles 999\n---\n')
-            def run(*args, **kwargs):
+            def run():
                 with log.open('a') as stream:
                     stream.write('---[ Backup Statistics ]---\nElapsedTime 8.00 (8 seconds)\n'
                                  'NewFiles 3\nChangedFiles 2\nDeletedFiles 1\n'
                                  'TotalDestinationSizeChange 1024 (1 KB)\nErrors 0\n---\n')
-                return subprocess.CompletedProcess(args[0], 0)
+                return 0, 'Backup succeeded'
             ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
             ui.console = Mock()
-            with patch.object(confconsole, 'BACKUP_LOG', str(log)), patch('confconsole.subprocess.run', side_effect=run) as command:
+            with patch.object(confconsole, 'BACKUP_LOG', str(log)), patch.object(ui, 'run_backup', side_effect=run) as command:
                 self.assertEqual(ui.backup_create(), 'usage')
-            command.assert_called_once_with(['tklbam-backup'], check=False)
+            command.assert_called_once_with()
             message = ui.console.msgbox.call_args.args[1]
             self.assertIn('Duration: 8 seconds', message)
             self.assertIn('Data uploaded: 1 KB', message)
