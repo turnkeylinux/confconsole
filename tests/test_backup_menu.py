@@ -1,5 +1,7 @@
 """Exercise the backup management journey without changing a real system."""
 import subprocess
+import os
+import signal
 import unittest
 from unittest.mock import Mock, patch
 
@@ -123,6 +125,25 @@ class BackupMenuTests(unittest.TestCase):
         self.assertEqual(widths, [96])
         self.assertEqual(self.ui.console.width, 65)
         self.assertTrue(self.ui.console.menu.call_args.kwargs['no_tags'])
+
+    def test_resize_rebuilds_picker_without_reloading_records(self):
+        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess(
+            [], 0, '7\tNo\t2026-11-17\t2026-11-18\t795143\tLAMP\n', ''))
+        self.ui.console.width, self.ui.console.height = 65, 25
+        original_handler = signal.getsignal(signal.SIGWINCH)
+        def menu(*args, **kwargs):
+            if self.ui.console.menu.call_count == 1:
+                os.kill(os.getpid(), signal.SIGWINCH)
+                raise confconsole.dialog.DialogTerminatedBySignal('resized')
+            return ('cancel', '')
+        self.ui.console.menu.side_effect = menu
+        with patch('confconsole.get_terminal_size', side_effect=[
+                os.terminal_size((80, 24)), os.terminal_size((120, 24))]):
+            self.ui._backup_restore()
+        self.assertEqual(self.ui.backup_progress.call_count, 1)
+        self.assertEqual(self.ui.console.menu.call_count, 2)
+        self.assertIn('Resized: select again.', self.ui.console.menu.call_args.args[1])
+        self.assertEqual(signal.getsignal(signal.SIGWINCH), original_handler)
 
     @patch('confconsole.os.path.isdir', return_value=True)
     def test_rollback_requires_confirmation(self, _isdir):

@@ -15,6 +15,7 @@ import errno
 import fcntl
 import pty
 import re
+import signal
 import logging
 import os
 import sys
@@ -28,6 +29,7 @@ import termios
 import time
 from string import Template
 from io import StringIO
+from contextlib import contextmanager
 from shutil import get_terminal_size
 import traceback
 
@@ -117,6 +119,45 @@ def backup_summary(position: tuple[int, int, int] | None) -> str:
         if key in values:
             lines.append(label + ": " + values[key][0])
     return "\n".join(lines)
+
+
+@contextmanager
+def redraw_dialog_on_resize(console: "Console"):
+    """End the active dialog on resize so its caller can rebuild its layout."""
+    state = {"changed": False, "pid": None}
+    backend = console.console
+    original_call = backend._call_program
+    previous_handler = signal.getsignal(signal.SIGWINCH)
+
+    def stop_dialog() -> None:
+        pid = state["pid"]
+        if pid is None:
+            return
+        try:
+            exited = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            if exited is None:
+                os.kill(pid, signal.SIGTERM)
+        except (ChildProcessError, ProcessLookupError):
+            pass
+
+    def on_resize(_signum, _frame) -> None:
+        state["changed"] = True
+        stop_dialog()
+
+    def track_dialog(*args, **kwargs):
+        result = original_call(*args, **kwargs)
+        state["pid"] = result[0]
+        if state["changed"]:
+            stop_dialog()
+        return result
+
+    backend._call_program = track_dialog
+    signal.signal(signal.SIGWINCH, on_resize)
+    try:
+        yield state
+    finally:
+        signal.signal(signal.SIGWINCH, previous_handler)
+        backend._call_program = original_call
 
 
 class ConfconsoleError(Exception):
@@ -1078,29 +1119,44 @@ class TurnkeyConsole:
         if not records:
             self.console.msgbox("Restore backup", "No completed Hub backups are available to restore.", autosize=True)
             return
-        terminal = get_terminal_size((80, 24))
-        width = max(40, terminal.columns - 4)
         id_width = max(2, max(len(record[0]) for record in records))
-        narrow = width < 66
-        gap = " " if narrow else "  "
-        size_heading = "MB" if narrow else "Size MB"
-        size_width = max(len(size_heading), 4, max(len(record[4]) for record in records))
-        prefix = gap.join((f"{'ID':>{id_width}}", f"{'Pass':<4}", f"{'Created':<10}",
-                           f"{'Updated':<10}", f"{size_heading:>{size_width}}")) + gap
-        label_width = max(1, width - len(prefix) - 10)
-        choices = []
-        for backup_id, key_protected, created, updated, size_mb, label in records:
-            shown_label = label if len(label) <= label_width else label[:max(0, label_width - 1)] + "…"
-            row = gap.join((f"{backup_id:>{id_width}}", f"{key_protected:<4}", f"{created:<10}",
-                            f"{updated:<10}", f"{size_mb:>{size_width}}", shown_label))
-            choices.append((backup_id, row.ljust(width - 10)))
         saved_width, saved_height = self.console.width, self.console.height
         try:
-            self.console.width = width
-            self.console.height = terminal.lines - 2
-            code, backup_id = self.console.menu(
-                "Restore backup", "Select a backup. Pass: passphrase required.\n\n  " + prefix + "Label",
-                choices, compact=True, no_tags=True)
+            with redraw_dialog_on_resize(self.console) as resize:
+                reflowed = False
+                while True:
+                    resize["changed"] = False
+                    terminal = get_terminal_size((80, 24))
+                    width = max(40, terminal.columns - 4)
+                    narrow = width < 66
+                    gap = " " if narrow else "  "
+                    size_heading = "MB" if narrow else "Size MB"
+                    size_width = max(len(size_heading), 4, max(len(record[4]) for record in records))
+                    prefix = gap.join((f"{'ID':>{id_width}}", f"{'Pass':<4}", f"{'Created':<10}",
+                                       f"{'Updated':<10}", f"{size_heading:>{size_width}}")) + gap
+                    label_width = max(1, width - len(prefix) - 10)
+                    choices = []
+                    for backup_id, key_protected, created, updated, size_mb, label in records:
+                        shown_label = label if len(label) <= label_width else label[:max(0, label_width - 1)] + "…"
+                        row = gap.join((f"{backup_id:>{id_width}}", f"{key_protected:<4}", f"{created:<10}",
+                                        f"{updated:<10}", f"{size_mb:>{size_width}}", shown_label))
+                        choices.append((backup_id, row.ljust(width - 10)))
+                    self.console.width = width
+                    self.console.height = terminal.lines - 2
+                    instruction = ("Resized: select again. Pass: passphrase required." if reflowed
+                                   else "Select a backup. Pass: passphrase required.")
+                    try:
+                        code, backup_id = self.console.menu(
+                            "Restore backup", instruction + "\n\n  " + prefix + "Label",
+                            choices, compact=True, no_tags=True)
+                    except dialog.DialogTerminatedBySignal:
+                        if not resize["changed"]:
+                            raise
+                    finally:
+                        resize["pid"] = None
+                    if not resize["changed"]:
+                        break
+                    reflowed = True
         finally:
             self.console.width, self.console.height = saved_width, saved_height
         record = next((record for record in records if record[0] == backup_id), None)
