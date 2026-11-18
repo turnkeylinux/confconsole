@@ -73,23 +73,56 @@ class BackupMenuTests(unittest.TestCase):
 
     def test_restore_lists_completed_records_and_sends_password_to_selected_id(self):
         self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess(
-            [], 0, '1\tYes\t2026-11-18 12:00:00\t123\tLAMP\n2\tNo\tNone\t0\tEmpty\n', ''))
+            [], 0, '1\tYes\t2026-11-17 12:00:00\t2026-11-18 12:00:00\t123\tLAMP\n2\tNo\tNone\tNone\t0\tEmpty\n', ''))
         self.ui.console.menu.return_value = ('ok', '1')
         self.ui.console.yesno.return_value = 'ok'
         self.ui.console.passwordbox.return_value = ('ok', 'private phrase')
         self.ui._backup_operation = Mock()
         self.ui._backup_restore()
-        self.assertEqual(self.ui.console.menu.call_args.args[2], [('1', 'LAMP  (2026-11-18)')])
+        choices = self.ui.console.menu.call_args.args[2]
+        self.assertEqual(len(choices), 1)
+        self.assertEqual(choices[0][0], '1')
+        for detail in ('Yes', '2026-11-17', '2026-11-18', '0.01', 'LAMP'):
+            self.assertIn(detail, choices[0][1])
         self.ui._backup_operation.assert_called_once_with(
             ['tklbam-restore', '--noninteractive', '1'], 'Restore backup', 'private phrase')
 
     def test_cancel_restore_never_runs_command(self):
-        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '1\tNo\tNone\t123\tLAMP\n', ''))
+        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '1\tNo\tNone\tNone\t123\tLAMP\n', ''))
         self.ui.console.menu.return_value = ('ok', '1')
         self.ui.console.yesno.return_value = 'cancel'
         self.ui._backup_operation = Mock()
         self.ui._backup_restore()
         self.ui._backup_operation.assert_not_called()
+
+    def test_long_label_is_preserved_in_restore_confirmation(self):
+        label = 'A very long backup label that exceeds the visible menu width'
+        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess(
+            [], 0, '42\tNo\t2026-11-17\t2026-11-18\t795143\t' + label + '\n', ''))
+        self.ui.console.menu.return_value = ('ok', '42')
+        self.ui.console.yesno.return_value = 'cancel'
+        with patch('confconsole.get_terminal_size', return_value=confconsole.os.terminal_size((60, 24))):
+            self.ui._backup_restore()
+        self.assertIn('…', self.ui.console.menu.call_args.args[2][0][1])
+        self.assertIn(label, self.ui.console.yesno.call_args.args[0])
+
+    def test_restore_picker_shows_all_record_fields_and_uses_terminal_width(self):
+        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess(
+            [], 0, '7\tNo\t2026-11-17 10:00:00\t2026-11-18 12:00:00\t795143\tLAMP\n', ''))
+        self.ui.console.width, self.ui.console.height = 65, 25
+        widths = []
+        self.ui.console.menu.side_effect = lambda *args, **kwargs: (widths.append(self.ui.console.width) or ('cancel', ''))
+        with patch('confconsole.get_terminal_size', return_value=confconsole.os.terminal_size((100, 30))):
+            self.ui._backup_restore()
+        _, text, choices = self.ui.console.menu.call_args.args
+        self.assertIn('Created', text)
+        self.assertIn('Updated', text)
+        self.assertIn('Size MB', text)
+        for value in ('7', 'No', '2026-11-17', '2026-11-18', '0.76', 'LAMP'):
+            self.assertIn(value, choices[0][1])
+        self.assertEqual(widths, [96])
+        self.assertEqual(self.ui.console.width, 65)
+        self.assertTrue(self.ui.console.menu.call_args.kwargs['no_tags'])
 
     @patch('confconsole.os.path.isdir', return_value=True)
     def test_rollback_requires_confirmation(self, _isdir):

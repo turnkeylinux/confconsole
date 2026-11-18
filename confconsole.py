@@ -344,6 +344,7 @@ class Console:
         no_cancel: bool = False,
         compact: bool = False,
         pad: bool = False,
+        no_tags: bool = False,
     ) -> tuple[str, str]:
         height = self.height
         menu_height = len(choices) + 1
@@ -353,6 +354,8 @@ class Console:
             height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_rows))
             menu_height = min(len(choices) + extra_rows, max(1, height - len(text.splitlines()) - 6))
         options = {"title": title, "choices": choices, "no_cancel": no_cancel}
+        if no_tags:
+            options["no_tags"] = True
         if pad and choices and menu_height >= len(choices) + 2:
             # dialog's menu widget has no nonselectable padding rows. Keep its
             # initial focus on the first action and ignore the empty row if it
@@ -1047,7 +1050,7 @@ class TurnkeyConsole:
     def _backup_restore(self) -> None:
         try:
             result = self.backup_progress(
-                ["tklbam-list", "%id\t%skpp\t%updated\t%size\t%label"],
+                ["tklbam-list", "%id\t%skpp\t%created\t%updated\t%size\t%label"],
                 "Restore backup", "Loading your Hub backups.")
         except OSError:
             self.console.msgbox("Restore backup", "Could not load backups. Try again.", autosize=True)
@@ -1055,32 +1058,63 @@ class TurnkeyConsole:
         if result.returncode:
             self.console.msgbox("Restore backup", "Could not load your Hub backups. Check the connection and try again.", autosize=True)
             return
-        choices = []
-        protected = {}
+        records = []
         for line in result.stdout.splitlines():
-            fields = line.split("\t", 4)
-            if len(fields) != 5 or not fields[0].isdigit() or not fields[3].isdigit() or int(fields[3]) == 0:
+            fields = line.split("\t", 5)
+            if len(fields) != 6 or not fields[0].isdigit() or not fields[4].isdigit() or int(fields[4]) == 0:
                 continue
-            backup_id, key_protected, updated, _, label = fields
+            backup_id, key_protected, created, updated, size, label = fields
             label = "".join(c for c in label if c.isprintable()).strip() or "Backup"
-            date = updated[:10] if updated and updated != "None" else "date unavailable"
-            choices.append((backup_id, f"{label}  ({date})"))
-            protected[backup_id] = key_protected == "Yes"
-        if not choices:
+            created = created[:10] if created and created != "None" else "-"
+            updated = updated[:10] if updated and updated != "None" else "-"
+            size_bytes = int(size)
+            if size_bytes < 10 * 1024:
+                size_mb = "0.01"
+            elif size_bytes > 1024 * 1024 * 1000 * 99.99:
+                size_mb = str(size_bytes // (1024 * 1024))
+            else:
+                size_mb = f"{size_bytes / (1024 * 1024):.2f}"
+            records.append((backup_id, key_protected, created, updated, size_mb, label))
+        if not records:
             self.console.msgbox("Restore backup", "No completed Hub backups are available to restore.", autosize=True)
             return
-        code, backup_id = self.console.menu("Restore backup", "Select a backup to restore:", choices, compact=True)
-        if code != self.OK or backup_id not in protected:
+        terminal = get_terminal_size((80, 24))
+        width = max(40, terminal.columns - 4)
+        id_width = max(2, max(len(record[0]) for record in records))
+        narrow = width < 66
+        gap = " " if narrow else "  "
+        size_heading = "MB" if narrow else "Size MB"
+        size_width = max(len(size_heading), 4, max(len(record[4]) for record in records))
+        prefix = gap.join((f"{'ID':>{id_width}}", f"{'Pass':<4}", f"{'Created':<10}",
+                           f"{'Updated':<10}", f"{size_heading:>{size_width}}")) + gap
+        label_width = max(1, width - len(prefix) - 10)
+        choices = []
+        for backup_id, key_protected, created, updated, size_mb, label in records:
+            shown_label = label if len(label) <= label_width else label[:max(0, label_width - 1)] + "…"
+            row = gap.join((f"{backup_id:>{id_width}}", f"{key_protected:<4}", f"{created:<10}",
+                            f"{updated:<10}", f"{size_mb:>{size_width}}", shown_label))
+            choices.append((backup_id, row.ljust(width - 10)))
+        saved_width, saved_height = self.console.width, self.console.height
+        try:
+            self.console.width = width
+            self.console.height = terminal.lines - 2
+            code, backup_id = self.console.menu(
+                "Restore backup", "Select a backup. Pass: passphrase required.\n\n  " + prefix + "Label",
+                choices, compact=True, no_tags=True)
+        finally:
+            self.console.width, self.console.height = saved_width, saved_height
+        record = next((record for record in records if record[0] == backup_id), None)
+        if code != self.OK or record is None:
             return
-        label = next(description for identifier, description in choices if identifier == backup_id)
+        _, key_protected, _, updated, _, label = record
         if self.console.yesno(
-            f"Restore {label}?\n\nThis replaces files, packages and databases on this server. "
+            f"Restore {label} (backup #{backup_id}, updated {updated})?\n\nThis replaces files, packages and databases on this server. "
             "Current changes may be lost. A rollback is prepared where supported.",
             autosize=True, title="Confirm restore", ok_label="Restore", cancel_label="Back", defaultno=True,
         ) != self.OK:
             return
         password = ""
-        if protected[backup_id]:
+        if key_protected == "Yes":
             code, password = self.console.passwordbox("Restore backup", "Enter this backup's passphrase:")
             if code != self.OK:
                 return
