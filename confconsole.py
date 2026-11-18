@@ -259,7 +259,7 @@ class Console:
 
     def yesno(self, text: str, autosize: bool = False,
               ok_label: str = "Yes", cancel_label: str = "No",
-              title: str | None = None) -> str:
+              title: str | None = None, defaultno: bool = False) -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
@@ -268,6 +268,8 @@ class Console:
         options = {"yes_label": ok_label, "no_label": cancel_label}
         if title:
             options["title"] = title
+        if defaultno:
+            options["defaultno"] = True
         v = self._wrapper("yesno", text, height, width, **options)
         assert isinstance(v, str)
         return v
@@ -328,19 +330,32 @@ class Console:
         assert isinstance(v, tuple)
         return v
 
+    def passwordbox(self, title: str, text: str) -> tuple[str, str]:
+        v = self._wrapper("passwordbox", text, 0, 0, title=title,
+                          ok_label="Continue", cancel_label="Back")
+        assert isinstance(v, tuple)
+        return v
+
     def menu(
         self,
         title: str,
         text: str,
         choices: list[tuple[str, str]],
         no_cancel: bool = False,
+        compact: bool = False,
     ) -> tuple[str, str]:
+        height = self.height
+        menu_height = len(choices) + 1
+        if compact:
+            terminal = get_terminal_size((80, 24))
+            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 8))
+            menu_height = min(menu_height, max(1, height - len(text.splitlines()) - 7))
         v = self._wrapper(
             "menu",
             text,
-            self.height,
+            height,
             self.width,
-            menu_height=len(choices) + 1,
+            menu_height=menu_height,
             title=title,
             choices=choices,
             no_cancel=no_cancel,
@@ -508,6 +523,8 @@ class TurnkeyConsole:
         items = []
         if conf.Conf().networking:
             items.append(("Networking", "Configure networking"))
+
+        items.append(("Backup", "Manage backups and restores"))
 
         if self.installer.available:
             items.append(("Install", "Install to hard disk"))
@@ -850,7 +867,7 @@ class TurnkeyConsole:
             output = "Showing the most recent backup output.\n\n" + output
         return status, output
 
-    def backup_create(self) -> str:
+    def backup_create(self, first_backup: bool = True) -> str:
         while True:
             log_position = backup_log_position()
             self.console.clear_screen()
@@ -862,7 +879,7 @@ class TurnkeyConsole:
                 return "usage"
             if not status:
                 summary = backup_summary(log_position)
-                text = "Your first backup is complete."
+                text = "Your first backup is complete." if first_backup else "Your backup is complete."
                 if summary:
                     text += "\n\n" + summary
                 else:
@@ -893,6 +910,219 @@ class TurnkeyConsole:
             else:
                 self.console.msgbox("Backup could not finish", text + "\n\nNo output was available. Try again.", autosize=True)
             return "usage"
+
+    def _backup_connect(self) -> bool:
+        status = hub_link_status()
+        if status == "hub.turnkeylinux.org: CONNECTED":
+            return True
+        if status == "hub.turnkeylinux.org: STATUS UNAVAILABLE":
+            self.console.msgbox("Backups", "The Hub connection status is unavailable. Try again.", autosize=True)
+            return False
+        self.console.msgbox(
+            "Connect to Hub",
+            "Connect this server to your Hub account to manage backups. "
+            "You will be asked to open the Hub in a browser and return here.",
+            autosize=True,
+        )
+        try:
+            subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"], check=True)
+        except (OSError, subprocess.CalledProcessError):
+            self.console.msgbox("Connect to Hub", "The connection was not completed. Try again when you are ready.", autosize=True)
+            return False
+        return hub_link_status() == "hub.turnkeylinux.org: CONNECTED"
+
+    def _backup_status(self) -> tuple[int | None, str]:
+        try:
+            result = subprocess.run(["tklbam-status", "--short"], capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return None, "Backup status is unavailable."
+        if result.returncode == 11:
+            return 11, "Backups: Ready to set up"
+        if result.returncode == 10:
+            return 10, "Backups: Ready for first backup"
+        if result.returncode == 0:
+            return 0, result.stdout.strip().replace("TKLBAM:", "Backups:", 1)
+        return None, "Backup status is unavailable."
+
+    def _backup_passphrase(self) -> None:
+        code, password = self.console.passwordbox(
+            "Backup passphrase", "Set a passphrase to protect your backup encryption key.\n\n"
+            "Save it somewhere safe. You will need it to restore your backup.")
+        if code != self.OK:
+            return
+        if not password or password != password.rstrip():
+            self.console.msgbox("Backup passphrase", "Enter a passphrase without trailing spaces.", autosize=True)
+            return
+        code, confirm = self.console.passwordbox("Confirm passphrase", "Enter the passphrase again:")
+        if code != self.OK:
+            return
+        if password != confirm:
+            self.console.msgbox("Backup passphrase", "The passphrases did not match. Try again.", autosize=True)
+            return
+        try:
+            self.console.progress("Backup passphrase", "Saving the passphrase. This may take a moment.")
+            result = subprocess.run(["tklbam-passphrase"], input=password + "\n", capture_output=True, text=True)
+        except OSError:
+            self.console.msgbox("Backup passphrase", "Could not start passphrase setup. Try again.", autosize=True)
+            return
+        if result.returncode:
+            self.console.msgbox("Backup passphrase", "Could not save the passphrase. Check your Hub connection and try again.", autosize=True)
+        else:
+            self.console.msgbox("Backup passphrase", "Passphrase saved. Keep it somewhere safe.", autosize=True)
+
+    def _backup_terminal(self, command: list[str], password: str = "") -> tuple[int, str]:
+        """Show operation output live while retaining a small tail for errors."""
+        self.console.clear_screen()
+        print("Progress appears below.\n", flush=True)
+        master, slave = pty.openpty()
+        try:
+            terminal = get_terminal_size((80, 24))
+            fcntl.ioctl(slave, termios.TIOCSWINSZ,
+                        struct.pack("HHHH", terminal.lines, terminal.columns, 0, 0))
+            try:
+                process = subprocess.Popen(command, stdin=subprocess.PIPE if password else subprocess.DEVNULL,
+                                           stdout=slave, stderr=slave)
+            finally:
+                os.close(slave)
+            try:
+                if process.stdin is not None:
+                    try:
+                        process.stdin.write((password + "\n").encode())
+                        process.stdin.close()
+                    except BrokenPipeError:
+                        pass
+                tail = bytearray()
+                while True:
+                    try:
+                        data = os.read(master, 8192)
+                    except OSError as error:
+                        if error.errno == errno.EIO:
+                            break
+                        raise
+                    if not data:
+                        break
+                    sys.stdout.buffer.write(data)
+                    sys.stdout.buffer.flush()
+                    tail.extend(data)
+                    if len(tail) > 65536:
+                        del tail[:-65536]
+                status = process.wait()
+            except KeyboardInterrupt:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+        finally:
+            os.close(master)
+        output = tail.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+        output = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", output)
+        output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+        output = "".join(c for c in output if c in "\n\t" or (ord(c) >= 32 and ord(c) != 127))
+        return status, "\n".join(output.splitlines()[-120:]).strip()
+
+    def _backup_operation(self, command: list[str], title: str, password: str = "") -> None:
+        try:
+            status, output = self._backup_terminal(command, password)
+        except OSError:
+            self.console.msgbox(title, "The operation could not start. Try again.", autosize=True)
+            return
+        if status == 0:
+            self.console.msgbox(title, "Completed successfully.", autosize=True)
+        elif command[0] == "tklbam-restore" and status == 11:
+            self.console.msgbox(title, "The backup passphrase was incorrect. Select the backup and try again.", autosize=True)
+        elif command[0] == "tklbam-restore" and status == 10:
+            self.console.msgbox(title, "This backup is for a different appliance version. Restore it to a compatible server.", autosize=True)
+        elif output and self.console.yesno("The operation could not finish. View its output?", autosize=True,
+                                          title=title, ok_label="View output", cancel_label="Back") == self.OK:
+            self.console.scrollbox("Operation output (use arrows to scroll)", output)
+        elif not output:
+            self.console.msgbox(title, "The operation could not finish. Try again.", autosize=True)
+
+    def _backup_restore(self) -> None:
+        try:
+            result = self.backup_progress(
+                ["tklbam-list", "%id\t%skpp\t%updated\t%size\t%label"],
+                "Restore backup", "Loading your Hub backups.")
+        except OSError:
+            self.console.msgbox("Restore backup", "Could not load backups. Try again.", autosize=True)
+            return
+        if result.returncode:
+            self.console.msgbox("Restore backup", "Could not load your Hub backups. Check the connection and try again.", autosize=True)
+            return
+        choices = []
+        protected = {}
+        for line in result.stdout.splitlines():
+            fields = line.split("\t", 4)
+            if len(fields) != 5 or not fields[0].isdigit() or not fields[3].isdigit() or int(fields[3]) == 0:
+                continue
+            backup_id, key_protected, updated, _, label = fields
+            label = "".join(c for c in label if c.isprintable()).strip() or "Backup"
+            date = updated[:10] if updated and updated != "None" else "date unavailable"
+            choices.append((backup_id, f"{label}  ({date})"))
+            protected[backup_id] = key_protected == "Yes"
+        if not choices:
+            self.console.msgbox("Restore backup", "No completed Hub backups are available to restore.", autosize=True)
+            return
+        code, backup_id = self.console.menu("Restore backup", "Select a backup to restore:", choices, compact=True)
+        if code != self.OK or backup_id not in protected:
+            return
+        label = next(description for identifier, description in choices if identifier == backup_id)
+        if self.console.yesno(
+            f"Restore {label}?\n\nThis replaces files, packages and databases on this server. "
+            "Current changes may be lost. A rollback is prepared where supported.",
+            autosize=True, title="Confirm restore", ok_label="Restore", cancel_label="Back", defaultno=True,
+        ) != self.OK:
+            return
+        password = ""
+        if protected[backup_id]:
+            code, password = self.console.passwordbox("Restore backup", "Enter this backup's passphrase:")
+            if code != self.OK:
+                return
+        self._backup_operation(["tklbam-restore", "--noninteractive", backup_id], "Restore backup", password)
+
+    def _backup_rollback(self) -> None:
+        if not os.path.isdir("/var/backups/tklbam-rollback"):
+            self.console.msgbox("Rollback restore", "There is no restore to roll back.", autosize=True)
+            return
+        if self.console.yesno(
+            "Roll back the last restore?\n\nThis replaces changes made since that restore and may cause data loss.",
+            autosize=True, title="Confirm rollback", ok_label="Roll back", cancel_label="Back", defaultno=True,
+        ) == self.OK:
+            self._backup_operation(["tklbam-restore-rollback", "--force"], "Rollback restore")
+
+    def _adv_backup(self) -> str:
+        if not self._backup_connect():
+            return "advanced"
+        while True:
+            state, status = self._backup_status()
+            rollback = os.path.isdir("/var/backups/tklbam-rollback")
+            status += "\nRestore rollback: " + ("Available" if rollback else "Not available")
+            choices = []
+            if state == 11:
+                choices.append(("Setup", "Set up backups"))
+            elif state is not None:
+                choices.append(("Backup", "Create a backup"))
+                choices.append(("Passphrase", "Set backup passphrase"))
+            choices.append(("Restore", "Restore a Hub backup"))
+            if rollback:
+                choices.append(("Rollback", "Roll back the last restore"))
+            code, choice = self.console.menu("Backups", status, choices, compact=True)
+            if code != self.OK:
+                return "advanced"
+            if choice == "Setup":
+                self.backup_setup()
+            elif choice == "Backup":
+                self.backup_create(first_backup=(state == 10))
+            elif choice == "Passphrase":
+                self._backup_passphrase()
+            elif choice == "Restore":
+                self._backup_restore()
+            elif choice == "Rollback":
+                self._backup_rollback()
 
     def advanced(self) -> str:
         # dont display cancel button when no interfaces at all
