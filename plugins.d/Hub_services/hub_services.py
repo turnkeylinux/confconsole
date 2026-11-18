@@ -8,8 +8,8 @@ import textwrap
 TITLE = "TurnKey Hub services"
 HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 CONNECT = "/usr/lib/inithooks/bin/hubservices.py"
-CONNECTED_TEXT = "Manage this server's Hub connection and app email delivery."
-DISCONNECTED_TEXT = "Connect this server to the TurnKey Hub to use app email delivery."
+CONNECTED_TEXT = "Manage this server's Hub connection and email delivery."
+DISCONNECTED_TEXT = "Connect this server to the TurnKey Hub to use email delivery."
 
 
 def invoke(*arguments, payload=None):
