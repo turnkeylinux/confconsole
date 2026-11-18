@@ -761,12 +761,11 @@ class TurnkeyConsole:
                 return "usage"
             if result.returncode == 0:
                 if self.console.yesno(
-                    "Backup setup is complete. Create your first backup now?\n\n"
-                    "The backup may take some time and uses AWS storage.",
+                    "Backup setup is complete. Create your first backup now?",
                     autosize=True, title="Backups ready",
                     ok_label="Create backup", cancel_label="Not now",
                 ) == self.OK:
-                    return self.backup_create(confirm=False)
+                    return self.backup_create()
                 return "usage"
             error = result.stderr.strip()
             if "connect your AWS account" in error or "Finish migrating your backup account" in error or "Enable backups for this server" in error:
@@ -786,9 +785,7 @@ class TurnkeyConsole:
             self.console.msgbox("Backup setup could not finish", error or "Check your network connection and try again.", autosize=True)
             return "usage"
 
-    def backup_create(self, confirm: bool = True) -> str:
-        if confirm and self.console.yesno("Create the first backup now? This can take some time and uses AWS storage.", autosize=True, ok_label="Create backup", cancel_label="Back") != self.OK:
-            return "usage"
+    def backup_create(self) -> str:
         log_position = backup_log_position()
         self.console.clear_screen()
         print("Creating backup. Progress appears below.\n", flush=True)

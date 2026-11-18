@@ -50,18 +50,21 @@ class BackupSetupTests(unittest.TestCase):
         self.ui.backup_setup()
         run.assert_not_called()
 
-    def test_cancel_first_backup_does_not_start_it(self):
+    @patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED')
+    @patch('confconsole.subprocess.run')
+    def test_not_now_after_setup_does_not_start_backup(self, run, _status):
+        self.ui.backup_progress = Mock(return_value=subprocess.CompletedProcess([], 0, '', ''))
         self.ui.console.yesno.return_value = 'cancel'
-        with patch('confconsole.subprocess.run') as run:
-            self.ui.backup_create()
+        self.assertEqual(self.ui.backup_setup(), 'usage')
         run.assert_not_called()
         self.ui.console.clear_screen.assert_not_called()
 
     @patch('confconsole.subprocess.run')
     def test_failed_backup_reports_failure(self, run):
-        self.ui.console.yesno.return_value = 'ok'
         run.return_value = subprocess.CompletedProcess([], 1)
         self.ui.backup_create()
+        self.ui.console.yesno.assert_not_called()
+        run.assert_called_once_with(['tklbam-backup'], check=False)
         self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup could not finish')
 
     @patch('confconsole.subprocess.Popen')
@@ -146,7 +149,7 @@ class BackupSummaryTests(unittest.TestCase):
             ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
             ui.console = Mock()
             with patch.object(confconsole, 'BACKUP_LOG', str(log)), patch('confconsole.subprocess.run', side_effect=run) as command:
-                self.assertEqual(ui.backup_create(confirm=False), 'usage')
+                self.assertEqual(ui.backup_create(), 'usage')
             command.assert_called_once_with(['tklbam-backup'], check=False)
             message = ui.console.msgbox.call_args.args[1]
             self.assertIn('Duration: 8 seconds', message)
