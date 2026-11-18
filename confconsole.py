@@ -187,14 +187,14 @@ class Console:
         return v
 
     def yesno(self, text: str, autosize: bool = False,
-              ok_label: str = "Select", cancel_label: str = "Back") -> str:
+              ok_label: str = "Yes", cancel_label: str = "No") -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
         else:
             height, width = 10, 30
         v = self._wrapper("yesno", text, height, width,
-                          ok_label=ok_label, cancel_label=cancel_label)
+                          yes_label=ok_label, no_label=cancel_label)
         assert isinstance(v, str)
         return v
 
@@ -1035,6 +1035,13 @@ class TurnkeyConsole:
                 prev_dialog = dialog
                 dialog = new_dialog
 
+            except KeyboardInterrupt:
+                if self.console.yesno("Quit the configuration console?", autosize=True,
+                                      ok_label="Quit", cancel_label="Stay") == self.OK:
+                    self.running = False
+                    break
+                dialog = "usage"
+                standalone = False
             except Exception:  # TODO should only catch specific errors
                 sio = StringIO()
                 traceback.print_exc(file=sio)
