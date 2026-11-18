@@ -1,4 +1,4 @@
-"""Connect email, DNS, backups and migration through the Hub."""
+"""Manage the Hub connection and app email delivery."""
 import json
 import os
 import shutil
@@ -8,11 +8,8 @@ import textwrap
 TITLE = "TurnKey Hub services"
 HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 CONNECT = "/usr/lib/inithooks/bin/hubservices.py"
-TEXT = (
-    "Connect to your Hub account to manage app email delivery, dynamic DNS,"
-    " backups and migration, and security announcements.\n\n"
-    "A free account includes app email delivery and a tklapp.com hostname with dynamic DNS."
-)
+CONNECTED_TEXT = "Manage this server's Hub connection and app email delivery."
+DISCONNECTED_TEXT = "Connect this server to the TurnKey Hub to use app email delivery."
 
 
 def invoke(*arguments, payload=None):
@@ -118,7 +115,7 @@ def run():
                 choices.append(("Test", "Send test email"))
         if linked:
             choices.append(("Reconnect", "Reconnect to Hub"))
-        code, choice = choose(TITLE, TEXT, choices)
+        code, choice = choose(TITLE, CONNECTED_TEXT if linked else DISCONNECTED_TEXT, choices)
         if code != "ok":
             return
         if choice == "Reconnect":
