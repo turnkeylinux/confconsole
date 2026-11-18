@@ -343,13 +343,17 @@ class Console:
         choices: list[tuple[str, str]],
         no_cancel: bool = False,
         compact: bool = False,
+        pad: bool = False,
     ) -> tuple[str, str]:
         height = self.height
         menu_height = len(choices) + 1
         if compact:
             terminal = get_terminal_size((80, 24))
-            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7))
-            menu_height = min(len(choices), max(1, height - len(text.splitlines()) - 6))
+            extra_row = 1 if pad else 0
+            if pad:
+                text += "\n "
+            height = min(height, terminal.lines - 2, max(9, len(choices) + len(text.splitlines()) + 7 + extra_row))
+            menu_height = min(len(choices) + extra_row, max(1, height - len(text.splitlines()) - 6))
         v = self._wrapper(
             "menu",
             text,
@@ -1109,7 +1113,7 @@ class TurnkeyConsole:
             choices.append(("Restore", "Restore a Hub backup"))
             if rollback:
                 choices.append(("Rollback", "Roll back the last restore"))
-            code, choice = self.console.menu("Backups", status, choices, compact=True)
+            code, choice = self.console.menu("Backups", status, choices, compact=True, pad=True)
             if code != self.OK:
                 return "advanced"
             if choice == "Setup":
