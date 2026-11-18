@@ -75,14 +75,10 @@ class BackupSetupTests(unittest.TestCase):
         text = self.ui.console.yesno.call_args.args[0]
         self.assertIn("one backup is already in use", text)
         self.assertIn('https://hub.turnkeylinux.org/billing/', text)
+        self.assertEqual(self.ui.console.yesno.call_args.kwargs['ok_label'], 'Retry backup')
+        self.assertEqual(self.ui.console.yesno.call_args.kwargs['cancel_label'], 'Back')
+        self.assertNotIn('extra_label', self.ui.console.yesno.call_args.kwargs)
         self.ui.console.scrollbox.assert_not_called()
-
-    def test_plan_limit_view_output_returns_to_upgrade_choice(self):
-        self.ui.run_backup = Mock(return_value=(12, 'Plan limit details'))
-        self.ui.console.yesno.side_effect = ['extra', 'cancel']
-        self.assertEqual(self.ui.backup_create(), 'usage')
-        self.ui.console.scrollbox.assert_called_once()
-        self.ui.run_backup.assert_called_once()
 
     def test_plan_limit_retry_can_complete_backup(self):
         self.ui.run_backup = Mock(side_effect=[(12, 'Plan limit details'), (0, 'Success')])

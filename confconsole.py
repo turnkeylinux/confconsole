@@ -259,7 +259,7 @@ class Console:
 
     def yesno(self, text: str, autosize: bool = False,
               ok_label: str = "Yes", cancel_label: str = "No",
-              title: str | None = None, extra_label: str | None = None) -> str:
+              title: str | None = None) -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
@@ -268,8 +268,6 @@ class Console:
         options = {"yes_label": ok_label, "no_label": cancel_label}
         if title:
             options["title"] = title
-        if extra_label:
-            options.update(extra_button=True, extra_label=extra_label)
         v = self._wrapper("yesno", text, height, width, **options)
         assert isinstance(v, str)
         return v
@@ -878,19 +876,13 @@ class TurnkeyConsole:
                         "https://hub.turnkeylinux.org/billing/\n\n"
                         "Open the link in a browser and sign in if prompted.\n"
                         "After upgrading, return here and choose Retry backup.")
-                while True:
-                    choice = self.console.yesno(
-                        text, autosize=True, title="Back up more servers",
-                        ok_label="Retry backup", cancel_label="Back",
-                        extra_label="View output" if output else None,
-                    )
-                    if choice == "extra":
-                        self.console.scrollbox("Backup output (use arrows to scroll)", output)
-                        continue
-                    if choice == self.OK:
-                        break
-                    return "usage"
-                continue
+                choice = self.console.yesno(
+                    text, autosize=True, title="Back up more servers",
+                    ok_label="Retry backup", cancel_label="Back",
+                )
+                if choice == self.OK:
+                    continue
+                return "usage"
 
             text = "The backup could not finish."
             if output:
