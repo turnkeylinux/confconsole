@@ -69,13 +69,33 @@ class BackupSetupTests(unittest.TestCase):
         self.ui.console.scrollbox.assert_called_once_with('Backup output (use arrows to scroll)', 'error: sample failure')
 
     def test_plan_limit_explains_hub_recovery_and_allows_back(self):
-        self.ui.run_backup = Mock(return_value=(1, 'APIError: Backup plan record limit reached'))
+        self.ui.run_backup = Mock(return_value=(12, 'Plan limit details'))
         self.ui.console.yesno.return_value = 'cancel'
         self.ui.backup_create()
         text = self.ui.console.yesno.call_args.args[0]
-        self.assertIn('backup limit', text)
-        self.assertIn('https://hub.turnkeylinux.org/backups/', text)
+        self.assertIn("one backup is already in use", text)
+        self.assertIn('https://hub.turnkeylinux.org/billing/', text)
         self.ui.console.scrollbox.assert_not_called()
+
+    def test_plan_limit_view_output_returns_to_upgrade_choice(self):
+        self.ui.run_backup = Mock(return_value=(12, 'Plan limit details'))
+        self.ui.console.yesno.side_effect = ['extra', 'cancel']
+        self.assertEqual(self.ui.backup_create(), 'usage')
+        self.ui.console.scrollbox.assert_called_once()
+        self.ui.run_backup.assert_called_once()
+
+    def test_plan_limit_retry_can_complete_backup(self):
+        self.ui.run_backup = Mock(side_effect=[(12, 'Plan limit details'), (0, 'Success')])
+        self.ui.console.yesno.return_value = 'ok'
+        self.assertEqual(self.ui.backup_create(), 'usage')
+        self.assertEqual(self.ui.run_backup.call_count, 2)
+        self.assertEqual(self.ui.console.msgbox.call_args.args[0], 'Backup complete')
+
+    def test_unstructured_text_does_not_claim_a_plan_limit(self):
+        self.ui.run_backup = Mock(return_value=(1, 'Backup plan record limit reached'))
+        self.ui.console.yesno.return_value = 'cancel'
+        self.assertEqual(self.ui.backup_create(), 'usage')
+        self.assertEqual(self.ui.console.yesno.call_args.kwargs['title'], 'Backup could not finish')
 
     def test_failure_without_output_is_explained(self):
         self.ui.run_backup = Mock(return_value=(1, ''))

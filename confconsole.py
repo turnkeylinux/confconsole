@@ -48,6 +48,7 @@ PLUGIN_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "plugins.d"
 )
 BACKUP_LOG = "/var/log/tklbam-backup"
+TKLBAM_PLAN_LIMIT = 12
 
 handler = JournalHandler(SYSLOG_IDENTIFIER="confconsole")
 handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
@@ -258,7 +259,7 @@ class Console:
 
     def yesno(self, text: str, autosize: bool = False,
               ok_label: str = "Yes", cancel_label: str = "No",
-              title: str | None = None) -> str:
+              title: str | None = None, extra_label: str | None = None) -> str:
         if autosize:
             text += "\n "
             height, width = 0, 0
@@ -267,6 +268,8 @@ class Console:
         options = {"yes_label": ok_label, "no_label": cancel_label}
         if title:
             options["title"] = title
+        if extra_label:
+            options.update(extra_button=True, extra_label=extra_label)
         v = self._wrapper("yesno", text, height, width, **options)
         assert isinstance(v, str)
         return v
@@ -764,7 +767,7 @@ class TurnkeyConsole:
             try:
                 result = self.backup_progress(
                     ["tklbam-init"], "Setting up backups",
-                    "Connecting to the Hub and preparing the backup profile.\n"
+                    "Connecting to the Hub and setting up backup access.\n"
                     "This may take a few minutes.",
                 )
             except OSError:
@@ -850,21 +853,46 @@ class TurnkeyConsole:
         return status, output
 
     def backup_create(self) -> str:
-        log_position = backup_log_position()
-        self.console.clear_screen()
-        print("Creating backup. Progress appears below.\n", flush=True)
-        try:
-            status, output = self.run_backup()
-        except OSError:
-            self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.", autosize=True)
-            return "usage"
-        if status:
-            if "Backup plan record limit reached" in output:
-                text = ("Your Hub backup plan has reached its backup limit.\n\n"
-                        "Manage backups or your plan in the Hub:\n"
-                        "https://hub.turnkeylinux.org/backups/")
-            else:
-                text = "The backup could not finish."
+        while True:
+            log_position = backup_log_position()
+            self.console.clear_screen()
+            print("Creating backup. Progress appears below.\n", flush=True)
+            try:
+                status, output = self.run_backup()
+            except OSError:
+                self.console.msgbox("Backup could not start", "Check that TKLBAM is installed and try again.", autosize=True)
+                return "usage"
+            if not status:
+                summary = backup_summary(log_position)
+                text = "Your first backup is complete."
+                if summary:
+                    text += "\n\n" + summary
+                else:
+                    text += "\n\nReview the terminal output for backup details."
+                self.console.msgbox("Backup complete", text, autosize=True)
+                return "usage"
+
+            if status == TKLBAM_PLAN_LIMIT:
+                text = ("Your free plan's one backup is already in use.\n\n"
+                        "Upgrade your Hub plan to back up more servers:\n"
+                        "https://hub.turnkeylinux.org/billing/\n\n"
+                        "Open the link in a browser and sign in if prompted.\n"
+                        "After upgrading, return here and choose Retry backup.")
+                while True:
+                    choice = self.console.yesno(
+                        text, autosize=True, title="Back up more servers",
+                        ok_label="Retry backup", cancel_label="Back",
+                        extra_label="View output" if output else None,
+                    )
+                    if choice == "extra":
+                        self.console.scrollbox("Backup output (use arrows to scroll)", output)
+                        continue
+                    if choice == self.OK:
+                        break
+                    return "usage"
+                continue
+
+            text = "The backup could not finish."
             if output:
                 text += "\n\nView the backup output for details?"
                 if self.console.yesno(text, autosize=True, title="Backup could not finish",
@@ -872,15 +900,7 @@ class TurnkeyConsole:
                     self.console.scrollbox("Backup output (use arrows to scroll)", output)
             else:
                 self.console.msgbox("Backup could not finish", text + "\n\nNo output was available. Try again.", autosize=True)
-        else:
-            summary = backup_summary(log_position)
-            text = "Your first backup is complete."
-            if summary:
-                text += "\n\n" + summary
-            else:
-                text += "\n\nReview the terminal output for backup details."
-            self.console.msgbox("Backup complete", text, autosize=True)
-        return "usage"
+            return "usage"
 
     def advanced(self) -> str:
         # dont display cancel button when no interfaces at all
