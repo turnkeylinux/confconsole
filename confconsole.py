@@ -53,7 +53,7 @@ PLUGIN_PATH = os.path.join(
 PROXY_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Proxy_Settings")
 LETS_ENCRYPT_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Lets_Encrypt")
 NETWORKING_PLUGINS = {
-    "Let's Encrypt": (LETS_ENCRYPT_PLUGIN_PATH, "Manage HTTPS certificates"),
+    "Free HTTPS certificate": (LETS_ENCRYPT_PLUGIN_PATH, "Set up HTTPS and renewal"),
     "Proxy settings": (PROXY_PLUGIN_PATH, "Configure the APT proxy"),
 }
 BACKUP_LOG = "/var/log/tklbam-backup"

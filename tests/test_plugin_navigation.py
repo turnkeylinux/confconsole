@@ -72,7 +72,7 @@ class NavigationTest(unittest.TestCase):
         self.script(lets_encrypt, 'cert_auto_renew')
         proxy_action = self.script(proxy, 'apt')
         networking_plugins = {
-            "Let's Encrypt": (str(lets_encrypt), 'Manage HTTPS certificates'),
+            'Free HTTPS certificate': (str(lets_encrypt), 'Set up HTTPS and renewal'),
             'Proxy settings': (str(proxy), 'Configure the APT proxy'),
         }
         manager = self.manager()
@@ -84,14 +84,14 @@ class NavigationTest(unittest.TestCase):
             ui = confconsole.TurnkeyConsole(manager, plugin.EventManager())
             menu, _ = ui._get_advmenu()
             self.assertIn(('Networking', 'IP settings, encryption, and proxy'), menu)
-            self.assertNotIn("Let's Encrypt", [label for label, _ in menu])
+            self.assertNotIn("Free HTTPS certificate", [label for label, _ in menu])
             self.assertEqual([label for label, _ in ui._get_networking_menu()],
-                             ['Network adapters', "Let's Encrypt", 'Proxy settings'])
-            self.console.menu.return_value = (ui.OK, "Let's Encrypt")
+                             ['Network adapters', "Free HTTPS certificate", 'Proxy settings'])
+            self.console.menu.return_value = (ui.OK, "Free HTTPS certificate")
             self.assertEqual(ui._adv_networking(), str(lets_encrypt))
             self.console.menu.return_value = (ui.CANCEL, '')
             self.assertEqual(manager.path_map[str(lets_encrypt)].run(), '_adv_networking')
-            self.assertEqual(self.console.menu.call_args.args[0], "Let's Encrypt")
+            self.assertEqual(self.console.menu.call_args.args[0], "Free HTTPS certificate")
             self.assertEqual(manager.path_map[str(proxy_action)].run(), '_adv_networking')
 
 if __name__ == '__main__':

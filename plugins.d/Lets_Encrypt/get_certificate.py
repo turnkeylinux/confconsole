@@ -1,4 +1,4 @@
-"""Get Let's Encrypt SSL cert"""
+"""Get a free HTTPS certificate"""
 
 menu_order = -2
 
@@ -81,18 +81,16 @@ def run() -> None:
             )
     if msg:
         console.msgbox(
-            "Let's Encrypt unavailable",
+            "Certificate service unavailable",
             msg + "\n\nChoose Get certificate to retry after resolving this.",
             autosize=True,
         )
         return
 
     ret = console.yesno(
-        "Before getting a Let's Encrypt certificate, you must agree to the"
-        " current Terms of Service.\n\n"
-        "You can find the current Terms of Service here:\n\n"
+        "Read the Let's Encrypt Terms of Service:\n\n"
         f"{tos_url}\n\n"
-        "Do you agree to the Let's Encrypt Terms of Service?",
+        "Do you agree to the terms?",
         autosize=True,
     )
     if ret != "ok":
