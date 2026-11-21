@@ -51,6 +51,11 @@ PLUGIN_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "plugins.d"
 )
 PROXY_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Proxy_Settings")
+LETS_ENCRYPT_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Lets_Encrypt")
+NETWORKING_PLUGINS = {
+    "Let's Encrypt": (LETS_ENCRYPT_PLUGIN_PATH, "Manage HTTPS certificates"),
+    "Proxy settings": (PROXY_PLUGIN_PATH, "Configure the APT proxy"),
+}
 BACKUP_LOG = "/var/log/tklbam-backup"
 TKLBAM_PLAN_LIMIT = 12
 
@@ -587,12 +592,17 @@ class TurnkeyConsole:
         self.eventManager = eventManager
         self.pluginManager = pluginManager
         self.pluginManager.updateGlobals({"console": self.console})
-        # Redirect Back from the proxy menu and any collapsed proxy actions.
+        for label, (path, _) in NETWORKING_PLUGINS.items():
+            section = self.pluginManager.path_map.get(path)
+            if isinstance(section, plugin.PluginDir):
+                section.menu_label = label
+
+        # Return from networking plugins to their visible parent menu.
         for path, item in self.pluginManager.path_map.items():
-            in_proxy_group = path == PROXY_PLUGIN_PATH or path.startswith(
-                PROXY_PLUGIN_PATH + os.sep
-            )
-            if in_proxy_group and item.parent == "advanced":
+            if item.parent == "advanced" and any(
+                path == root or path.startswith(root + os.sep)
+                for root, _ in NETWORKING_PLUGINS.values()
+            ):
                 item.parent = "_adv_networking"
 
     @staticmethod
@@ -665,7 +675,7 @@ class TurnkeyConsole:
     ]:
         items = []
         if self._get_networking_menu():
-            items.append(("Networking", "Network and proxy settings"))
+            items.append(("Networking", "IP settings, encryption, and proxy"))
 
         items.append(("Backup", "Manage backups and restores"))
 
@@ -675,7 +685,7 @@ class TurnkeyConsole:
         plugin_map = {}
 
         for path, plug in self.pluginManager.path_map.items():
-            if path == PROXY_PLUGIN_PATH:
+            if any(path == root for root, _ in NETWORKING_PLUGINS.values()):
                 continue
             if os.path.dirname(path) == PLUGIN_PATH:
                 if isinstance(plug, plugin.Plugin) and hasattr(
@@ -1648,8 +1658,9 @@ class TurnkeyConsole:
         items = []
         if conf.Conf().networking:
             items.append(("Network adapters", "Configure IP settings"))
-        if PROXY_PLUGIN_PATH in self.pluginManager.path_map:
-            items.append(("Proxy settings", "Configure the APT proxy"))
+        for label, (path, description) in NETWORKING_PLUGINS.items():
+            if path in self.pluginManager.path_map:
+                items.append((label, description))
         return items
 
     def _adv_networking(self) -> str:
@@ -1661,9 +1672,9 @@ class TurnkeyConsole:
         )
         if code != self.OK:
             return "advanced"
-        if choice == "Proxy settings":
-            return PROXY_PLUGIN_PATH
-        return "networking"
+        if choice == "Network adapters":
+            return "networking"
+        return NETWORKING_PLUGINS[choice][0]
 
     quit = _adv_quit
 

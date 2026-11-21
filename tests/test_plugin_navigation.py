@@ -2,10 +2,11 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import plugin
+import confconsole
 
 
 class NavigationTest(unittest.TestCase):
@@ -63,6 +64,35 @@ class NavigationTest(unittest.TestCase):
         m = self.manager()
         self.assertEqual(m.path_map[str(directory)].run(), str(path))
         self.assertEqual(m.path_map[str(path)].run(), 'advanced')
+
+    def test_networking_groups_certificate_with_ip_and_proxy(self):
+        lets_encrypt = self.root / 'Lets_Encrypt'
+        proxy = self.root / 'Proxy_Settings'
+        self.script(lets_encrypt, 'get_certificate')
+        self.script(lets_encrypt, 'cert_auto_renew')
+        proxy_action = self.script(proxy, 'apt')
+        networking_plugins = {
+            "Let's Encrypt": (str(lets_encrypt), 'Manage HTTPS certificates'),
+            'Proxy settings': (str(proxy), 'Configure the APT proxy'),
+        }
+        manager = self.manager()
+
+        with patch.object(confconsole, 'Console', return_value=self.console), \
+             patch.object(confconsole, 'PLUGIN_PATH', str(self.root)), \
+             patch.object(confconsole, 'NETWORKING_PLUGINS', networking_plugins), \
+             patch.object(confconsole.conf, 'Conf', return_value=Mock(networking=True)):
+            ui = confconsole.TurnkeyConsole(manager, plugin.EventManager())
+            menu, _ = ui._get_advmenu()
+            self.assertIn(('Networking', 'IP settings, encryption, and proxy'), menu)
+            self.assertNotIn("Let's Encrypt", [label for label, _ in menu])
+            self.assertEqual([label for label, _ in ui._get_networking_menu()],
+                             ['Network adapters', "Let's Encrypt", 'Proxy settings'])
+            self.console.menu.return_value = (ui.OK, "Let's Encrypt")
+            self.assertEqual(ui._adv_networking(), str(lets_encrypt))
+            self.console.menu.return_value = (ui.CANCEL, '')
+            self.assertEqual(manager.path_map[str(lets_encrypt)].run(), '_adv_networking')
+            self.assertEqual(self.console.menu.call_args.args[0], "Let's Encrypt")
+            self.assertEqual(manager.path_map[str(proxy_action)].run(), '_adv_networking')
 
 if __name__ == '__main__':
     unittest.main()

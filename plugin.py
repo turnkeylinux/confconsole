@@ -146,6 +146,7 @@ class PluginDir:
         self.parent = None
 
         self.module_name = self.name
+        self.menu_label = self.module_name.capitalize()
 
         self.module_globals: dict[str, Any] = {}
 
@@ -170,7 +171,7 @@ class PluginDir:
                         if isinstance(p, Plugin) else 0)
         if not selectable:
             self.module_globals["console"].msgbox(
-                self.module_name.capitalize(), "No options are available.")
+                self.menu_label, "No options are available.")
             return self.parent or "advanced"
         if len(selectable) == 1:
             return selectable[0].path
@@ -184,13 +185,13 @@ class PluginDir:
                 plugin_map[label] = plugin
             elif isinstance(plugin, PluginDir):
                 items.append(
-                    (plugin.module_name.capitalize(), plugin.description)
+                    (plugin.menu_label, plugin.description)
                 )
-                plugin_map[plugin.module_name.capitalize()] = plugin
+                plugin_map[plugin.menu_label] = plugin
 
         retcode, choice = self.module_globals["console"].menu(
-            self.module_name.capitalize(),
-            self.module_name.capitalize() + "\n",
+            self.menu_label,
+            self.menu_label + "\n",
             items,
             no_cancel=False,
             preserve_tags=True,
