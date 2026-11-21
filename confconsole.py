@@ -61,6 +61,22 @@ logging.getLogger().addHandler(handler)
 log = logging.getLogger(__name__)
 
 
+def notification_recipient(path="/etc/aliases") -> str:
+    """Show the root mail alias used for system notification delivery."""
+    try:
+        with open(path) as aliases:
+            for line in aliases:
+                match = re.match(r"^\s*root\s*:\s*([^#\n]+)", line, re.I)
+                if match:
+                    recipients = match.group(1).strip()
+                    if re.search(r"[^\s,@]+@[^\s,@]+", recipients):
+                        return f"Notifications: {recipients}"
+                    break
+    except OSError:
+        pass
+    return "Notifications: Not set"
+
+
 def hub_link_status() -> str:
     """Read the locally stored Hub link state without contacting the Hub."""
     try:
@@ -840,7 +856,7 @@ class TurnkeyConsole:
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
         log.info(log_msg)
-        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
+        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}\n{notification_recipient()}"
 
         if backup_action:
             retcode = self.console.actionbox(
