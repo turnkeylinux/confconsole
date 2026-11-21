@@ -1,9 +1,13 @@
 #!/bin/sh
 set -e
 
-# Existing installations retain the generated renewal schedule on upgrades.
-if [ "$1" = configure ] && [ -f /etc/cron.daily/confconsole-dehydrated ]; then
-    chmod +x /etc/cron.daily/confconsole-dehydrated
+# Version 2.2.4 first shipped an executable renewal template. A disabled
+# schedule from that version onward is an administrator setting.
+schedule=/etc/cron.daily/confconsole-dehydrated
+if [ "${1:-}" = configure ] && [ -n "${2:-}" ] &&
+    dpkg --compare-versions "$2" lt 2.2.4 &&
+    [ ! -L "$schedule" ] && [ -f "$schedule" ]; then
+    chmod +x "$schedule"
 fi
 
 #DEBHELPER#
