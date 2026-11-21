@@ -64,6 +64,9 @@ export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
 export TKL_COMBINED="/etc/ssl/private/cert.pem"
 export TKL_DHPARAM="/etc/ssl/private/dhparams.pem"
+WEBMIN_CONF=/etc/webmin/miniserv.conf
+HUBDNS_FQDN=/var/lib/hubdns/fqdn
+WEBMIN_PREVIOUS_CHAIN=
 # Some fresh images have the combined PEM and key, but no separate CRT.
 # Keep initial issuance and rollback valid for those images too.
 CERT_FILES=("$TKL_CERTFILE" "$TKL_KEYFILE" "$TKL_COMBINED")
@@ -215,6 +218,43 @@ restore_certificates() {
     return "$failed"
 }
 
+webmin_setting_is() {
+    [[ -f "$WEBMIN_CONF" && ! -L "$WEBMIN_CONF" ]] &&
+        [[ $(grep "^[[:space:]]*$1[[:space:]]*=" "$WEBMIN_CONF") == "$1=$2" ]]
+}
+
+write_webmin_chain() {
+    sed -i "s|^extracas=.*|extracas=$1|" "$WEBMIN_CONF"
+}
+
+migrate_hub_webmin_chain() {
+    [[ "$HOOK" == "$CC_HOOK" && -f "$TKL_COMBINED" && ! -L "$TKL_COMBINED" ]] ||
+        return 0
+    cmp -s "$TKL_COMBINED" "$CERT_BACKUP/${TKL_COMBINED##*/}" && return 0
+    [[ -f "$HUBDNS_FQDN" && ! -L "$HUBDNS_FQDN" ]] || return 0
+    local fqdn chain
+    read -r fqdn < "$HUBDNS_FQDN" || return 0
+    fqdn=${fqdn%.}
+    fqdn=${fqdn,,}
+    [[ "$fqdn" =~ ^[a-z0-9.-]+\.tklapp\.com$ ]] || return 0
+    # The EC2 bootstrap points Webmin at the original Hub certificate's chain.
+    # The shared PEM follows later deployments even when their issuer changes.
+    chain="/var/lib/dehydrated/certs/$fqdn/chain.pem"
+    webmin_setting_is keyfile "$TKL_COMBINED" &&
+        webmin_setting_is certfile "" &&
+        webmin_setting_is extracas "$chain" || return 0
+    # Webmin's custom IP and hostname certificates can inherit this chain.
+    grep -q '^[[:space:]]*ipkey_' "$WEBMIN_CONF" && return 0
+    write_webmin_chain "$TKL_COMBINED" || return 1
+    WEBMIN_PREVIOUS_CHAIN=$chain
+}
+
+restore_webmin_chain() {
+    if [[ -n "$WEBMIN_PREVIOUS_CHAIN" ]] && webmin_setting_is extracas "$TKL_COMBINED"; then
+        write_webmin_chain "$WEBMIN_PREVIOUS_CHAIN"
+    fi
+}
+
 activate_certificates() {
     local failed=0
     if [[ "$WEBSERVER" == "tomcat"* ]]; then
@@ -243,12 +283,13 @@ clean_exit() {
         systemctl stop add-water || EXIT_CODE=1
     fi
     [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
-    if [[ $EXIT_CODE -eq 0 ]] && ! activate_certificates; then
+    if [[ $EXIT_CODE -eq 0 ]] && ! { migrate_hub_webmin_chain && activate_certificates; }; then
         # Distinguish activation failures from validation errors at the UI.
         EXIT_CODE=75
     fi
     if [[ $EXIT_CODE -ne 0 ]]; then
         restore_certificates || EXIT_CODE=76
+        restore_webmin_chain || EXIT_CODE=76
         activate_certificates || EXIT_CODE=76
     fi
     if [[ "$KEEP_BACKUP" != "1" ]]; then

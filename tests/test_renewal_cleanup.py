@@ -34,7 +34,14 @@ if command == 'systemctl':
                 time.sleep(1)
             state['water'] = False
     elif name == 'webmin.service' and action == 'restart':
+        config = root / 'etc/webmin/miniserv.conf'
+        if config.is_file():
+            state.setdefault('webmin_chains', []).append(
+                [line for line in config.read_text().splitlines() if line.startswith('extracas=')])
         if os.environ.get('FAIL_ACTIVATION') == '1' and state['events'].count('restart webmin.service') == 1:
+            if config.is_file():
+                with config.open('a') as handle:
+                    handle.write('session_timeout=300\n')
             status = 1
     elif name == state['server']:
         if action == 'stop':
@@ -57,11 +64,12 @@ elif command == 'netstat':
         print('tcp 0 0 0.0.0.0:' + port + ' 0.0.0.0:* LISTEN 1234/' + server)
 elif command == 'dehydrated':
     state['events'].append('dehydrated')
-    for name in ('TKL_CERTFILE', 'TKL_KEYFILE', 'TKL_COMBINED'):
-        cert = pathlib.Path(os.environ[name])
-        cert.write_text('replacement ' + name)
-        cert.chmod(0o600)
-        os.chown(cert, 0, 0)
+    if os.environ.get('ACME_UNCHANGED') != '1':
+        for name in ('TKL_CERTFILE', 'TKL_KEYFILE', 'TKL_COMBINED'):
+            cert = pathlib.Path(os.environ[name])
+            cert.write_text('replacement ' + name)
+            cert.chmod(0o600)
+            os.chown(cert, 0, 0)
     print('fixture ACME operation')
     if os.environ.get('WAIT_FOR_STOP') == '1':
         path.write_text(json.dumps(state))
@@ -87,7 +95,8 @@ class RenewalCleanupTests(unittest.TestCase):
         text = WRAPPER.read_text()
         for prefix in ('/etc/', '/usr/share/confconsole/', '/usr/lib/confconsole/',
                        '/usr/local/share/ca-certificates/', '/usr/lib/inithooks/',
-                       '/var/log/confconsole/', '/var/run/', '/lib/systemd/', '/run/confconsole-acme'):
+                       '/var/log/confconsole/', '/var/run/', '/var/lib/hubdns/',
+                       '/var/lib/dehydrated/', '/lib/systemd/', '/run/confconsole-acme'):
             text = text.replace(prefix, str(self.root) + prefix)
         self.wrapper = self.root / 'dehydrated-wrapper'
         self.wrapper.write_text(text)
@@ -109,6 +118,9 @@ class RenewalCleanupTests(unittest.TestCase):
             path.chmod(0o644 if index == 0 else 0o400)
             os.chown(path, 1001 + index, 1004 + index)
         self.originals = self.snapshot()
+        self.webmin = self.root / 'etc/webmin/miniserv.conf'
+        self.hub_fqdn = self.root / 'var/lib/hubdns/fqdn'
+        self.hub_chain = self.root / 'var/lib/dehydrated/certs/old.tklapp.com/chain.pem'
 
     def tearDown(self):
         self.temp.cleanup()
@@ -119,7 +131,7 @@ class RenewalCleanupTests(unittest.TestCase):
 
     def run_wrapper(self, challenge='http-01', fail=False, race=False,
                     server='apache2', start_fail=False, water=False, umask=0o077,
-                    fail_activation=False):
+                    fail_activation=False, unchanged=False):
         config = (self.root / 'usr/share/confconsole/letsencrypt/dehydrated-confconsole.config').read_text()
         config = config.replace('/etc/dehydrated', str(self.etc))
         config = config.replace('CHALLENGETYPE="http-01"', 'CHALLENGETYPE="' + challenge + '"')
@@ -130,7 +142,8 @@ class RenewalCleanupTests(unittest.TestCase):
         env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ['PATH'],
                    RENEWAL_FIXTURE=str(self.root), CHALLENGE=challenge,
                    RACY_START=str(int(race)), ACME_FAIL=str(int(fail)),
-                   START_FAIL=str(int(start_fail)), FAIL_ACTIVATION=str(int(fail_activation)))
+                   START_FAIL=str(int(start_fail)), FAIL_ACTIVATION=str(int(fail_activation)),
+                   ACME_UNCHANGED=str(int(unchanged)))
         result = subprocess.run([str(self.wrapper), '--force'], env=env,
                                 capture_output=True, text=True, timeout=10,
                                 preexec_fn=lambda: os.umask(umask))
@@ -240,6 +253,90 @@ with open(sys.argv[3], "a") as lock, service.cancellation_requests() as cancelle
         self.assertTrue(state['server_active'])
         self.assertEqual(2, state['events'].count('restart apache2'))
         self.assertEqual(2, state['events'].count('restart webmin.service'))
+
+    def hub_webmin_config(self):
+        self.hub_fqdn.parent.mkdir(parents=True, exist_ok=True)
+        self.hub_fqdn.write_text('Old.tklapp.com.\n')
+        self.webmin.parent.mkdir(parents=True, exist_ok=True)
+        config = f'keyfile={self.certs[2]}\ncertfile=\nextracas={self.hub_chain}\n'
+        self.webmin.write_text(config)
+        return config
+
+    def test_success_uses_new_shared_chain_before_webmin_restart(self):
+        original = self.hub_webmin_config()
+        self.webmin.chmod(0o640)
+        result, state = self.run_wrapper()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual([[f'extracas={self.certs[2]}']], state['webmin_chains'])
+        self.assertEqual(original.replace(str(self.hub_chain), str(self.certs[2])),
+                         self.webmin.read_text())
+        self.assertEqual(0o640, stat.S_IMODE(self.webmin.stat().st_mode))
+
+    def test_webmin_activation_failure_restores_only_the_managed_directive(self):
+        original = self.hub_webmin_config()
+        result, state = self.run_wrapper(fail_activation=True)
+        self.assertEqual(75, result.returncode)
+        self.assertEqual([[f'extracas={self.certs[2]}'], [f'extracas={self.hub_chain}']],
+                         state['webmin_chains'])
+        self.assertEqual(self.originals, self.snapshot())
+        self.assertEqual(original + 'session_timeout=300\n', self.webmin.read_text())
+
+    def test_unchanged_or_failed_cert_does_not_change_webmin_chain(self):
+        for options in ({'unchanged': True}, {'fail': True}):
+            with self.subTest(options=options):
+                original = self.hub_webmin_config()
+                result, state = self.run_wrapper(**options)
+                self.assertEqual(bool(options.get('fail')), result.returncode != 0)
+                self.assertEqual([[f'extracas={self.hub_chain}']], state['webmin_chains'])
+                self.assertEqual(original, self.webmin.read_text())
+
+    def test_custom_or_ambiguous_webmin_settings_are_preserved(self):
+        original = self.hub_webmin_config()
+        for config in (
+            original.replace(str(self.hub_chain), '/etc/webmin/custom-chain.pem'),
+            original.replace('certfile=\n', 'certfile=/etc/webmin/custom.pem\n'),
+            original.replace(str(self.certs[2]), '/etc/webmin/custom-key.pem'),
+            original.replace(f'extracas={self.hub_chain}\n', ''),
+            original + f'extracas={self.hub_chain}\n',
+            original + ' extracas = /etc/webmin/custom-chain.pem\n',
+            original + 'certfile=\n',
+            original + f'keyfile={self.certs[2]}\n',
+        ):
+            with self.subTest(config=config):
+                self.webmin.write_text(config)
+                self.certs[2].write_bytes(self.originals[2][0])
+                result, _ = self.run_wrapper()
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(config, self.webmin.read_text())
+
+    def test_hostname_certificate_can_keep_using_global_webmin_chain(self):
+        original = self.hub_webmin_config()
+        for directive in ('ipkey_special.example=', '  ipkey_special.example = '):
+            with self.subTest(directive=directive):
+                config = original + directive + '/etc/webmin/special.pem\n'
+                self.webmin.write_text(config)
+                self.certs[2].write_bytes(self.originals[2][0])
+                result, state = self.run_wrapper()
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual([[f'extracas={self.hub_chain}']], state['webmin_chains'])
+                self.assertEqual(config, self.webmin.read_text())
+
+    def test_linked_settings_and_missing_hub_hostname_are_preserved(self):
+        original = self.hub_webmin_config()
+        target = self.webmin.with_name('custom.conf')
+        self.webmin.rename(target)
+        self.webmin.symlink_to(target)
+        result, _ = self.run_wrapper()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertTrue(self.webmin.is_symlink())
+        self.assertEqual(original, target.read_text())
+        self.webmin.unlink()
+        target.rename(self.webmin)
+        self.hub_fqdn.unlink()
+        self.certs[2].write_bytes(self.originals[2][0])
+        result, _ = self.run_wrapper()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(original, self.webmin.read_text())
 
     def test_dns_renewal_uses_no_http_helper(self):
         result, state = self.run_wrapper(challenge='dns-01', server='nginx')
