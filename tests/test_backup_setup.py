@@ -161,10 +161,17 @@ class MainScreenTests(unittest.TestCase):
                     subprocess.CompletedProcess([], backup_state, 'TKLBAM status\n', '')]
         with patch('confconsole.subprocess.run', side_effect=commands), \
              patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED'), \
+             patch('confconsole.notification_recipient', return_value='Admin email: admin@example.net'), \
              patch.object(confconsole.ifutil, 'get_ipv6conf', return_value=(None, None)), \
              patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
             result = ui.usage()
         return ui, result
+
+    def test_admin_email_precedes_service_and_backup_information(self):
+        ui, _ = self.run_screen('ok')
+        text = ui.console.actionbox.call_args.args[1]
+        self.assertTrue(text.startswith('Admin email: admin@example.net\n\n'))
+        self.assertLess(text.index('Admin email:'), text.index('Backups:'))
 
     def test_uninitialized_backups_offer_setup_first(self):
         ui, result = self.run_screen('ok')

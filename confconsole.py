@@ -75,11 +75,11 @@ def notification_recipient(path="/etc/aliases") -> str:
                 if match:
                     recipients = match.group(1).strip()
                     if re.search(r"[^\s,@]+@[^\s,@]+", recipients):
-                        return f"Notifications: {recipients}"
+                        return f"Admin email: {recipients}"
                     break
     except OSError:
         pass
-    return "Notifications: Not set"
+    return "Admin email: Not set"
 
 
 def hub_link_status() -> str:
@@ -866,7 +866,8 @@ class TurnkeyConsole:
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
         log.info(log_msg)
-        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}\n{notification_recipient()}"
+        text = f"{notification_recipient()}\n\n{text}"
+        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
 
         if backup_action:
             retcode = self.console.actionbox(
