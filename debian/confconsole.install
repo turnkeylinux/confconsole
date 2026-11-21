@@ -4,3 +4,4 @@ conf/*          /etc/confconsole/
 share/*         /usr/share/confconsole/
 add-water/*     /lib/systemd/system
 turnkey-lexicon /usr/bin
+confconsole-tip.sh /etc/profile.d
