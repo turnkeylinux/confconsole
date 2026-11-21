@@ -1,7 +1,6 @@
 """The wizard must handle directory failures before changing any settings."""
 
 import importlib.util
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -20,23 +19,18 @@ class DirectoryTests(unittest.TestCase):
     def invoke(self, response=None, error=None):
         console = Mock()
         console.yesno.return_value = "cancel"
-        with tempfile.TemporaryDirectory() as directory:
-            config = Path(directory) / "settings"
-            original = "existing settings and credentials\n"
-            config.write_text(original)
-            with (
-                patch.object(wizard, "console", console, create=True),
-                patch.object(wizard, "d_conf_path", str(config)),
-                patch.object(
-                    wizard.requests,
-                    "get",
-                    return_value=response,
-                    side_effect=error,
-                ) as get,
-            ):
-                wizard.run()
-            self.assertEqual(config.read_text(), original)
-            self.assertEqual(list(Path(directory).iterdir()), [config])
+        with (
+            patch.object(wizard, "console", console, create=True),
+            patch.object(wizard, "certificate_service", create=True) as service,
+            patch.object(
+                wizard.requests,
+                "get",
+                return_value=response,
+                side_effect=error,
+            ) as get,
+        ):
+            wizard.run()
+        service.issue.assert_not_called()
         get.assert_called_once_with(wizard.LE_INFO_URL, timeout=(5, 15))
         return console
 

@@ -186,17 +186,19 @@ class ProviderTests(unittest.TestCase):
                 create=True,
             ),
             patch.object(wizard, "isdir", return_value=True),
-            patch.object(wizard, "glob", return_value=[]),
             patch.object(wizard.requests, "get") as get,
-            patch.object(wizard, "initial_load_conf") as initial,
+            patch.object(wizard, "certificate_service", create=True) as service,
         ):
             get.return_value.json.return_value = {
-                "meta": {"termsOfService": "test"}
+                "meta": {"termsOfService": "https://example.org/terms.pdf"}
             }
+            service.existing_configuration.return_value = ("PROVIDER=route53", "")
+            service.values.return_value = {"PROVIDER": "route53"}
             console.menu.side_effect = [("ok", "dns-01"), ("ok", "cloudflare")]
             wizard.run()
             dns_mock.save_config.assert_not_called()
-            initial.assert_not_called()
+            service.issue.assert_not_called()
+            editor.edit_config.assert_called_once_with(console, "cloudflare", [])
 
     def test_cloudflare_token_form_masks_secret_and_keeps_existing(self):
         console = Mock()

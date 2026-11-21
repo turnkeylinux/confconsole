@@ -100,82 +100,49 @@ def check_pkg(pkg: str) -> bool:
     return False  # package not installed
 
 
-def initial_setup() -> bool:
-    """Check lexicon and deps are installed and ready to go
-
-    Return True only when the dependency setup completed successfully.
-    """
-    msg_start = "lexicon tool is required for dns-01 challenge, "
-    msg_mid = ""
-    msg_end = "\n\nDo you wish to continue?"
-    msg: str | None = ""
-    install_venv = False
-    unexpected = False
-
-    lexicon_bin = which("turnkey-lexicon")
+def install_lexicon() -> bool:
+    """Install the existing Confconsole-managed DNS validation tool."""
     venv = "/usr/local/src/venv/lexicon"
-    if not exists(venv):
-        # turnkey lexicon venv wrapper not found - offer to install
-        install_venv = True
-        msg_mid = "however it is not found on your system, so installing."
-    elif exists(f"{venv}/bin/lexicon"):
-        # lexicon venv bin found - no message required
-        msg = None
-    else:
-        msg_mid = "but your system is in an unexpected state"
-        unexpected = True
-    if msg is not None:
-        msg = msg_start + msg_mid + msg_end
-        # console is inherited so doesn't need to be defined
-        ret = console.yesno(msg, autosize=True)
-        if ret != "ok":
-            return False
-    if install_venv or unexpected:
-        pkgs = []
-        pip = which("pip")
-        python3_venv = check_pkg("python3-venv")
-        if not pip:
-            pkgs.append("python3-pip")
-        if not python3_venv:
-            pkgs.append("python3-venv")
-        if pkgs:
-            print("Please wait while required packages are installed")
-            exit_code, msg = apt_install(pkgs)
-            if exit_code != 0:
-                pkgs_l = " ".join(pkgs)
-                console.msgbox(
-                    "Error", f"Apt installing {pkgs_l} failed:\n\n{msg}"
-                )
-                return False
-        makedirs(dirname(venv), exist_ok=True)
-        venv_pip = join(venv, "bin/pip")
-        for comment_command in [
-            ("venv is set up", ["/usr/bin/python3", "-m", "venv", venv]),
-            (
-                "lexicon is installed (into venv)",
-                [venv_pip, "install", "dns-lexicon[full]"],
-            ),
-        ]:
-            comment, command = comment_command
-            assert isinstance(command, list)
-            if comment:
-                print(f"Please wait while {comment}")
-            exit_code, msg = run_command(command)
-            if exit_code != 0:
-                com = " ".join(command)
-                console.msgbox("Error", f"Command '{com}' failed:\n\n{msg}")
-                return False
+    if isfile(f"{venv}/bin/lexicon") and isfile(f"{venv}/bin/activate"):
+        return True
+    pkgs = []
+    if not which("pip"):
+        pkgs.append("python3-pip")
+    if not check_pkg("python3-venv"):
+        pkgs.append("python3-venv")
+    if pkgs and apt_install(pkgs)[0]:
+        return False
+    makedirs(dirname(venv), exist_ok=True)
+    commands = (
+        ["/usr/bin/python3", "-m", "venv", venv],
+        [f"{venv}/bin/pip", "install", "dns-lexicon[full]"],
+    )
+    if any(run_command(command)[0] for command in commands):
+        return False
+    return bool(which("turnkey-lexicon") and isfile(f"{venv}/bin/lexicon"))
 
-        lexicon_bin = which("turnkey-lexicon")
-        if not lexicon_bin:
-            console.msgbox(
-                "Error",
-                "Could not find 'turnkey-lexicon'? Should be installed with"
-                " Confconsole.",
-            )
-            return False
 
-    return True
+def initial_setup() -> bool:
+    venv = "/usr/local/src/venv/lexicon"
+    if exists(f"{venv}/bin/lexicon") and exists(f"{venv}/bin/activate"):
+        return True
+    ret = console.yesno(
+        "DNS validation needs the Lexicon tool. Install it now?", autosize=True
+    )
+    if ret != "ok":
+        return False
+    print("Installing the DNS validation tool. This can take a few minutes.")
+    try:
+        installed = install_lexicon()
+    except OSError:
+        installed = False
+    if not installed:
+        console.msgbox(
+            "Could not install the DNS validation tool",
+            "Check internet access and available disk space, then try again.",
+            autosize=True,
+        )
+    return installed
 
 
 def get_providers() -> tuple[list[tuple[str, str]] | None, str | None]:

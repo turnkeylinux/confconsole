@@ -1,63 +1,32 @@
-"""Toggle automatic renewal"""
+"""Toggle automatic renewal."""
 
 menu_label = "Autorenew"
 menu_order = -1
 
-from os import chmod, stat, path
 
-CRON_PATH = "/etc/cron.daily/confconsole-dehydrated"
-
-
-def enable_cron():
-    st = stat(CRON_PATH)
-    chmod(CRON_PATH, st.st_mode | 0o111)
-
-
-def disable_cron():
-    st = stat(CRON_PATH)
-    chmod(CRON_PATH, st.st_mode ^ 0o111)
-
-
-def check_cron():
-    if path.isfile(CRON_PATH):
-        st = stat(CRON_PATH)
-        return st.st_mode & 0o111 == 0o111
-    else:
-        return "fail"
+def doOnce():
+    global certificates
+    certificates = impByPath("Lets_Encrypt/certificate_service.py")
 
 
 def run():
-    enabled = check_cron()
-    if enabled == "fail":
-        msg = (
-            "Cron job for dehydrated does not exist.\n"
-            "Please 'Get certificate' first."
-        )
-        # console is inherited so doesn't need to be defined
-        r = console.msgbox("Error", msg)
-    else:
+    if not certificates.CRON.is_file():
+        console.msgbox("Automatic renewal", "Get a certificate to enable automatic renewal.")
+        return
+    while True:
+        enabled = certificates.renewal_enabled()
         status = "enabled" if enabled else "disabled"
-        msg = """Automatic certificate renewal is currently {}"""
-        r = console._wrapper(
-            "yesno",
-            msg.format(status),
-            10,
-            30,
-            yes_label="Toggle",
-            no_label="Ok",
+        choice = console._wrapper(
+            "yesno", f"Automatic certificate renewal is {status}.", 10, 30,
+            yes_label="Toggle", no_label="OK",
         )
-        while r == "ok":
-            if enabled:
-                disable_cron()
-            else:
-                enable_cron()
-            enabled = check_cron()
-            status = "enabled" if enabled else "disabled"
-            r = console._wrapper(
-                "yesno",
-                msg.format(status),
-                10,
-                30,
-                yes_label="Toggle",
-                no_label="Ok",
-            )
+        if choice != "ok":
+            return
+        try:
+            certificates.set_renewal(not enabled, browser=False)
+        except certificates.CertificateError as error:
+            console.msgbox("Automatic renewal", str(error))
+            return
+        except OSError:
+            console.msgbox("Automatic renewal", "Could not update the renewal schedule.")
+            return

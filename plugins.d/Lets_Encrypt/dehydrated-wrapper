@@ -17,6 +17,23 @@
 [[ "$DEBUG" = "y" ]] && set -x
 
 APP="$(basename "$0")"
+[[ "$EUID" = "0" ]] || { echo "$APP must be run as root" >&2; exit 1; }
+
+# Confconsole/Webmin hold this lock across the settings transaction. A
+# direct invocation (including cron) takes the same lock before any writes.
+ACME_RUNTIME=/run/confconsole-acme
+mkdir -p -m 0700 "$ACME_RUNTIME"
+ACME_LOCK="$ACME_RUNTIME/update.lock"
+if [[ ${1:-} == --locked-fd ]]; then
+    [[ ${2:-} =~ ^[0-9]+$ && /proc/self/fd/"$2" -ef "$ACME_LOCK" ]] || exit 1
+    shift 2
+else
+    exec 9>>"$ACME_LOCK"
+    flock -n 9 || { echo "Certificate setup or renewal is already running." >&2; exit 1; }
+fi
+
+command -v dehydrated >/dev/null || { echo "Install dehydrated to manage certificates." >&2; exit 1; }
+command -v authbind >/dev/null || { echo "Install authbind to manage certificates." >&2; exit 1; }
 DEHYD_ETC=/etc/dehydrated
 SHARE=/usr/share/confconsole/letsencrypt
 CONFIG="$DEHYD_ETC/confconsole.config"
@@ -34,9 +51,7 @@ HTTP_STARTED=0
 # space separated list of systemd services to restart
 SERVICES_TO_RESTART="webmin.service"
 
-LE_TOS_URL=${LE_TOS_URL:-https://acme-v02.api.letsencrypt.org/directory}
-LICENSE=$(curl "$LE_TOS_URL" 2>/dev/null | grep termsOfService \
-    | sed 's|^.*Service": "||; s|",$||')
+LICENSE=https://letsencrypt.org/repository/
 
 SH_CONFIG=$SHARE/dehydrated-confconsole.config
 SH_HOOK_HTTP=$SHARE/dehydrated-confconsole.hook-http-01.sh
@@ -49,9 +64,15 @@ export TKL_CERTFILE="/usr/local/share/ca-certificates/cert.crt"
 export TKL_KEYFILE="/etc/ssl/private/cert.key"
 export TKL_COMBINED="/etc/ssl/private/cert.pem"
 export TKL_DHPARAM="/etc/ssl/private/dhparams.pem"
-cp -p "$TKL_CERTFILE" "$TKL_CERTFILE.bak"
-cp -p "$TKL_KEYFILE" "$TKL_KEYFILE.bak"
-cp -p "$TKL_COMBINED" "$TKL_COMBINED.bak"
+# Some fresh images have the combined PEM and key, but no separate CRT.
+# Keep initial issuance and rollback valid for those images too.
+CERT_FILES=("$TKL_CERTFILE" "$TKL_KEYFILE" "$TKL_COMBINED")
+CERT_BACKUP=$(mktemp -d "$ACME_RUNTIME/certificates.XXXXXX")
+for file in "${CERT_FILES[@]}"; do
+    if [[ -f "$file" ]]; then
+        cp -p "$file" "$CERT_BACKUP/"
+    fi
+done
 
 BASE_BIN_PATH="/usr/lib/confconsole/plugins.d/Lets_Encrypt"
 export HTTP="add-water-client"
@@ -165,16 +186,56 @@ stop_server() {
 # shellcheck disable=SC2317  # Errant "unreachable commands" warning because of trap
 restart_servers() {
     # intended splitting on space
+    local failed=0
     for servicename in "$@"; do
         info "(Re)starting $servicename"
         systemctl restart "$servicename" | tee -a "$LOG"
-        [[ "${PIPESTATUS[0]}" -eq 0 ]] || EXIT_CODE=1
+        [[ "${PIPESTATUS[0]}" -eq 0 ]] || failed=1
     done
+    return "$failed"
+}
+
+restore_certificates() {
+    warning "Something went wrong, restoring original cert, key and combined files."
+    local failed=0
+    for file in "${CERT_FILES[@]}"; do
+        if [[ -f "$CERT_BACKUP/${file##*/}" ]]; then
+            mv "$CERT_BACKUP/${file##*/}" "$file" || {
+                KEEP_BACKUP=1
+                failed=1
+                warning "Could not restore $file. A backup remains in $CERT_BACKUP."
+            }
+        else
+            rm -f "$file" || {
+                failed=1
+                warning "Could not remove the failed certificate file $file."
+            }
+        fi
+    done
+    return "$failed"
+}
+
+activate_certificates() {
+    local failed=0
+    if [[ "$WEBSERVER" == "tomcat"* ]]; then
+        update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
+        if [[ -x "$update_tomcat_cert" ]]; then
+            "$update_tomcat_cert" || failed=1
+        else
+            warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
+        fi
+    fi
+    # shellcheck disable=SC2086
+    restart_servers $WEBSERVER $SERVICES_TO_RESTART || failed=1
+    return "$failed"
 }
 
 # shellcheck disable=SC2317  # Errant "unreachable commands" because of trap
 clean_exit() {
-    # ideally do not use 'fatal' in this function
+    # A late cancellation must not interrupt rollback or service activation.
+    # Ignored signals also stay ignored in the cleanup commands we run.
+    trap '' INT TERM
+    set +e
     EXIT_CODE=$1
     if [[ "$HTTP_STARTED" -eq 1 ]]; then
         # Stop our helper even while its listener is still starting.
@@ -182,46 +243,29 @@ clean_exit() {
         systemctl stop add-water || EXIT_CODE=1
     fi
     [[ "$AUTHBIND_USR" = "$HTTP_USR" ]] || chown "$AUTHBIND_USR" "$AUTHBIND80"
+    if [[ $EXIT_CODE -eq 0 ]] && ! activate_certificates; then
+        # Distinguish activation failures from validation errors at the UI.
+        EXIT_CODE=75
+    fi
     if [[ $EXIT_CODE -ne 0 ]]; then
-        warning "Something went wrong, restoring original cert, key and combined files."
-
-        mv "$TKL_CERTFILE.bak" "$TKL_CERTFILE"
-        mv "$TKL_KEYFILE.bak" "$TKL_KEYFILE"
-        mv "$TKL_COMBINED.bak" "$TKL_COMBINED"
-    else
-        info "Cleaning backup cert & key"
-        rm -f "$TKL_CERTFILE.bak" "$TKL_KEYFILE.bak" "$TKL_COMBINED.bak"
+        restore_certificates || EXIT_CODE=76
+        activate_certificates || EXIT_CODE=76
     fi
-    if [[ "$WEBSERVER" == "tomcat"* ]]; then
-        update_tomcat_cert=/usr/lib/inithooks/firstboot.d/16tomcat-sslcert
-        if [[ -x "$update_tomcat_cert" ]]; then
-            $update_tomcat_cert
-        else
-            warning "Tomcat webserver found ($WEBSERVER) but can't run cert update ($update_tomcat_cert)."
-        fi
+    if [[ "$KEEP_BACKUP" != "1" ]]; then
+        rm -f "$CERT_BACKUP/"{cert.crt,cert.key,cert.pem}
+        rmdir "$CERT_BACKUP"
     fi
-    # don't quote these service names as some values may be empty - which is anticipated
-    # shellcheck disable=SC2086
-    restart_servers $WEBSERVER $SERVICES_TO_RESTART
     if [[ $EXIT_CODE -ne 0 ]]; then
         warning "Check today's previous log entries for details of error."
     else
         info "$APP completed successfully."
     fi
-    # don't quote exit code as it may be empty (exit 0)
-    # shellcheck disable=SC2086
-    exit $EXIT_CODE
+    exit "$EXIT_CODE"
 }
 
-### some intial checks & set up trap ###
-
-trap '(exit 130)' INT
-trap '(exit 143)' TERM
+trap 'exit 130' INT
+trap 'exit 143' TERM
 trap 'clean_exit "$?"' EXIT
-
-[[ "$EUID" = "0" ]] || fatal "$APP must be run as root"
-[[ $(which dehydrated) ]] || fatal "Dehydrated not installed, or not in the \$PATH"
-[[ $(which authbind) ]] || fatal "Authbind not installed"
 
 ### read args & check config - set up whats needed ###
 force=
@@ -239,6 +283,7 @@ while [[ $# -gt 0 ]]; do
                             shift
                         fi;;
         -i|--log-info)  LOG_INFO=y;;
+        --check-installed) CHECK_INSTALLED=y;;
         -h|--help)      usage;;
         *)              usage "FATAL: unsupported or unknown argument: $1";;
     esac
@@ -285,7 +330,9 @@ copy_if_not_found "$CRON" "$SH_CRON"
 
 if [[ "$REGISTER" = 'y' ]]; then
     DEHYDRATED_REGISTER="dehydrated --register --accept-terms --config $CONFIG"
-    if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
+    if [[ "$CHALLENGETYPE" == "dns-01" ]]; then
+        $DEHYDRATED_REGISTER >/dev/null 2>&1 || EXIT_CODE=$?
+    elif [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
         $DEHYDRATED_REGISTER 2>&1 | tee -a $DEBUG_LOG
         EXIT_CODE=${PIPESTATUS[0]}
     else
@@ -336,7 +383,9 @@ if [[ "$CHALLENGETYPE" != "dns-01" ]]; then
     systemctl start add-water
 fi
 info "running dehydrated"
-if [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
+if [[ "$CHALLENGETYPE" == "dns-01" ]]; then
+    dehydrated --cron $force --config "$CONFIG" >/dev/null 2>&1 || EXIT_CODE=$?
+elif [[ "$DEBUG" = "y" ]] || [[ "$LOG_INFO" = "y" ]]; then
     dehydrated --cron $force --config $CONFIG 2>&1 | tee -a $DEBUG_LOG
     EXIT_CODE=${PIPESTATUS[0]}
 else
@@ -345,7 +394,9 @@ else
 fi
 if [[ $EXIT_CODE -ne 0 ]]; then
     fatal "dehydrated exited with a non-zero exit code."
-else
-    info "dehydrated complete"
-    exit 0
 fi
+if [[ "$CHECK_INSTALLED" == y ]] &&
+    ! "$BASE_BIN_PATH/certificate_service.py" check-installed; then
+    fatal "The installed certificate does not cover the requested domains."
+fi
+info "dehydrated complete"

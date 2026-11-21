@@ -3,6 +3,9 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
+import sys
+import time
 import stat
 import subprocess
 import tempfile
@@ -12,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WRAPPER = ROOT / 'plugins.d/Lets_Encrypt/dehydrated-wrapper'
 
 FIXTURE = r'''#!/usr/bin/python3
-import json, os, pathlib, sys
+import json, os, pathlib, sys, time
 root = pathlib.Path(os.environ['RENEWAL_FIXTURE'])
 path = root / 'state.json'
 state = json.loads(path.read_text())
@@ -26,7 +29,13 @@ if command == 'systemctl':
             state['water'] = True
             status = int(os.environ.get('START_FAIL', '0'))
         elif action == 'stop':
+            if os.environ.get('WAIT_FOR_CLEANUP') == '1':
+                path.write_text(json.dumps(state))
+                time.sleep(1)
             state['water'] = False
+    elif name == 'webmin.service' and action == 'restart':
+        if os.environ.get('FAIL_ACTIVATION') == '1' and state['events'].count('restart webmin.service') == 1:
+            status = 1
     elif name == state['server']:
         if action == 'stop':
             state['server_active'] = False
@@ -54,6 +63,9 @@ elif command == 'dehydrated':
         cert.chmod(0o600)
         os.chown(cert, 0, 0)
     print('fixture ACME operation')
+    if os.environ.get('WAIT_FOR_STOP') == '1':
+        path.write_text(json.dumps(state))
+        time.sleep(30)
     status = int(os.environ.get('ACME_FAIL', '0'))
 elif command == 'curl':
     print('{"termsOfService": "https://example.test/terms"}')
@@ -75,7 +87,7 @@ class RenewalCleanupTests(unittest.TestCase):
         text = WRAPPER.read_text()
         for prefix in ('/etc/', '/usr/share/confconsole/', '/usr/lib/confconsole/',
                        '/usr/local/share/ca-certificates/', '/usr/lib/inithooks/',
-                       '/var/log/confconsole/', '/var/run/', '/lib/systemd/'):
+                       '/var/log/confconsole/', '/var/run/', '/lib/systemd/', '/run/confconsole-acme'):
             text = text.replace(prefix, str(self.root) + prefix)
         self.wrapper = self.root / 'dehydrated-wrapper'
         self.wrapper.write_text(text)
@@ -85,6 +97,7 @@ class RenewalCleanupTests(unittest.TestCase):
         share = self.root / 'usr/share/confconsole/letsencrypt'
         shutil.copytree(ROOT / 'share/letsencrypt', share)
         (self.root / 'etc/cron.daily').mkdir(parents=True)
+        (self.root / 'run').mkdir(parents=True)
         (self.root / 'etc/authbind/byport').mkdir(parents=True)
         (self.root / 'etc/authbind/byport/80').touch()
         self.certs = [self.root / 'usr/local/share/ca-certificates/cert.crt',
@@ -105,7 +118,8 @@ class RenewalCleanupTests(unittest.TestCase):
                  path.stat().st_uid, path.stat().st_gid) for path in self.certs]
 
     def run_wrapper(self, challenge='http-01', fail=False, race=False,
-                    server='apache2', start_fail=False, water=False, umask=0o077):
+                    server='apache2', start_fail=False, water=False, umask=0o077,
+                    fail_activation=False):
         config = (self.root / 'usr/share/confconsole/letsencrypt/dehydrated-confconsole.config').read_text()
         config = config.replace('/etc/dehydrated', str(self.etc))
         config = config.replace('CHALLENGETYPE="http-01"', 'CHALLENGETYPE="' + challenge + '"')
@@ -116,7 +130,7 @@ class RenewalCleanupTests(unittest.TestCase):
         env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ['PATH'],
                    RENEWAL_FIXTURE=str(self.root), CHALLENGE=challenge,
                    RACY_START=str(int(race)), ACME_FAIL=str(int(fail)),
-                   START_FAIL=str(int(start_fail)))
+                   START_FAIL=str(int(start_fail)), FAIL_ACTIVATION=str(int(fail_activation)))
         result = subprocess.run([str(self.wrapper), '--force'], env=env,
                                 capture_output=True, text=True, timeout=10,
                                 preexec_fn=lambda: os.umask(umask))
@@ -158,6 +172,74 @@ class RenewalCleanupTests(unittest.TestCase):
         self.assertLess(state['events'].index('stop add-water'),
                         state['events'].index('restart apache2'))
         self.assertEqual(self.originals, self.snapshot())
+
+    def stop_worker_at(self, event, **fixture_options):
+        self.run_wrapper(fail=True)
+        state_path = self.root / "state.json"
+        state_path.write_text(json.dumps({"server": "apache2", "server_active": True,
+                                          "water": False, "events": []}))
+        runner = """
+import importlib.util
+import sys
+spec = importlib.util.spec_from_file_location("service", sys.argv[1])
+service = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(service)
+with open(sys.argv[3], "a") as lock, service.cancellation_requests() as cancelled:
+    try:
+        service.run_wrapper([sys.argv[2], "--force"], lock.fileno(), cancelled)
+    except KeyboardInterrupt:
+        sys.exit(130)
+"""
+        env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+                   RENEWAL_FIXTURE=str(self.root), CHALLENGE="http-01",
+                   **fixture_options)
+        with subprocess.Popen(
+            [sys.executable, "-c", runner, str(WRAPPER.with_name("certificate_service.py")),
+             str(self.wrapper), str(self.root / "test.lock")], env=env,
+        ) as worker:
+            try:
+                until = time.monotonic() + 5
+                while time.monotonic() < until:
+                    try:
+                        if event in json.loads(state_path.read_text())["events"]:
+                            break
+                    except ValueError:
+                        pass
+                    time.sleep(0.03)
+                else:
+                    self.fail(f"The wrapper did not reach {event} with Apache stopped")
+                self.assertFalse(json.loads(state_path.read_text())["server_active"])
+                worker.send_signal(signal.SIGTERM)
+                self.assertEqual(130, worker.wait(timeout=5))
+            finally:
+                if worker.poll() is None:
+                    worker.send_signal(signal.SIGTERM)
+        self.assertEqual(self.originals, self.snapshot())
+        state = json.loads(state_path.read_text())
+        self.assertTrue(state["server_active"])
+        self.assertFalse(state["water"])
+        self.assertIn("restart apache2", state["events"])
+
+    def test_stopping_python_worker_allows_wrapper_to_recover_services(self):
+        self.stop_worker_at("dehydrated", WAIT_FOR_STOP="1")
+
+    def test_cancellation_during_cleanup_preserves_service_recovery(self):
+        self.stop_worker_at("stop add-water", ACME_FAIL="1", WAIT_FOR_CLEANUP="1")
+
+    def test_initial_issuance_failure_restores_absence_of_separate_crt(self):
+        self.certs[0].unlink()
+        result, state = self.run_wrapper(fail=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(self.certs[0].exists())
+        self.assertTrue(state['server_active'])
+
+    def test_failed_activation_restores_certificate_and_restarts_services_again(self):
+        result, state = self.run_wrapper(fail_activation=True)
+        self.assertEqual(75, result.returncode)
+        self.assertEqual(self.originals, self.snapshot())
+        self.assertTrue(state['server_active'])
+        self.assertEqual(2, state['events'].count('restart apache2'))
+        self.assertEqual(2, state['events'].count('restart webmin.service'))
 
     def test_dns_renewal_uses_no_http_helper(self):
         result, state = self.run_wrapper(challenge='dns-01', server='nginx')
