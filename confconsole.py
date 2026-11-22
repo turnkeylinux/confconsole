@@ -97,10 +97,14 @@ def notification_recipient(path="/etc/aliases",
 def local_hub_status() -> dict:
     """Read the locally stored Hub service state without a network request."""
     try:
-        result = subprocess.run(
-            ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--local", "--json"],
-            capture_output=True, text=True, timeout=5, check=True,
-        )
+        command = ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--local"]
+        result = subprocess.run(command + ["--read-only", "--json"],
+                                capture_output=True, text=True, timeout=5)
+        if result.returncode and "unrecognized arguments: --read-only" in result.stderr:
+            # Older supported Inithooks packages only provide the local mode.
+            result = subprocess.run(command + ["--json"], capture_output=True, text=True, timeout=5)
+        if result.returncode:
+            return {}
         state = json.loads(result.stdout)
         if isinstance(state, dict) and state.get("connection_status") in ("linked", "disconnected"):
             return state
@@ -121,10 +125,12 @@ def hub_link_status() -> str:
 def hub_service_lines(state: dict, backup_status: str) -> str:
     """Show each service independently, using only locally recorded state."""
     connection = state.get("connection_status")
-    heading = {"linked": "Connected", "disconnected": "Not connected"}.get(connection, "Status unavailable")
+    heading = {"linked": "Connected (last known)", "disconnected": "Not connected"}.get(connection, "Status unavailable")
     email = dns = "Status unavailable"
     if connection == "disconnected":
         email = dns = "Not connected"
+        if state.get("mail_preference") == "manual":
+            email = "Custom SMTP" if state.get("mode") == "custom" and state.get("status") == "ready" else "Needs attention"
     elif connection == "linked":
         services = state.get("services")
         services = services if isinstance(services, dict) else {}
@@ -133,15 +139,17 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         dns_state = services.get("dns")
         dns_state = dns_state if isinstance(dns_state, dict) else {}
         if state.get("mail_preference") == "manual":
-            email = "Not using Hub"
+            email = "Custom SMTP" if state.get("mode") == "custom" and state.get("status") == "ready" else "Needs attention"
         elif mail.get("error") or mail.get("status") in ("revoked", "unavailable", "error"):
             email = "Needs attention"
         elif mail.get("enabled") is False:
             email = "Disabled"
-        elif mail.get("enabled") is True and state.get("setup_pending"):
-            email = "Setup in progress"
+        elif mail.get("status") == "pending_verification":
+            email = "Waiting for domain verification"
         elif state.get("mode") == "hub" and state.get("status") == "ready" and mail.get("enabled") is True:
             email = "Connected"
+        elif mail.get("enabled") is True and state.get("setup_pending"):
+            email = "Setup in progress"
         elif mail.get("enabled") is True:
             email = "Needs attention"
         if dns_state.get("error") or dns_state.get("status") in ("revoked", "unavailable", "error"):
@@ -149,7 +157,7 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         elif dns_state.get("enabled") is False:
             dns = "Disabled"
         elif dns_state.get("enabled") is True:
-            dns = "Setup in progress" if state.get("setup_pending") else "Enabled"
+            dns = "Enabled in Hub"
     backup = backup_status.strip()
     for prefix in ("Backups:", "TKLBAM:"):
         if backup.startswith(prefix):
@@ -157,6 +165,14 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
             break
     if not backup:
         backup = "Status unavailable"
+    if connection == "linked":
+        services = state.get("services")
+        services = services if isinstance(services, dict) else {}
+        service = services.get("backup")
+        service = service if isinstance(service, dict) else {}
+        backup = {"disabled": "Disabled in Hub", "setup_required": "Finish setup in Hub",
+                  "migration_required": "Migration required", "unavailable": "Needs attention",
+                  "revoked": "Needs attention", "error": "Needs attention"}.get(service.get("status"), backup)
     return (f"hub.turnkeylinux.org: {heading}\n\n"
             f"  Email delivery:  {email}\n"
             f"  DNS:             {dns}\n"
@@ -937,6 +953,15 @@ class TurnkeyConsole:
             backup_action = "Connect to Hub"
         elif hub_state.get("connection_status") != "linked":
             backup_action = None
+        else:
+            services = hub_state.get("services")
+            services = services if isinstance(services, dict) else {}
+            backup_service = services.get("backup")
+            backup_service = backup_service if isinstance(backup_service, dict) else {}
+            backup_problem = backup_service.get("status")
+            if backup_problem in ("disabled", "setup_required", "migration_required", "unavailable", "revoked", "error"):
+                self.backup_problem = backup_problem
+                backup_action = "Manage backups"
 
         # Keep the service screen within the current terminal after resizing.
         width, height = self.console.width, self.console.height
@@ -952,6 +977,8 @@ class TurnkeyConsole:
                 if retcode == self.OK:
                     if backup_action == "Connect to Hub":
                         return "connect_hub"
+                    if backup_action == "Manage backups":
+                        return "backup_help"
                     return "backup_setup" if backup_state == 11 else "backup_create"
                 return default_return_value
 
@@ -964,6 +991,18 @@ class TurnkeyConsole:
         finally:
             self.console.width, self.console.height = width, height
 
+    def backup_help(self) -> str:
+        if self.backup_problem == "disabled":
+            text = "Enable backups for this server in the Hub:\n\nhttps://hub.turnkeylinux.org/email/"
+        elif self.backup_problem == "migration_required":
+            text = "Finish migrating your backup account in the Hub:\n\nhttps://hub.turnkeylinux.org/backup/"
+        elif self.backup_problem == "setup_required":
+            text = "Finish backup setup and connect your AWS account in the Hub:\n\nhttps://hub.turnkeylinux.org/backup/"
+        else:
+            text = "Check backup settings in the Hub and try again:\n\nhttps://hub.turnkeylinux.org/backup/"
+        self.console.msgbox("Manage backups", text, autosize=True)
+        return "usage"
+
     def connect_hub(self) -> str:
         self.console.msgbox(
             "Connect to Hub",
@@ -972,8 +1011,10 @@ class TurnkeyConsole:
             autosize=True,
         )
         try:
-            subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"], check=True)
-        except (OSError, subprocess.CalledProcessError):
+            result = subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"])
+            if result.returncode not in (0, 130):
+                self.console.msgbox("Connect to Hub", "The connection did not finish. Try again when you are ready.", autosize=True)
+        except OSError:
             self.console.msgbox("Connect to Hub", "The connection did not finish. Try again when you are ready.", autosize=True)
         return "usage"
 
