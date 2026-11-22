@@ -16,7 +16,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
         status = {'connection_status': 'linked', 'status': 'ready', 'mode': 'hub',
                   'services': {'mail': {'enabled': True}, 'dns': {'enabled': False}}}
         text = confconsole.hub_service_lines(status, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:  Connected', text)
+        self.assertIn('Email delivery:  Configured', text)
         self.assertIn('DNS:             Disabled', text)
         self.assertIn('Backups:         Backup ID #4', text)
         status.update(mail_preference='manual')
@@ -64,7 +64,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
         with patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 0)) as run:
             self.assertEqual(ui.connect_hub(), 'usage')
         run.assert_called_once_with(['/usr/lib/inithooks/bin/hubservices.py', '--relink'])
-        self.assertIn('return here', ui.console.msgbox.call_args.args[1])
+        ui.console.msgbox.assert_not_called()
 
     def test_connect_failure_has_recovery_message(self):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
@@ -79,7 +79,7 @@ class HubServiceCombinationTests(unittest.TestCase):
 
     def test_each_service_choice_is_shown_without_implying_others(self):
         emails = [
-            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Connected'),
+            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Configured'),
             ({'enabled': False, 'status': 'disabled'}, '', 'linked', 'hub', 'Disabled'),
             ({'enabled': True, 'status': 'active'}, 'custom', 'ready', 'manual', 'Custom SMTP'),
             ({'enabled': True, 'status': 'unavailable'}, '', 'linked', 'hub', 'Needs attention'),
@@ -120,7 +120,7 @@ class HubServiceCombinationTests(unittest.TestCase):
                  'services': {'mail': {'enabled': True, 'status': 'active'},
                               'dns': {'enabled': False, 'status': 'revoked'}}}
         text = confconsole.hub_service_lines(state, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:  Connected', text)
+        self.assertIn('Email delivery:  Configured', text)
         self.assertIn('DNS:             Needs attention', text)
 
     def test_missing_service_does_not_imply_it_is_connected(self):
@@ -190,7 +190,7 @@ class HubServiceJourneyTests(unittest.TestCase):
         self.assertEqual(first[2], 'Connect to Hub')
         self.assertIn('Email delivery:  Not connected', first[1])
         self.assertIn('hub.turnkeylinux.org: Connected', second[1])
-        self.assertIn('Email delivery:  Connected', second[1])
+        self.assertIn('Email delivery:  Configured', second[1])
         self.assertIn('DNS:             Enabled in Hub', second[1])
         self.assertEqual(second[2], 'Set up backups')
         self.assertEqual(calls.count(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--read-only', '--json']), 2)
@@ -220,21 +220,20 @@ class HubServiceJourneyTests(unittest.TestCase):
         second = ui.console.actionbox.call_args_list[1].args
         self.assertIn('hub.turnkeylinux.org: Not connected', second[1])
         self.assertEqual(second[2], 'Connect to Hub')
-        self.assertEqual(ui.console.msgbox.call_count, 1)
+        ui.console.msgbox.assert_not_called()
 
     def test_cancelled_connection_returns_to_screen_without_error(self):
         ui = self.make_ui()
         with patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 130)):
             self.assertEqual(ui.connect_hub(), 'usage')
-        # The explanation precedes the shared flow. Cancellation should not
-        # add a misleading failure or success message.
-        self.assertEqual(ui.console.msgbox.call_count, 1)
+        # Cancellation returns to the screen without a failure or success message.
+        ui.console.msgbox.assert_not_called()
 
     def test_connection_failure_returns_to_screen_with_recovery(self):
         ui = self.make_ui()
         with patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 1)):
             self.assertEqual(ui.connect_hub(), 'usage')
-        self.assertEqual(ui.console.msgbox.call_count, 2)
+        self.assertEqual(ui.console.msgbox.call_count, 1)
         self.assertIn('Try again', ui.console.msgbox.call_args.args[1])
 
     def test_back_from_disconnected_screen_never_starts_connection(self):
@@ -315,21 +314,21 @@ class HubBackupAndManualMailTests(unittest.TestCase):
                          patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
                         self.assertEqual(ui.usage(), 'backup_help')
                     self.assertEqual(ui.console.actionbox.call_args.args[2], 'Manage backups')
+                    ui.console.yesno.return_value = 'cancel'
                     self.assertEqual(ui.backup_help(), 'usage')
-                    self.assertIn(wording, ui.console.msgbox.call_args.args[1])
+                    self.assertIn(wording, ui.console.yesno.call_args.args[0])
 
 
 class ReadOnlyCompatibilityTests(unittest.TestCase):
-    def test_old_helper_falls_back_only_when_option_is_unrecognized(self):
+    def test_old_helper_reports_unavailable_without_mutating_fallback(self):
         old = subprocess.CompletedProcess([], 2, '', 'error: unrecognized arguments: --read-only')
-        legacy = subprocess.CompletedProcess([], 0, '{"connection_status":"linked"}', '')
-        with patch('confconsole.subprocess.run', side_effect=[old, legacy]) as run:
-            self.assertEqual(confconsole.local_hub_status(), {'connection_status': 'linked'})
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(run.call_args_list[0].args[0],
+        with patch('confconsole.subprocess.run', return_value=old) as run:
+            self.assertEqual(confconsole.local_hub_status(), {'status_error': 'update_inithooks'})
+        run.assert_called_once()
+        self.assertIn('hub.turnkeylinux.org: Update Inithooks',
+                      confconsole.hub_service_lines({'status_error': 'update_inithooks'}, ''))
+        self.assertEqual(run.call_args.args[0],
                          ['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--read-only', '--json'])
-        self.assertEqual(run.call_args_list[1].args[0],
-                         ['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--json'])
 
     def test_other_failures_do_not_trigger_legacy_read(self):
         for message in ('permission denied', 'error: invalid configuration', ''):
@@ -343,3 +342,75 @@ class ReadOnlyCompatibilityTests(unittest.TestCase):
         with patch('confconsole.subprocess.run', return_value=good) as run:
             self.assertEqual(confconsole.local_hub_status()['connection_status'], 'disconnected')
             self.assertEqual(run.call_count, 1)
+
+
+class BackupRefreshJourneyTests(unittest.TestCase):
+    def make_ui(self, problem='disabled'):
+        ui = HubServiceJourneyTests().make_ui()
+        ui.backup_problem = problem
+        return ui
+
+    def test_back_keeps_existing_state_without_contacting_hub(self):
+        ui = self.make_ui()
+        ui.console.yesno.return_value = 'cancel'
+        with patch('confconsole.subprocess.run') as run:
+            self.assertEqual(ui.backup_help(), 'usage')
+        run.assert_not_called()
+        ui.console.progress.assert_not_called()
+        self.assertIn('return here and choose Refresh', ui.console.yesno.call_args.args[0])
+
+    def test_refresh_uses_hub_and_returns_to_usage(self):
+        ui = self.make_ui('setup_required')
+        ui.console.yesno.return_value = 'ok'
+        ok = subprocess.CompletedProcess(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--json'], 0, '{}', '')
+        with patch('confconsole.subprocess.run', return_value=ok) as run:
+            self.assertEqual(ui.backup_help(), 'usage')
+        run.assert_called_once_with(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--json'],
+                                    capture_output=True, text=True, timeout=90)
+        ui.console.progress.assert_called_once()
+        ui.console.msgbox.assert_not_called()
+
+    def test_offline_or_failed_refresh_shows_recovery(self):
+        cases = [OSError('offline'), subprocess.TimeoutExpired('status', 90),
+                 subprocess.CompletedProcess(['turnkey-hub'], 1, '', 'offline')]
+        for outcome in cases:
+            with self.subTest(outcome=type(outcome).__name__):
+                ui = self.make_ui()
+                ui.console.yesno.return_value = 'ok'
+                behavior = {'side_effect': outcome} if isinstance(outcome, Exception) else {'return_value': outcome}
+                with patch('confconsole.subprocess.run', **behavior):
+                    self.assertEqual(ui.backup_help(), 'usage')
+                self.assertIn('Check the connection and try again', ui.console.msgbox.call_args.args[1])
+
+    def test_disabled_backup_becomes_active_after_refresh_and_screen_reload(self):
+        import json
+        ui = self.make_ui()
+        ui.console.yesno.return_value = 'ok'
+        ui.console.actionbox.side_effect = ('ok', 'cancel')
+        states = iter(({'connection_status': 'linked', 'services': {'backup': {'status': 'disabled'}}},
+                       {'connection_status': 'linked', 'services': {'backup': {'status': 'active'}}}))
+        calls = []
+        def run(command, **kwargs):
+            calls.append(command)
+            if command == ['which', 'tklbam-status']:
+                return subprocess.CompletedProcess(command, 0, '/usr/bin/tklbam-status\n', '')
+            if command == ['/usr/bin/tklbam-status', '--short']:
+                return subprocess.CompletedProcess(command, 11, 'not initialized\n', '')
+            if command == ['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--read-only', '--json']:
+                return subprocess.CompletedProcess(command, 0, json.dumps(next(states)), '')
+            if command == ['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--json']:
+                return subprocess.CompletedProcess(command, 0, '{}', '')
+            self.fail('Unexpected command: %r' % command)
+        with patch('confconsole.subprocess.run', side_effect=run), \
+             patch('confconsole.notification_recipient', return_value='Security contact: Not set'), \
+             patch.object(confconsole.ifutil, 'get_ipv6conf', return_value=(None, None)), \
+             patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
+            self.assertEqual(ui.usage(), 'backup_help')
+            self.assertEqual(ui.backup_help(), 'usage')
+            self.assertEqual(ui.usage(), 'advanced')
+        first, second = [call.args for call in ui.console.actionbox.call_args_list]
+        self.assertIn('Backups:         Disabled in Hub', first[1])
+        self.assertEqual(first[2], 'Manage backups')
+        self.assertIn('Backups:         Ready to set up', second[1])
+        self.assertEqual(second[2], 'Set up backups')
+        self.assertEqual(calls.count(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--json']), 1)

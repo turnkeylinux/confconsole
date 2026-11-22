@@ -100,10 +100,9 @@ def local_hub_status() -> dict:
         command = ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--local"]
         result = subprocess.run(command + ["--read-only", "--json"],
                                 capture_output=True, text=True, timeout=5)
-        if result.returncode and "unrecognized arguments: --read-only" in result.stderr:
-            # Older supported Inithooks packages only provide the local mode.
-            result = subprocess.run(command + ["--json"], capture_output=True, text=True, timeout=5)
         if result.returncode:
+            if "unrecognized arguments: --read-only" in result.stderr:
+                return {"status_error": "update_inithooks"}
             return {}
         state = json.loads(result.stdout)
         if isinstance(state, dict) and state.get("connection_status") in ("linked", "disconnected"):
@@ -126,6 +125,8 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
     """Show each service independently, using only locally recorded state."""
     connection = state.get("connection_status")
     heading = {"linked": "Connected (last known)", "disconnected": "Not connected"}.get(connection, "Status unavailable")
+    if state.get("status_error") == "update_inithooks":
+        heading = "Update Inithooks"
     email = dns = "Status unavailable"
     if connection == "disconnected":
         email = dns = "Not connected"
@@ -147,7 +148,7 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         elif mail.get("status") == "pending_verification":
             email = "Waiting for domain verification"
         elif state.get("mode") == "hub" and state.get("status") == "ready" and mail.get("enabled") is True:
-            email = "Connected"
+            email = "Configured"
         elif mail.get("enabled") is True and state.get("setup_pending"):
             email = "Setup in progress"
         elif mail.get("enabled") is True:
@@ -1000,16 +1001,23 @@ class TurnkeyConsole:
             text = "Finish backup setup and connect your AWS account in the Hub:\n\nhttps://hub.turnkeylinux.org/backup/"
         else:
             text = "Check backup settings in the Hub and try again:\n\nhttps://hub.turnkeylinux.org/backup/"
-        self.console.msgbox("Manage backups", text, autosize=True)
+        text += "\n\nAfter updating the Hub, return here and choose Refresh."
+        if self.console.yesno(text, title="Manage backups", autosize=True,
+                              ok_label="Refresh", cancel_label="Back") != self.OK:
+            return "usage"
+        self.console.progress("Manage backups", "Refreshing Hub services. Please wait...")
+        try:
+            result = subprocess.run(
+                ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--json"],
+                capture_output=True, text=True, timeout=90,
+            )
+            if result.returncode:
+                raise subprocess.CalledProcessError(result.returncode, result.args)
+        except (OSError, subprocess.SubprocessError):
+            self.console.msgbox("Manage backups", "Could not refresh Hub services. Check the connection and try again.", autosize=True)
         return "usage"
 
     def connect_hub(self) -> str:
-        self.console.msgbox(
-            "Connect to Hub",
-            "Open the Hub in your browser to sign in or create an account, "
-            "then return here to finish connecting this server.",
-            autosize=True,
-        )
         try:
             result = subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"])
             if result.returncode not in (0, 130):

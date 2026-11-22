@@ -61,7 +61,7 @@ class InithooksStatusContractTests(unittest.TestCase):
                          'dns': {'enabled': False}},
         })
         text = confconsole.hub_service_lines(status, 'Backups: Backup ID #1')
-        self.assertIn('Email delivery:  Connected', text)
+        self.assertIn('Email delivery:  Configured', text)
         self.assertIn('DNS:             Disabled', text)
         self.assertIn('Backups:         Backup ID #1', text)
 
@@ -83,13 +83,13 @@ class InithooksStatusContractTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())['connection_status'], 'disconnected')
             self.assertFalse((path / 'lock').exists())
 
-    def test_console_uses_read_only_and_falls_back_only_for_older_helper(self):
+    def test_console_reads_only_and_reports_unsupported_helper_unavailable(self):
         old = subprocess.CompletedProcess([], 2, '', 'error: unrecognized arguments: --read-only')
+        with patch.object(confconsole.subprocess, 'run', return_value=old) as run:
+            self.assertEqual(confconsole.local_hub_status(), {'status_error': 'update_inithooks'})
+        self.assertEqual(run.call_count, 1)
+        self.assertIn('--read-only', run.call_args.args[0])
         ok = subprocess.CompletedProcess([], 0, '{"connection_status":"linked"}', '')
-        with patch.object(confconsole.subprocess, 'run', side_effect=[old, ok]) as run:
-            self.assertEqual(confconsole.local_hub_status()['connection_status'], 'linked')
-        self.assertIn('--read-only', run.call_args_list[0].args[0])
-        self.assertNotIn('--read-only', run.call_args_list[1].args[0])
         with patch.object(confconsole.subprocess, 'run', return_value=ok) as run:
             self.assertEqual(confconsole.local_hub_status()['connection_status'], 'linked')
         self.assertEqual(run.call_count, 1)
