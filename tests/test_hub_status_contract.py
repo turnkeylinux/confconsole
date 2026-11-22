@@ -37,8 +37,8 @@ class InithooksStatusContractTests(unittest.TestCase):
         status = self.status_from_disk({})
         self.assertEqual(status['connection_status'], 'disconnected')
         text = confconsole.hub_service_lines(status, 'Backups: Ready to set up')
-        self.assertIn('Email delivery:  Not connected', text)
-        self.assertIn('DNS:             Not connected', text)
+        self.assertIn('Email delivery:    Hub not connected', text)
+        self.assertIn('Dynamic DNS:     Connect to Hub for free DynDNS', text)
 
     def test_email_failure_does_not_hide_enabled_dns(self):
         status = self.status_from_disk({
@@ -49,8 +49,8 @@ class InithooksStatusContractTests(unittest.TestCase):
         })
         self.assertTrue(status['setup_pending'])
         text = confconsole.hub_service_lines(status, 'Backups: Ready to set up')
-        self.assertIn('Email delivery:  Needs attention', text)
-        self.assertIn('DNS:             Enabled in Hub', text)
+        self.assertIn('Email delivery:    Needs attention', text)
+        self.assertIn('Dynamic DNS:     Setup needed', text)
 
     def test_successful_mail_survives_unrelated_pending_provisioning(self):
         status = self.status_from_disk({
@@ -61,8 +61,8 @@ class InithooksStatusContractTests(unittest.TestCase):
                          'dns': {'enabled': False}},
         })
         text = confconsole.hub_service_lines(status, 'Backups: Backup ID #1')
-        self.assertIn('Email delivery:  Configured', text)
-        self.assertIn('DNS:             Disabled', text)
+        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Dynamic DNS:     Disabled', text)
         self.assertIn('Backups:         Backup ID #1', text)
 
     def test_read_only_status_avoids_recovery_and_write_lock(self):

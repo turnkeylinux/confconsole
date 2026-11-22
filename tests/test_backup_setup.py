@@ -170,7 +170,7 @@ class MainScreenTests(unittest.TestCase):
     def test_admin_email_precedes_service_and_backup_information(self):
         ui, _ = self.run_screen('ok')
         text = ui.console.actionbox.call_args.args[1]
-        self.assertTrue(text.startswith('Security contact: admin@example.net\n\n'))
+        self.assertIn('Security contact:  admin@example.net\nEmail delivery:', text)
         self.assertLess(text.index('Security contact:'), text.index('Backups:'))
 
     def test_uninitialized_backups_offer_setup_first(self):

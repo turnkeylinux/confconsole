@@ -30,7 +30,7 @@ import termios
 import time
 from string import Template
 from io import StringIO
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from shutil import get_terminal_size
 import traceback
 
@@ -121,15 +121,49 @@ def hub_link_status() -> str:
     return "hub.turnkeylinux.org: STATUS UNAVAILABLE"
 
 
-def hub_service_lines(state: dict, backup_status: str) -> str:
+def local_dynamic_dns_hostname(device_id: str, registry_dir="/var/lib/hubdns") -> str:
+    """Read the name applied by HubDNS for this connection."""
+    if not isinstance(device_id, str) or not re.fullmatch(r"[0-9a-f]{32}", device_id):
+        return ""
+    try:
+        with ExitStack() as snapshot:
+            try:
+                lock = snapshot.enter_context(open(os.path.join(registry_dir, "assignment_lock"), "rb"))
+            except FileNotFoundError:
+                pass  # Existing registries acquire a lock on their first assignment change.
+            else:
+                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            with open(os.path.join(registry_dir, "sub_apikey"), encoding="ascii") as registry:
+                key = registry.read(100).strip()
+            if not re.fullmatch(rf"hubdns2\.{device_id}\.[A-Za-z0-9_-]{{43}}", key):
+                return ""
+            with open(os.path.join(registry_dir, "fqdn"), encoding="ascii") as registry:
+                hostname = registry.read(256).strip().rstrip(".")
+    except (OSError, UnicodeError):
+        return ""
+    if len(hostname) <= 253 and re.fullmatch(
+            r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+tklapp\.com", hostname):
+        return hostname
+    return ""
+
+
+def hub_service_lines(state: dict, backup_status: str,
+                      contact: str = "Security contact: Not set", dns_hostname: str = "",
+                      compact: bool = False) -> str:
     """Show each service independently, using only locally recorded state."""
     connection = state.get("connection_status")
-    heading = {"linked": "Connected (last known)", "disconnected": "Not connected"}.get(connection, "Status unavailable")
+    heading = {"linked": "Connected", "disconnected": "Not connected"}.get(connection, "Status unavailable")
     if state.get("status_error") == "update_inithooks":
         heading = "Update Inithooks"
     email = dns = "Status unavailable"
     if connection == "disconnected":
-        email = dns = "Not connected"
+        dns = "Connect to Hub for free DynDNS"
+        # Offer the Hub relay when forwarding has a recipient. A configured
+        # custom relay takes precedence over this prompt.
+        if contact != "Security contact: Not set" and "forwarding off" not in contact.lower():
+            email = "Connect to Hub to relay mail"
+        else:
+            email = "Hub not connected"
         if state.get("mail_preference") == "manual":
             email = "Custom SMTP" if state.get("mode") == "custom" and state.get("status") == "ready" else "Needs attention"
     elif connection == "linked":
@@ -148,7 +182,7 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         elif mail.get("status") == "pending_verification":
             email = "Waiting for domain verification"
         elif state.get("mode") == "hub" and state.get("status") == "ready" and mail.get("enabled") is True:
-            email = "Configured"
+            email = "Via TurnKey Hub"
         elif mail.get("enabled") is True and state.get("setup_pending"):
             email = "Setup in progress"
         elif mail.get("enabled") is True:
@@ -158,7 +192,7 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         elif dns_state.get("enabled") is False:
             dns = "Disabled"
         elif dns_state.get("enabled") is True:
-            dns = "Enabled in Hub"
+            dns = dns_hostname or "Setup needed"
     backup = backup_status.strip()
     for prefix in ("Backups:", "TKLBAM:"):
         if backup.startswith(prefix):
@@ -183,10 +217,14 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
                 backup = issue
     # Keep backup history readable when the terminal is narrow.
     backup = backup.replace(", Updated ", "\n                   Updated ", 1)
-    return (f"hub.turnkeylinux.org: {heading}\n\n"
-            f"  Email delivery:  {email}\n"
-            f"  DNS:             {dns}\n"
-            f"  Backups:         {backup}")
+    service_gap = "\n" if compact else "\n\n"
+    rows = [f"  Dynamic DNS:     {dns}", f"  Backups:         {backup}"]
+    # Keep backup status on the first page if a long DNS name needs scrolling.
+    if compact and len(dns) > 100:
+        rows.reverse()
+    return (f"{contact.replace('Security contact: ', 'Security contact:  ', 1)}\n"
+            f"Email delivery:    {email}\n\n"
+            f"hub.turnkeylinux.org: {heading}{service_gap}" + "\n".join(rows))
 
 
 def backup_log_position() -> tuple[int, int, int] | None:
@@ -954,24 +992,32 @@ class TurnkeyConsole:
 
         log_msg = f"Usage started - hostname: {hostname} ip: {ip_addr}"
 
+        hub_state = local_hub_status()
+        services = hub_state.get("services")
+        services = services if isinstance(services, dict) else {}
+        dns_hostname = (local_dynamic_dns_hostname(services.get("device_id"))
+                        if hub_state.get("connection_status") == "linked" else "")
+        terminal = get_terminal_size((80, 24))
+        compact = bool(dns_hostname and terminal.lines <= 24 and
+                       len(dns_hostname) + 23 > min(65, terminal.columns - 4))
+
         if ipv6_addr:
-            text += "\n"
+            if not compact:
+                text += "\n"
             if t.startswith("Web"):
                 text += f"\nIPv6 Web:  https://[{ipv6_addr}]"
             text += f"\nIPv6 SSH:  root@{ipv6_addr}"
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
         log.info(log_msg)
-        text = f"{notification_recipient()}\n\n{text}"
-        hub_state = local_hub_status()
-        text += "\n\n" + hub_service_lines(hub_state, tklbam_status)
+        text += "\n\n" + hub_service_lines(
+            hub_state, tklbam_status, notification_recipient(), dns_hostname, compact,
+        )
         if hub_state.get("connection_status") == "disconnected":
             backup_action = "Connect to Hub"
         elif hub_state.get("connection_status") != "linked":
             backup_action = None
         else:
-            services = hub_state.get("services")
-            services = services if isinstance(services, dict) else {}
             backup_service = services.get("backup")
             backup_service = backup_service if isinstance(backup_service, dict) else {}
             backup_problem = backup_service.get("status")
@@ -981,7 +1027,6 @@ class TurnkeyConsole:
 
         # Keep the service screen within the current terminal after resizing.
         width, height = self.console.width, self.console.height
-        terminal = get_terminal_size((80, 24))
         if isinstance(width, int) and isinstance(height, int):
             self.console.width = min(width, terminal.columns - 4)
             self.console.height = min(height, terminal.lines - 2)

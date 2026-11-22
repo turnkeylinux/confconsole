@@ -8,28 +8,65 @@ class HubServiceVisibilityTests(unittest.TestCase):
     def test_disconnected_has_all_rows_and_backup_status(self):
         text = confconsole.hub_service_lines({'connection_status': 'disconnected'}, 'Backups: Ready to set up')
         self.assertIn('hub.turnkeylinux.org: Not connected\n\n', text)
-        self.assertIn('Email delivery:  Not connected', text)
-        self.assertIn('DNS:             Not connected', text)
+        self.assertIn('Email delivery:    Hub not connected', text)
+        self.assertIn('Dynamic DNS:     Connect to Hub for free DynDNS', text)
         self.assertIn('Backups:         Ready to set up', text)
+
+    def test_applied_hostname_succeeds_stale_hub_settings_without_a_lookup(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        state = {'connection_status': 'linked',
+                 'services': {'dns': {'enabled': True, 'hostname': 'old.tklapp.com'}}}
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / 'fqdn'
+            path.write_text('new.tklapp.com.\n')
+            device = 'a' * 32
+            key = Path(directory) / 'sub_apikey'
+            for unrelated in ('', 'legacy', 'hubdns2.' + 'b' * 32 + '.' + 'k' * 43):
+                key.write_text(unrelated)
+                self.assertEqual(confconsole.local_dynamic_dns_hostname(device, directory), '')
+            key.write_text('hubdns2.' + device + '.' + 'k' * 43)
+            with patch('confconsole.subprocess.run') as run:
+                text = confconsole.hub_service_lines(
+                    state, '', dns_hostname=confconsole.local_dynamic_dns_hostname(device, directory),
+                )
+            run.assert_not_called()
+            self.assertIn('Dynamic DNS:     new.tklapp.com', text)
+            self.assertNotIn('old.tklapp.com', text)
+            path.write_text('edge.site.tklapp.com.\n')
+            self.assertEqual(confconsole.local_dynamic_dns_hostname(device, directory), 'edge.site.tklapp.com')
+            path.write_text('new.tklapp.com\nother.example')
+            self.assertEqual(confconsole.local_dynamic_dns_hostname(device, directory), '')
+
+    def test_disconnected_relay_prompt_depends_on_security_contact(self):
+        state = {'connection_status': 'disconnected'}
+        contact = 'Security contact: admin@example.net'
+        text = confconsole.hub_service_lines(state, '', contact)
+        self.assertIn('Security contact:  admin@example.net\nEmail delivery:    Connect to Hub to relay mail', text)
+        disabled = confconsole.hub_service_lines(state, '', contact + ' (system mail forwarding off)')
+        self.assertNotIn('to relay mail', disabled)
+        state.update(mode='custom', status='ready', mail_preference='manual')
+        self.assertIn('Email delivery:    Custom SMTP', confconsole.hub_service_lines(state, '', contact))
 
     def test_connected_services_are_independent(self):
         status = {'connection_status': 'linked', 'status': 'ready', 'mode': 'hub',
                   'services': {'mail': {'enabled': True}, 'dns': {'enabled': False}}}
         text = confconsole.hub_service_lines(status, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:  Configured', text)
-        self.assertIn('DNS:             Disabled', text)
+        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Dynamic DNS:     Disabled', text)
         self.assertIn('Backups:         Backup ID #4', text)
         status.update(mail_preference='manual')
-        self.assertIn('Email delivery:  Needs attention', confconsole.hub_service_lines(status, ''))
+        self.assertIn('Email delivery:    Needs attention', confconsole.hub_service_lines(status, ''))
 
     def test_pending_errors_and_unknown_are_not_claimed_connected(self):
         status = {'connection_status': 'linked', 'status': 'linked', 'setup_pending': True,
                   'services': {'mail': {'enabled': True}, 'dns': {'enabled': True}}}
         text = confconsole.hub_service_lines(status, '')
-        self.assertIn('Email delivery:  Setup in progress', text)
-        self.assertIn('DNS:             Enabled in Hub', text)
+        self.assertIn('Email delivery:    Setup in progress', text)
+        self.assertIn('Dynamic DNS:     Setup needed', text)
         status['services']['dns']['error'] = 'failed'
-        self.assertIn('DNS:             Needs attention', confconsole.hub_service_lines(status, ''))
+        self.assertIn('Dynamic DNS:     Needs attention', confconsole.hub_service_lines(status, ''))
         self.assertIn('Status unavailable', confconsole.hub_service_lines({}, ''))
 
     def test_local_status_errors_are_unknown(self):
@@ -56,7 +93,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
              patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
             self.assertEqual(ui.usage(), 'connect_hub')
         self.assertEqual(ui.console.actionbox.call_args.args[2], 'Connect to Hub')
-        self.assertIn('Email delivery:  Not connected', ui.console.actionbox.call_args.args[1])
+        self.assertIn('Email delivery:    Hub not connected', ui.console.actionbox.call_args.args[1])
 
     def test_connect_uses_shared_approval_flow_and_returns_to_usage(self):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
@@ -79,12 +116,12 @@ class HubServiceCombinationTests(unittest.TestCase):
 
     def test_each_service_choice_is_shown_without_implying_others(self):
         emails = [
-            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Configured'),
+            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Via TurnKey Hub'),
             ({'enabled': False, 'status': 'disabled'}, '', 'linked', 'hub', 'Disabled'),
             ({'enabled': True, 'status': 'active'}, 'custom', 'ready', 'manual', 'Custom SMTP'),
             ({'enabled': True, 'status': 'unavailable'}, '', 'linked', 'hub', 'Needs attention'),
         ]
-        dns_states = [({'enabled': True, 'hostname': 'test.tklapp.com'}, 'Enabled in Hub'),
+        dns_states = [({'enabled': True, 'hostname': 'test.tklapp.com'}, 'Setup needed'),
                       ({'enabled': False, 'status': 'disabled'}, 'Disabled'),
                       ({'enabled': False, 'status': 'revoked'}, 'Needs attention')]
         backups = [('Backups: Ready to set up', 'Ready to set up'),
@@ -100,8 +137,8 @@ class HubServiceCombinationTests(unittest.TestCase):
                                  'services': {'mail': mail, 'dns': dns}}
                         text = confconsole.hub_service_lines(state, backup)
                         self.assertIn('hub.turnkeylinux.org: Connected', text)
-                        self.assertIn('Email delivery:  ' + expected_mail, text)
-                        self.assertIn('DNS:             ' + expected_dns, text)
+                        self.assertIn('Email delivery:    ' + expected_mail, text)
+                        self.assertIn('Dynamic DNS:     ' + expected_dns, text)
                         self.assertIn('Backups:         ' + expected_backup.replace(', Updated ', '\n                   Updated '), text)
 
     def test_backup_date_wraps_under_value(self):
@@ -116,8 +153,8 @@ class HubServiceCombinationTests(unittest.TestCase):
                  'services': {'mail': {'enabled': True, 'status': 'unavailable'},
                               'dns': {'enabled': True, 'hostname': 'test.tklapp.com'}}}
         text = confconsole.hub_service_lines(state, 'Backups: Ready to set up')
-        self.assertIn('Email delivery:  Needs attention', text)
-        self.assertIn('DNS:             Enabled in Hub', text)
+        self.assertIn('Email delivery:    Needs attention', text)
+        self.assertIn('Dynamic DNS:     Setup needed', text)
 
     def test_pending_dns_does_not_change_completed_email(self):
         state = {'connection_status': 'linked', 'mode': 'hub', 'status': 'ready',
@@ -125,16 +162,16 @@ class HubServiceCombinationTests(unittest.TestCase):
                  'services': {'mail': {'enabled': True, 'status': 'active'},
                               'dns': {'enabled': False, 'status': 'revoked'}}}
         text = confconsole.hub_service_lines(state, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:  Configured', text)
-        self.assertIn('DNS:             Needs attention', text)
+        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Dynamic DNS:     Needs attention', text)
 
     def test_missing_service_does_not_imply_it_is_connected(self):
         for services in ({}, {'mail': {}}, {'dns': {}}, {'mail': None, 'dns': None}):
             with self.subTest(services=services):
                 state = {'connection_status': 'linked', 'status': 'linked', 'services': services}
                 text = confconsole.hub_service_lines(state, 'Backups: Ready to set up')
-                self.assertIn('Email delivery:  Status unavailable', text)
-                self.assertIn('DNS:             Status unavailable', text)
+                self.assertIn('Email delivery:    Status unavailable', text)
+                self.assertIn('Dynamic DNS:     Status unavailable', text)
 
     def test_failed_helper_and_invalid_json_are_unknown(self):
         errors = [OSError('missing'), subprocess.TimeoutExpired('status', 5),
@@ -193,10 +230,10 @@ class HubServiceJourneyTests(unittest.TestCase):
             self.assertEqual(ui.usage(), 'advanced')
         first, second = [call.args for call in ui.console.actionbox.call_args_list]
         self.assertEqual(first[2], 'Connect to Hub')
-        self.assertIn('Email delivery:  Not connected', first[1])
+        self.assertIn('Email delivery:    Hub not connected', first[1])
         self.assertIn('hub.turnkeylinux.org: Connected', second[1])
-        self.assertIn('Email delivery:  Configured', second[1])
-        self.assertIn('DNS:             Enabled in Hub', second[1])
+        self.assertIn('Email delivery:    Via TurnKey Hub', second[1])
+        self.assertIn('Dynamic DNS:     Setup needed', second[1])
         self.assertEqual(second[2], 'Set up backups')
         self.assertEqual(calls.count(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--read-only', '--json']), 2)
 
@@ -288,21 +325,21 @@ class HubBackupAndManualMailTests(unittest.TestCase):
                     'mode': 'custom', 'status': 'ready'}, 'Custom SMTP'),
                   ({'connection_status': 'disconnected', 'mail_preference': 'manual',
                     'mode': '', 'status': 'disconnected'}, 'Needs attention'),
-                  ({'connection_status': 'disconnected', 'status': 'disconnected'}, 'Not connected')]
+                  ({'connection_status': 'disconnected', 'status': 'disconnected'}, 'Hub not connected')]
         for state, label in states:
             with self.subTest(label=label):
                 text = confconsole.hub_service_lines(state, 'Backups: Ready to set up')
                 self.assertIn('hub.turnkeylinux.org: Not connected', text)
-                self.assertIn('Email delivery:  ' + label, text)
-                self.assertIn('DNS:             Not connected', text)
+                self.assertIn('Email delivery:    ' + label, text)
+                self.assertIn('Dynamic DNS:     Connect to Hub for free DynDNS', text)
 
     def test_pending_domain_verification_is_not_connected(self):
         state = {'connection_status': 'linked', 'mode': 'hub', 'status': 'pending',
                  'services': {'mail': {'enabled': True, 'status': 'pending_verification'},
                               'dns': {'enabled': True}}}
         text = confconsole.hub_service_lines(state, 'Backups: Ready to set up')
-        self.assertIn('Email delivery:  Waiting for domain verification', text)
-        self.assertIn('DNS:             Enabled in Hub', text)
+        self.assertIn('Email delivery:    Waiting for domain verification', text)
+        self.assertIn('Dynamic DNS:     Setup needed', text)
 
     def test_backup_attention_takes_user_to_help_even_when_local_id_exists(self):
         journey = HubServiceJourneyTests()
