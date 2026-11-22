@@ -75,11 +75,11 @@ def notification_recipient(path="/etc/aliases") -> str:
                 if match:
                     recipients = match.group(1).strip()
                     if re.search(r"[^\s,@]+@[^\s,@]+", recipients):
-                        return f"Admin email: {recipients}"
+                        return f"Admin Contact: {recipients}"
                     break
     except OSError:
         pass
-    return "Admin email: Not set"
+    return "Admin Contact: Not set"
 
 
 def hub_link_status() -> str:
