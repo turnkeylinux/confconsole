@@ -58,6 +58,7 @@ NETWORKING_PLUGINS = {
 }
 BACKUP_LOG = "/var/log/tklbam-backup"
 TKLBAM_PLAN_LIMIT = 12
+BACKUP_EMAIL_SUCCESS = "/etc/tklbam/email-success"
 
 handler = JournalHandler(SYSLOG_IDENTIFIER="confconsole")
 handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
@@ -66,8 +67,19 @@ logging.getLogger().addHandler(handler)
 log = logging.getLogger(__name__)
 
 
-def notification_recipient(path="/etc/aliases") -> str:
-    """Show the root mail alias used for system notification delivery."""
+def notification_recipient(path="/etc/aliases",
+                           disabled_path="/var/lib/turnkey-onboarding/root-forward-disabled",
+                           state_path="/var/lib/turnkey-onboarding/state.json") -> str:
+    """Show the contact and whether root mail forwarding is active."""
+    if os.path.exists(disabled_path):
+        try:
+            with open(state_path) as state_file:
+                address = json.load(state_file).get("notification_choice", "")
+            if re.fullmatch(r"[^\s,@]+@[^\s,@]+", address):
+                return f"Security contact: {address} (root mail forwarding off)"
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+        return "Security contact: Root mail forwarding off"
     try:
         with open(path) as aliases:
             for line in aliases:
@@ -1321,6 +1333,8 @@ class TurnkeyConsole:
             elif state is not None:
                 choices.append(("Backup", "Create a backup"))
                 choices.append(("Passphrase", "Set backup passphrase"))
+            reports = os.path.exists(BACKUP_EMAIL_SUCCESS)
+            choices.append(("Email reports", "Successful backup emails: " + ("On" if reports else "Off")))
             choices.append(("Restore", "Restore a Hub backup"))
             if rollback:
                 choices.append(("Rollback", "Roll back the last restore"))
@@ -1333,6 +1347,22 @@ class TurnkeyConsole:
                 self.backup_create(first_backup=(state == 10))
             elif choice == "Passphrase":
                 self._backup_passphrase()
+            elif choice == "Email reports":
+                if reports:
+                    try:
+                        os.unlink(BACKUP_EMAIL_SUCCESS)
+                    except OSError:
+                        self.console.msgbox("Backup reports", "Could not change the setting.", autosize=True)
+                elif self.console.yesno(
+                    "Email a report after each successful scheduled backup?\n\n"
+                    "Reports are sent to the security contact when root mail forwarding is enabled.",
+                    title="Backup reports", autosize=True, ok_label="Enable", cancel_label="Back",
+                ) == self.OK:
+                    try:
+                        with open(BACKUP_EMAIL_SUCCESS, "w"):
+                            pass
+                    except OSError:
+                        self.console.msgbox("Backup reports", "Could not change the setting.", autosize=True)
             elif choice == "Restore":
                 self._backup_restore()
             elif choice == "Rollback":

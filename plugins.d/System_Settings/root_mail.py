@@ -1,0 +1,11 @@
+"""Choose whether server mail goes to the security contact."""
+import subprocess
+
+menu_label = "Root mail forwarding"
+
+
+def run():
+    try:
+        subprocess.run(['/usr/lib/inithooks/bin/rootmail.py'], check=True)
+    except (OSError, subprocess.CalledProcessError):
+        console.msgbox('Root mail forwarding', 'Could not open this setting. Update inithooks and try again.', autosize=True)

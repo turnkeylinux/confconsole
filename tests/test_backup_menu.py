@@ -50,7 +50,23 @@ class BackupMenuTests(unittest.TestCase):
         self.assertEqual(title, 'Backups')
         self.assertIn('Ready to set up', text)
         self.assertNotIn('rollback', text.lower())
-        self.assertEqual([name for name, _ in choices], ['Setup', 'Restore'])
+        self.assertEqual([name for name, _ in choices], ['Setup', 'Email reports', 'Restore'])
+
+    def test_success_email_preference_can_be_enabled_and_disabled(self):
+        import tempfile
+        from pathlib import Path
+        self.ui._backup_connect = Mock(return_value=True)
+        self.ui._backup_status = Mock(return_value=(0, 'Ready'))
+        self.ui.console.yesno.return_value = 'ok'
+        with tempfile.TemporaryDirectory() as directory:
+            flag = str(Path(directory) / 'email-success')
+            with patch('confconsole.BACKUP_EMAIL_SUCCESS', flag):
+                self.ui.console.menu.side_effect = [('ok', 'Email reports'), ('cancel', '')]
+                self.ui._adv_backup()
+                self.assertTrue(os.path.exists(flag))
+                self.ui.console.menu.side_effect = [('ok', 'Email reports'), ('cancel', '')]
+                self.ui._adv_backup()
+                self.assertFalse(os.path.exists(flag))
 
     @patch('confconsole.os.path.isdir', return_value=True)
     def test_menu_offers_rollback_only_as_an_available_action(self, _isdir):
