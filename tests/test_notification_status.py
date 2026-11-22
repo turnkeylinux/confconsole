@@ -24,4 +24,4 @@ class NotificationStatusTest(unittest.TestCase):
             flag.touch()
             state.write_text('{"notification_choice": "person@example.net"}')
             self.assertEqual(confconsole.notification_recipient(path, flag, state),
-                             'Security contact: person@example.net (root mail forwarding off)')
+                             'Security contact: person@example.net (system mail forwarding off)')

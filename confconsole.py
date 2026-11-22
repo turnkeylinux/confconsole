@@ -76,10 +76,10 @@ def notification_recipient(path="/etc/aliases",
             with open(state_path) as state_file:
                 address = json.load(state_file).get("notification_choice", "")
             if re.fullmatch(r"[^\s,@]+@[^\s,@]+", address):
-                return f"Security contact: {address} (root mail forwarding off)"
+                return f"Security contact: {address} (system mail forwarding off)"
         except (OSError, ValueError, TypeError, AttributeError):
             pass
-        return "Security contact: Root mail forwarding off"
+        return "Security contact: System mail forwarding off"
     try:
         with open(path) as aliases:
             for line in aliases:
@@ -1500,7 +1500,7 @@ class TurnkeyConsole:
                         self.console.msgbox("Backup reports", "Could not change the setting.", autosize=True)
                 elif self.console.yesno(
                     "Email a report after each successful scheduled backup?\n\n"
-                    "Reports are sent to the security contact when root mail forwarding is enabled.",
+                    "Reports are sent to the security contact when system mail forwarding is enabled.",
                     title="Backup reports", autosize=True, ok_label="Enable", cancel_label="Back",
                 ) == self.OK:
                     try:
