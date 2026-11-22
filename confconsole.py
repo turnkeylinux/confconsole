@@ -436,6 +436,7 @@ class Console:
         button_label: str = "ok",
         autosize: bool = False,
         extra_label: str | None = None,
+        backtitle: str | None = None,
     ) -> str:
         if autosize:
             text += "\n "
@@ -444,15 +445,20 @@ class Console:
             height, width = self.height, self.width
 
         options = {"title": title, "ok_label": button_label}
+        if backtitle is not None:
+            options["backtitle"] = backtitle
         if extra_label:
             options.update(extra_button=True, extra_label=extra_label, default_button="extra")
         v = self._wrapper("msgbox", text, height, width, **options)
         assert isinstance(v, str)
         return v
 
-    def actionbox(self, title: str, text: str, primary: str, secondary: str) -> str:
-        v = self._wrapper("yesno", text, self.height, self.width, title=title,
-                          yes_label=primary, no_label=secondary)
+    def actionbox(self, title: str, text: str, primary: str, secondary: str,
+                  backtitle: str | None = None) -> str:
+        options = {"title": title, "yes_label": primary, "no_label": secondary}
+        if backtitle is not None:
+            options["backtitle"] = backtitle
+        v = self._wrapper("yesno", text, self.height, self.width, **options)
         assert isinstance(v, str)
         return v
 
@@ -979,10 +985,13 @@ class TurnkeyConsole:
         if isinstance(width, int) and isinstance(height, int):
             self.console.width = min(width, terminal.columns - 4)
             self.console.height = min(height, terminal.lines - 2)
+        # On short terminals, the full-height dialog covers the backtitle.
+        display_options = {"backtitle": ""} if terminal.lines <= 24 else {}
         try:
             if backup_action:
                 retcode = self.console.actionbox(
                     f"{hostname} app services", text, backup_action, default_button_label,
+                    **display_options,
                 )
                 if retcode == self.OK:
                     if backup_action == "Connect to Hub":
@@ -994,6 +1003,7 @@ class TurnkeyConsole:
 
             retcode = self.console.msgbox(
                 f"{hostname} app services", text, button_label=default_button_label,
+                **display_options,
             )
             if retcode is not self.OK:
                 self.running = False
