@@ -94,21 +94,73 @@ def notification_recipient(path="/etc/aliases",
     return "Security contact: Not set"
 
 
-def hub_link_status() -> str:
-    """Read the locally stored Hub link state without contacting the Hub."""
+def local_hub_status() -> dict:
+    """Read the locally stored Hub service state without a network request."""
     try:
         result = subprocess.run(
             ["/usr/lib/inithooks/bin/turnkey-hub", "status", "--local", "--json"],
             capture_output=True, text=True, timeout=5, check=True,
         )
-        state = json.loads(result.stdout).get("connection_status")
-        if state == "linked":
-            return "hub.turnkeylinux.org: CONNECTED"
-        if state == "disconnected":
-            return "hub.turnkeylinux.org: NOT CONNECTED"
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        state = json.loads(result.stdout)
+        if isinstance(state, dict) and state.get("connection_status") in ("linked", "disconnected"):
+            return state
+    except (OSError, subprocess.SubprocessError, ValueError):
         pass
+    return {}
+
+
+def hub_link_status() -> str:
+    state = local_hub_status().get("connection_status")
+    if state == "linked":
+        return "hub.turnkeylinux.org: CONNECTED"
+    if state == "disconnected":
+        return "hub.turnkeylinux.org: NOT CONNECTED"
     return "hub.turnkeylinux.org: STATUS UNAVAILABLE"
+
+
+def hub_service_lines(state: dict, backup_status: str) -> str:
+    """Show each service independently, using only locally recorded state."""
+    connection = state.get("connection_status")
+    heading = {"linked": "Connected", "disconnected": "Not connected"}.get(connection, "Status unavailable")
+    email = dns = "Status unavailable"
+    if connection == "disconnected":
+        email = dns = "Not connected"
+    elif connection == "linked":
+        services = state.get("services")
+        services = services if isinstance(services, dict) else {}
+        mail = services.get("mail")
+        mail = mail if isinstance(mail, dict) else {}
+        dns_state = services.get("dns")
+        dns_state = dns_state if isinstance(dns_state, dict) else {}
+        if state.get("mail_preference") == "manual":
+            email = "Not using Hub"
+        elif mail.get("error") or mail.get("status") in ("revoked", "unavailable", "error"):
+            email = "Needs attention"
+        elif mail.get("enabled") is False:
+            email = "Disabled"
+        elif mail.get("enabled") is True and state.get("setup_pending"):
+            email = "Setup in progress"
+        elif state.get("mode") == "hub" and state.get("status") == "ready" and mail.get("enabled") is True:
+            email = "Connected"
+        elif mail.get("enabled") is True:
+            email = "Needs attention"
+        if dns_state.get("error") or dns_state.get("status") in ("revoked", "unavailable", "error"):
+            dns = "Needs attention"
+        elif dns_state.get("enabled") is False:
+            dns = "Disabled"
+        elif dns_state.get("enabled") is True:
+            dns = "Setup in progress" if state.get("setup_pending") else "Enabled"
+    backup = backup_status.strip()
+    for prefix in ("Backups:", "TKLBAM:"):
+        if backup.startswith(prefix):
+            backup = backup[len(prefix):].strip()
+            break
+    if not backup:
+        backup = "Status unavailable"
+    return (f"hub.turnkeylinux.org: {heading}\n\n"
+            f"  Email delivery:  {email}\n"
+            f"  DNS:             {dns}\n"
+            f"  Backups:         {backup}")
 
 
 def backup_log_position() -> tuple[int, int, int] | None:
@@ -879,26 +931,51 @@ class TurnkeyConsole:
 
         log.info(log_msg)
         text = f"{notification_recipient()}\n\n{text}"
-        text += f"\n\n{hub_link_status()}\n{tklbam_status.strip()}"
+        hub_state = local_hub_status()
+        text += "\n\n" + hub_service_lines(hub_state, tklbam_status)
+        if hub_state.get("connection_status") == "disconnected":
+            backup_action = "Connect to Hub"
+        elif hub_state.get("connection_status") != "linked":
+            backup_action = None
 
-        if backup_action:
-            retcode = self.console.actionbox(
-                f"{hostname} app services", text, backup_action, default_button_label,
+        # Keep the service screen within the current terminal after resizing.
+        width, height = self.console.width, self.console.height
+        terminal = get_terminal_size((80, 24))
+        if isinstance(width, int) and isinstance(height, int):
+            self.console.width = min(width, terminal.columns - 4)
+            self.console.height = min(height, terminal.lines - 2)
+        try:
+            if backup_action:
+                retcode = self.console.actionbox(
+                    f"{hostname} app services", text, backup_action, default_button_label,
+                )
+                if retcode == self.OK:
+                    if backup_action == "Connect to Hub":
+                        return "connect_hub"
+                    return "backup_setup" if backup_state == 11 else "backup_create"
+                return default_return_value
+
+            retcode = self.console.msgbox(
+                f"{hostname} app services", text, button_label=default_button_label,
             )
-            if retcode == self.OK:
-                return "backup_setup" if backup_state == 11 else "backup_create"
+            if retcode is not self.OK:
+                self.running = False
             return default_return_value
+        finally:
+            self.console.width, self.console.height = width, height
 
-        retcode = self.console.msgbox(
-            f"{hostname} app services",
-            text,
-            button_label=default_button_label,
+    def connect_hub(self) -> str:
+        self.console.msgbox(
+            "Connect to Hub",
+            "Open the Hub in your browser to sign in or create an account, "
+            "then return here to finish connecting this server.",
+            autosize=True,
         )
-
-        if retcode is not self.OK:
-            self.running = False
-
-        return default_return_value
+        try:
+            subprocess.run(["/usr/lib/inithooks/bin/hubservices.py", "--relink"], check=True)
+        except (OSError, subprocess.CalledProcessError):
+            self.console.msgbox("Connect to Hub", "The connection did not finish. Try again when you are ready.", autosize=True)
+        return "usage"
 
     def backup_progress(self, command: list[str], title: str, text: str) -> subprocess.CompletedProcess:
         frames = "|/-\\"

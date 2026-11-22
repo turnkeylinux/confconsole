@@ -160,7 +160,7 @@ class MainScreenTests(unittest.TestCase):
         commands = [subprocess.CompletedProcess([], 0, '/usr/bin/tklbam-status\n', ''),
                     subprocess.CompletedProcess([], backup_state, 'TKLBAM status\n', '')]
         with patch('confconsole.subprocess.run', side_effect=commands), \
-             patch('confconsole.hub_link_status', return_value='hub.turnkeylinux.org: CONNECTED'), \
+             patch('confconsole.local_hub_status', return_value={'connection_status': 'linked'}), \
              patch('confconsole.notification_recipient', return_value='Security contact: admin@example.net'), \
              patch.object(confconsole.ifutil, 'get_ipv6conf', return_value=(None, None)), \
              patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
@@ -176,7 +176,7 @@ class MainScreenTests(unittest.TestCase):
     def test_uninitialized_backups_offer_setup_first(self):
         ui, result = self.run_screen('ok')
         self.assertEqual(result, 'backup_setup')
-        self.assertIn('Backups: Ready to set up', ui.console.actionbox.call_args.args[1])
+        self.assertIn('Backups:         Ready to set up', ui.console.actionbox.call_args.args[1])
         self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Advanced Menu'))
 
     def test_secondary_action_opens_advanced_menu(self):
@@ -188,7 +188,7 @@ class MainScreenTests(unittest.TestCase):
     def test_first_backup_action_is_first(self):
         ui, result = self.run_screen('ok', backup_state=10)
         self.assertEqual(result, 'backup_create')
-        self.assertIn('Backups: Ready for first backup', ui.console.actionbox.call_args.args[1])
+        self.assertIn('Backups:         Ready for first backup', ui.console.actionbox.call_args.args[1])
         self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Create backup', 'Advanced Menu'))
 
     def test_usage_only_secondary_action_quits(self):
