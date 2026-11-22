@@ -52,6 +52,7 @@ PLUGIN_PATH = os.path.join(
 )
 PROXY_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Proxy_Settings")
 LETS_ENCRYPT_PLUGIN_PATH = os.path.join(PLUGIN_PATH, "Lets_Encrypt")
+HUB_SERVICES_PLUGIN = os.path.join(PLUGIN_PATH, "Hub_services", "hub_services.py")
 NETWORKING_PLUGINS = {
     "Free HTTPS certificate": (LETS_ENCRYPT_PLUGIN_PATH, "Set up HTTPS and renewal"),
     "Proxy settings": (PROXY_PLUGIN_PATH, "Configure the APT proxy"),
@@ -112,6 +113,62 @@ def local_hub_status() -> dict:
     return {}
 
 
+def remote_hub_status() -> dict:
+    """Fetch one display-only snapshot with a short startup deadline."""
+    try:
+        result = subprocess.run(
+            ["/usr/lib/inithooks/bin/turnkey-hub", "connection-status", "--json"],
+            capture_output=True, text=True, timeout=3, check=True,
+        )
+        snapshot = json.loads(result.stdout)
+        return snapshot if isinstance(snapshot, dict) else {}
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {}
+
+
+def merge_hub_snapshot(local: dict, remote: dict, device_id: str) -> dict:
+    """Use current Hub settings with the appliance's local setup state."""
+    if remote.get("device_id") != device_id:
+        return dict(local, hub_status_unavailable=True)
+    if remote.get("connection_status") == "disconnected":
+        return dict(local, connection_status="disconnected",
+                    hub_disconnect_reason=remote.get("reason", "revoked"))
+    current = remote.get("services")
+    if remote.get("connection_status") != "linked" or not isinstance(current, dict):
+        return dict(local, hub_status_unavailable=True)
+    mail, dns, backup = (current.get(name) for name in ("mail", "dns", "backup"))
+    if any(not isinstance(entry, dict) or type(entry.get(flag)) is not bool
+           for entry, flag in ((mail, "enabled"), (dns, "enabled"), (backup, "requested"))):
+        return dict(local, hub_status_unavailable=True)
+    stored = local.get("services")
+    services = dict(stored) if isinstance(stored, dict) else {}
+    services["device_id"] = device_id
+    for name, flags in (("mail", mail), ("dns", dns)):
+        previous = services.get(name)
+        merged = dict(previous) if isinstance(previous, dict) else {}
+        if flags["enabled"] is False:
+            merged.pop("error", None)
+            merged.pop("status", None)
+        merged.update(enabled=flags["enabled"])
+        if name == "mail":
+            merged["status"] = flags.get("status")
+        services[name] = merged
+
+    previous = services.get("backup")
+    previous = dict(previous) if isinstance(previous, dict) else {}
+    if not backup["requested"]:
+        previous["status"] = "disabled"
+    elif previous.get("status") == "disabled":
+        previous.pop("status")
+    services["backup"] = previous
+
+    assignment = dns.get("hostname")
+    assignment = assignment.rstrip(".") if isinstance(assignment, str) else ""
+    if not dns["enabled"] or not valid_dynamic_dns_hostname(assignment):
+        assignment = ""
+    return dict(local, services=services, hub_status_refreshed=True, hub_dns_assignment=assignment)
+
+
 def hub_link_status() -> str:
     state = local_hub_status().get("connection_status")
     if state == "linked":
@@ -119,6 +176,12 @@ def hub_link_status() -> str:
     if state == "disconnected":
         return "hub.turnkeylinux.org: NOT CONNECTED"
     return "hub.turnkeylinux.org: STATUS UNAVAILABLE"
+
+
+def valid_dynamic_dns_hostname(hostname: str) -> bool:
+    return len(hostname) <= 253 and bool(re.fullmatch(
+        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+tklapp\.com", hostname,
+    ))
 
 
 def local_dynamic_dns_hostname(device_id: str, registry_dir="/var/lib/hubdns") -> str:
@@ -141,18 +204,20 @@ def local_dynamic_dns_hostname(device_id: str, registry_dir="/var/lib/hubdns") -
                 hostname = registry.read(256).strip().rstrip(".")
     except (OSError, UnicodeError):
         return ""
-    if len(hostname) <= 253 and re.fullmatch(
-            r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+tklapp\.com", hostname):
-        return hostname
-    return ""
+    return hostname if valid_dynamic_dns_hostname(hostname) else ""
 
 
 def hub_service_lines(state: dict, backup_status: str,
                       contact: str = "Security contact: Not set", dns_hostname: str = "",
                       compact: bool = False) -> str:
-    """Show each service independently, using only locally recorded state."""
+    """Show Hub settings alongside the services applied on this server."""
     connection = state.get("connection_status")
     heading = {"linked": "Connected", "disconnected": "Not connected"}.get(connection, "Status unavailable")
+    if state.get("hub_status_unavailable"):
+        heading = "Status unavailable"
+    if state.get("hub_disconnect_reason"):
+        heading = ("Disconnected in Hub" if state["hub_disconnect_reason"] == "revoked"
+                   else "Reconnect needed")
     if state.get("status_error") == "update_inithooks":
         heading = "Update Inithooks"
     email = dns = "Status unavailable"
@@ -181,18 +246,24 @@ def hub_service_lines(state: dict, backup_status: str,
             email = "Disabled"
         elif mail.get("status") == "pending_verification":
             email = "Waiting for domain verification"
-        elif state.get("mode") == "hub" and state.get("status") == "ready" and mail.get("enabled") is True:
+        elif (state.get("mode") == "hub" and state.get("status") == "ready"
+              and mail.get("enabled") is True and mail.get("status") != "secret_required"):
             email = "Via TurnKey Hub"
         elif mail.get("enabled") is True and state.get("setup_pending"):
             email = "Setup in progress"
         elif mail.get("enabled") is True:
-            email = "Needs attention"
+            email = "Setup needed" if state.get("hub_status_refreshed") else "Needs attention"
         if dns_state.get("error") or dns_state.get("status") in ("revoked", "unavailable", "error"):
             dns = "Needs attention"
         elif dns_state.get("enabled") is False:
             dns = "Disabled"
         elif dns_state.get("enabled") is True:
-            dns = dns_hostname or "Setup needed"
+            assigned = state.get("hub_dns_assignment")
+            if assigned and assigned != dns_hostname:
+                pending = f"Pending: {assigned}"
+                dns = dns_hostname + "\n    " + pending if dns_hostname else pending
+            else:
+                dns = dns_hostname or "Setup needed"
     backup = backup_status.strip()
     for prefix in ("Backups:", "TKLBAM:"):
         if backup.startswith(prefix):
@@ -726,6 +797,9 @@ class TurnkeyConsole:
         self.eventManager = eventManager
         self.pluginManager = pluginManager
         self.pluginManager.updateGlobals({"console": self.console})
+        hub_services = self.pluginManager.path_map.get(HUB_SERVICES_PLUGIN)
+        if hub_services is not None:
+            hub_services.updateGlobals({"remember_hub_status": self.remember_hub_status})
         for label, (path, _) in NETWORKING_PLUGINS.items():
             section = self.pluginManager.path_map.get(path)
             if isinstance(section, plugin.PluginDir):
@@ -916,6 +990,48 @@ class TurnkeyConsole:
 
         return text
 
+    def remember_hub_status(self, snapshot: dict) -> None:
+        """Reuse an explicit service refresh already completed by the helper."""
+        if snapshot.get("connection_status") != "linked" or snapshot.get("status") == "error":
+            return
+        device_id = snapshot.get("device_id")
+        if device_id and device_id == getattr(self, "_hub_status_device", None):
+            self._hub_status_snapshot = snapshot
+            self._hub_dns_at_refresh = local_dynamic_dns_hostname(device_id)
+
+    def main_hub_state(self) -> dict:
+        local = local_hub_status()
+        if local.get("connection_status") == "disconnected":
+            self._hub_status_device = None
+            return local
+        if local.get("connection_status") != "linked":
+            return local
+        services = local.get("services")
+        device_id = local.get("device_id") or (services.get("device_id") if isinstance(services, dict) else None)
+        if not isinstance(device_id, str) or not re.fullmatch(r"[0-9a-f]{32}", device_id):
+            return local
+        if getattr(self, "_hub_status_device", None) != device_id:
+            # Pairing through any console menu saves a new device. Repainting the
+            # same session, including after cancellation, reuses its snapshot.
+            self._hub_status_device = device_id
+            self._hub_dns_at_refresh = local_dynamic_dns_hostname(device_id)
+            self._hub_status_snapshot = remote_hub_status()
+        return merge_hub_snapshot(local, self._hub_status_snapshot, device_id)
+
+    def main_dns_hostname(self, state: dict) -> str:
+        if state.get("connection_status") != "linked":
+            return ""
+        services = state.get("services")
+        device = services.get("device_id") if isinstance(services, dict) else None
+        hostname = local_dynamic_dns_hostname(device)
+        if state.get("hub_dns_assignment"):
+            if hostname and self._hub_dns_at_refresh is not None and hostname != self._hub_dns_at_refresh:
+                # A subsequent scheduled update supersedes this pending assignment.
+                self._hub_dns_at_refresh = None
+            if self._hub_dns_at_refresh is None:
+                state["hub_dns_assignment"] = ""
+        return hostname
+
     def usage(self) -> str:
         if self.advanced_enabled:
             default_button_label = "Advanced Menu"
@@ -992,14 +1108,15 @@ class TurnkeyConsole:
 
         log_msg = f"Usage started - hostname: {hostname} ip: {ip_addr}"
 
-        hub_state = local_hub_status()
+        hub_state = self.main_hub_state()
         services = hub_state.get("services")
         services = services if isinstance(services, dict) else {}
-        dns_hostname = (local_dynamic_dns_hostname(services.get("device_id"))
-                        if hub_state.get("connection_status") == "linked" else "")
+        dns_hostname = self.main_dns_hostname(hub_state)
         terminal = get_terminal_size((80, 24))
-        compact = bool(dns_hostname and terminal.lines <= 24 and
-                       len(dns_hostname) + 23 > min(65, terminal.columns - 4))
+        assigned = hub_state.get("hub_dns_assignment")
+        pending_change = bool(assigned and dns_hostname != assigned)
+        compact = bool(terminal.lines <= 24 and (pending_change or
+                       len(dns_hostname) + 23 > min(65, terminal.columns - 4)))
 
         if ipv6_addr:
             if not compact:
@@ -1077,6 +1194,12 @@ class TurnkeyConsole:
             )
             if result.returncode:
                 raise subprocess.CalledProcessError(result.returncode, result.args)
+            try:
+                snapshot = json.loads(result.stdout)
+            except (TypeError, ValueError):
+                snapshot = {}
+            if isinstance(snapshot, dict):
+                self.remember_hub_status(snapshot)
         except (OSError, subprocess.SubprocessError):
             self.console.msgbox("Manage backups", "Could not refresh Hub services. Check the connection and try again.", autosize=True)
         return "usage"

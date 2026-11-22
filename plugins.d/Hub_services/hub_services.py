@@ -10,6 +10,7 @@ HELPER = "/usr/lib/inithooks/bin/turnkey-hub"
 CONNECT = "/usr/lib/inithooks/bin/hubservices.py"
 CONNECTED_TEXT = "Manage this server's Hub connection and email delivery."
 DISCONNECTED_TEXT = "Connect this server to the TurnKey Hub to use email delivery."
+remember_hub_status = None
 
 
 def invoke(*arguments, payload=None):
@@ -76,6 +77,8 @@ def status(result=None):
     if result is None:
         result = invoke("status")
     if show(result):
+        if remember_hub_status is not None:
+            remember_hub_status(result)
         details = {"ready": "Connected", "pending": "Waiting for domain verification",
                    "linked": "Hub linked", "connecting": "Connection setup is pending", "disconnected": "Not connected",
                    "revoked": "Connection revoked", "suspended": "Sending suspended", "expired": "Authorization renewal is pending"}
@@ -124,6 +127,8 @@ def run():
             if current.get("connection_status") == "linked":
                 result = invoke("use-hub")
                 if show(result):
+                    if remember_hub_status is not None:
+                        remember_hub_status(result)
                     if result.get("services", {}).get("mail", {}).get("enabled") is False:
                         text = "Email is disabled in the Hub. Enable it in Hub settings."
                     elif result.get("mode") == "hub" and result.get("status") == "ready":
