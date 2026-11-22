@@ -102,7 +102,12 @@ class HubServiceCombinationTests(unittest.TestCase):
                         self.assertIn('hub.turnkeylinux.org: Connected', text)
                         self.assertIn('Email delivery:  ' + expected_mail, text)
                         self.assertIn('DNS:             ' + expected_dns, text)
-                        self.assertIn('Backups:         ' + expected_backup, text)
+                        self.assertIn('Backups:         ' + expected_backup.replace(', Updated ', '\n                   Updated '), text)
+
+    def test_backup_date_wraps_under_value(self):
+        state = {'connection_status': 'linked'}
+        text = confconsole.hub_service_lines(state, 'TKLBAM: Backup ID #1, Updated Wed 2026-11-18 11:22')
+        self.assertIn('  Backups:         Backup ID #1\n                   Updated Wed 2026-11-18 11:22', text)
 
     def test_pending_email_does_not_hide_ready_dns(self):
         # turnkey-hub can initialize DNS independently while email recovery is
@@ -270,7 +275,13 @@ class HubBackupAndManualMailTests(unittest.TestCase):
         for local in local_backups:
             state = {'connection_status': 'linked', 'services': {'backup': {'status': 'active'}}}
             expected_local = local.split(':', 1)[1].strip()
-            self.assertIn('Backups:         ' + expected_local, confconsole.hub_service_lines(state, local))
+            self.assertIn('Backups:         ' + expected_local.replace(', Updated ', '\n                   Updated '), confconsole.hub_service_lines(state, local))
+
+    def test_disabled_backup_retains_last_backup_id_and_time(self):
+        state = {'connection_status': 'linked', 'services': {'backup': {'status': 'disabled'}}}
+        text = confconsole.hub_service_lines(state, 'TKLBAM: Backup ID #4, Updated Tue 2026-11-17 13:50')
+        self.assertIn('Backups:         Disabled in Hub', text)
+        self.assertIn('Last: Backup ID #4, updated 2026-11-17 13:50', text)
 
     def test_disconnected_manual_smtp_has_its_own_state(self):
         states = [({'connection_status': 'disconnected', 'mail_preference': 'manual',

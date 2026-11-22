@@ -171,9 +171,18 @@ def hub_service_lines(state: dict, backup_status: str) -> str:
         services = services if isinstance(services, dict) else {}
         service = services.get("backup")
         service = service if isinstance(service, dict) else {}
-        backup = {"disabled": "Disabled in Hub", "setup_required": "Finish setup in Hub",
-                  "migration_required": "Migration required", "unavailable": "Needs attention",
-                  "revoked": "Needs attention", "error": "Needs attention"}.get(service.get("status"), backup)
+        issue = {"disabled": "Disabled in Hub", "setup_required": "Finish setup in Hub",
+                 "migration_required": "Migration required", "unavailable": "Needs attention",
+                 "revoked": "Needs attention", "error": "Needs attention"}.get(service.get("status"))
+        if issue:
+            if backup.startswith("Backup ID #"):
+                history = re.sub(r", Updated \S+ (\d{4}-\d\d-\d\d \d\d:\d\d)",
+                                 r", updated \1", backup)
+                backup = issue + "\n    Last: " + history
+            else:
+                backup = issue
+    # Keep backup history readable when the terminal is narrow.
+    backup = backup.replace(", Updated ", "\n                   Updated ", 1)
     return (f"hub.turnkeylinux.org: {heading}\n\n"
             f"  Email delivery:  {email}\n"
             f"  DNS:             {dns}\n"
