@@ -1,7 +1,7 @@
 """One-shot Hub status refreshes and the result shown on the main screen."""
 import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import confconsole
 from test_mail_relay import wizard
@@ -13,6 +13,7 @@ class LiveHubStatusTests(unittest.TestCase):
 
     def setUp(self):
         self.console = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
+        self.console.console = Mock()
 
     def local(self, device):
         return {'connection_status': 'linked', 'device_id': device,
@@ -68,7 +69,8 @@ class LiveHubStatusTests(unittest.TestCase):
         state = confconsole.merge_hub_snapshot(local, self.remote(self.first), self.first)
         pending = confconsole.hub_service_lines(state, 'Backup ID #1', dns_hostname='old.tklapp.com')
         self.assertIn('Email delivery:    Disabled', pending)
-        self.assertIn('Pending: next.tklapp.com', pending)
+        self.assertIn('old.tklapp.com', pending)
+        self.assertNotIn('Pending:', pending)
         self.assertIn('Last: Backup ID #1', pending)
         applied = confconsole.hub_service_lines(state, 'Backup ID #1', dns_hostname='next.tklapp.com')
         self.assertIn('Dynamic DNS:     next.tklapp.com', applied)
@@ -94,15 +96,78 @@ class LiveHubStatusTests(unittest.TestCase):
         with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
              patch('confconsole.remote_hub_status', return_value=self.remote(self.first)) as refresh, \
              patch('confconsole.local_dynamic_dns_hostname',
-                   side_effect=['old.tklapp.com', 'old.tklapp.com', 'latest.tklapp.com', 'old.tklapp.com']):
-            for expected in ('Pending: next.tklapp.com', 'latest.tklapp.com', 'old.tklapp.com'):
+                   side_effect=['old.tklapp.com', 'latest.tklapp.com', 'old.tklapp.com']), \
+             patch('confconsole.subprocess.run') as update:
+            for expected in ('latest.tklapp.com', 'old.tklapp.com'):
                 state = self.console.main_hub_state()
                 hostname = self.console.main_dns_hostname(state)
                 rendered = confconsole.hub_service_lines(state, '', dns_hostname=hostname)
                 self.assertIn(expected, rendered)
-                if not expected.startswith('Pending:'):
-                    self.assertNotIn('Pending:', rendered)
+                self.assertNotIn('Pending:', rendered)
             refresh.assert_called_once_with()
+            update.assert_not_called()
+
+    def test_changed_hostname_updates_once_and_displays_applied_name(self):
+        with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.local_dynamic_dns_hostname',
+                   side_effect=['old.tklapp.com', 'old.tklapp.com',
+                                'next.tklapp.com', 'next.tklapp.com']), \
+             patch('confconsole.subprocess.run') as update:
+            for _ in range(2):
+                state = self.console.main_hub_state()
+                hostname = self.console.main_dns_hostname(state)
+                self.assertEqual(hostname, 'next.tklapp.com')
+                self.assertNotIn('Update failed', confconsole.hub_service_lines(state, '', dns_hostname=hostname))
+            update.assert_called_once_with(
+                ['/usr/bin/hubdns-update', '--quiet'], stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5, check=True)
+
+    def test_failed_update_reports_scheduled_retry_without_repeating_on_redraw(self):
+        for error in (OSError(), subprocess.TimeoutExpired('hubdns-update', 5),
+                      subprocess.CalledProcessError(1, 'hubdns-update')):
+            with self.subTest(error=error):
+                self.console = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
+                self.console.console = Mock()
+                with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
+                     patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+                     patch('confconsole.local_dynamic_dns_hostname', return_value='old.tklapp.com'), \
+                     patch('confconsole.subprocess.run', side_effect=error) as update:
+                    for _ in range(2):
+                        state = self.console.main_hub_state()
+                        hostname = self.console.main_dns_hostname(state)
+                        text = confconsole.hub_service_lines(state, '', dns_hostname=hostname)
+                        self.assertIn('Update failed, retry scheduled', text)
+                        self.assertIn('old.tklapp.com', text)
+                        self.assertNotIn('Pending:', text)
+                    update.assert_called_once()
+
+    def test_missing_or_matching_local_hostname_never_triggers_update(self):
+        for local_name in ('', 'next.tklapp.com'):
+            with self.subTest(local_name=local_name):
+                self.console = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
+                with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
+                     patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+                     patch('confconsole.local_dynamic_dns_hostname', return_value=local_name), \
+                     patch('confconsole.subprocess.run') as update:
+                    state = self.console.main_hub_state()
+                    self.assertEqual(self.console.main_dns_hostname(state), local_name)
+                    update.assert_not_called()
+
+    def test_scheduled_success_clears_a_previous_update_failure(self):
+        with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.local_dynamic_dns_hostname', side_effect=[
+                 'old.tklapp.com', 'old.tklapp.com', 'old.tklapp.com', 'next.tklapp.com']), \
+             patch('confconsole.subprocess.run', side_effect=OSError()) as update:
+            state = self.console.main_hub_state()
+            hostname = self.console.main_dns_hostname(state)
+            self.assertIn('Update failed', confconsole.hub_service_lines(state, '', dns_hostname=hostname))
+            state = self.console.main_hub_state()
+            hostname = self.console.main_dns_hostname(state)
+            self.assertEqual(hostname, 'next.tklapp.com')
+            self.assertNotIn('Update failed', confconsole.hub_service_lines(state, '', dns_hostname=hostname))
+            update.assert_called_once()
 
     def test_explicit_hub_services_refresh_replaces_the_main_screen_snapshot(self):
         for choice in ('Status', 'Hub'):

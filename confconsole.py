@@ -258,10 +258,8 @@ def hub_service_lines(state: dict, backup_status: str,
         elif dns_state.get("enabled") is False:
             dns = "Disabled"
         elif dns_state.get("enabled") is True:
-            assigned = state.get("hub_dns_assignment")
-            if assigned and assigned != dns_hostname:
-                pending = f"Pending: {assigned}"
-                dns = dns_hostname + "\n    " + pending if dns_hostname else pending
+            if state.get("hub_dns_update_failed"):
+                dns = (dns_hostname + "\n    " if dns_hostname else "") + "Update failed, retry scheduled"
             else:
                 dns = dns_hostname or "Setup needed"
     backup = backup_status.strip()
@@ -998,6 +996,8 @@ class TurnkeyConsole:
         if device_id and device_id == getattr(self, "_hub_status_device", None):
             self._hub_status_snapshot = snapshot
             self._hub_dns_at_refresh = local_dynamic_dns_hostname(device_id)
+            self._hub_dns_check_pending = True
+            self._hub_dns_update_failed = False
 
     def main_hub_state(self) -> dict:
         local = local_hub_status()
@@ -1016,6 +1016,8 @@ class TurnkeyConsole:
             self._hub_status_device = device_id
             self._hub_dns_at_refresh = local_dynamic_dns_hostname(device_id)
             self._hub_status_snapshot = remote_hub_status()
+            self._hub_dns_check_pending = True
+            self._hub_dns_update_failed = False
         return merge_hub_snapshot(local, self._hub_status_snapshot, device_id)
 
     def main_dns_hostname(self, state: dict) -> str:
@@ -1024,12 +1026,34 @@ class TurnkeyConsole:
         services = state.get("services")
         device = services.get("device_id") if isinstance(services, dict) else None
         hostname = local_dynamic_dns_hostname(device)
-        if state.get("hub_dns_assignment"):
+        assigned = state.get("hub_dns_assignment")
+        if assigned:
             if hostname and self._hub_dns_at_refresh is not None and hostname != self._hub_dns_at_refresh:
                 # A subsequent scheduled update supersedes this pending assignment.
                 self._hub_dns_at_refresh = None
+                self._hub_dns_update_failed = False
             if self._hub_dns_at_refresh is None:
                 state["hub_dns_assignment"] = ""
+            elif getattr(self, "_hub_dns_check_pending", False):
+                self._hub_dns_check_pending = False
+                if hostname and hostname != assigned:
+                    self.console.progress("Dynamic DNS", "Updating your Hub hostname. Please wait...")
+                    try:
+                        subprocess.run(
+                            ["/usr/bin/hubdns-update", "--quiet"],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, timeout=5, check=True,
+                        )
+                    except (OSError, subprocess.SubprocessError):
+                        self._hub_dns_update_failed = True
+                    hostname = local_dynamic_dns_hostname(device)
+                    if hostname and hostname != self._hub_dns_at_refresh:
+                        self._hub_dns_at_refresh = None
+                        self._hub_dns_update_failed = False
+                    elif hostname != assigned:
+                        self._hub_dns_update_failed = True
+        if getattr(self, "_hub_dns_update_failed", False):
+            state["hub_dns_update_failed"] = True
         return hostname
 
     def usage(self) -> str:
@@ -1113,9 +1137,8 @@ class TurnkeyConsole:
         services = services if isinstance(services, dict) else {}
         dns_hostname = self.main_dns_hostname(hub_state)
         terminal = get_terminal_size((80, 24))
-        assigned = hub_state.get("hub_dns_assignment")
-        pending_change = bool(assigned and dns_hostname != assigned)
-        compact = bool(terminal.lines <= 24 and (pending_change or
+        dns_update_failed = bool(hub_state.get("hub_dns_update_failed"))
+        compact = bool(terminal.lines <= 24 and (dns_update_failed or
                        len(dns_hostname) + 23 > min(65, terminal.columns - 4)))
 
         if ipv6_addr:
