@@ -21,10 +21,15 @@ Open **Security updates** in **System settings** to choose an action:
 * **Secupdates adv conf** shows the current policy for handling package
   removals during automatic security updates and lets you change it.
 
-TurnKey servers install security updates daily by default.
-The main screen shows the most recent check and the number installed when
-available. Open a shell and run ``turnkey-security-updates-status`` for
-more detail.
+TurnKey servers install security updates daily by default. The main screen
+shows the result of the last daily run and offers **Install security updates**
+if it failed. The update output appears in the terminal; on failure, press
+Enter after reading the error to return to Confconsole.
+
+From a shell, run ``sudo security-updates`` to install updates or
+``sudo security-updates --status`` to inspect the daily update status and
+diagnostics. A manual installation leaves the last daily result visible
+until the next scheduled run.
 
 Hostname
 --------

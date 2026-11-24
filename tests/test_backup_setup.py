@@ -198,6 +198,39 @@ class MainScreenTests(unittest.TestCase):
         self.assertIn('Backups:         Ready for first backup', ui.console.actionbox.call_args.args[1])
         self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Create backup', 'Advanced Menu'))
 
+    def test_failed_update_offers_install_before_advanced_on_standard_screen(self):
+        terminal = os.terminal_size((80, 24))
+        with patch('confconsole.security_updates_status', return_value='Daily update failed'), \
+             patch('confconsole.get_terminal_size', return_value=terminal):
+            ui, result = self.run_screen('ok')
+        self.assertEqual(result, 'install_security_updates')
+        self.assertEqual(ui.console.actionbox.call_args.args[2:],
+                         ('Install security updates', 'Advanced Menu'))
+        self.assertIn('Security updates:  Daily update failed', ui.console.actionbox.call_args.args[1])
+
+    def test_failed_update_buttons_fit_on_narrow_screen(self):
+        terminal = os.terminal_size((50, 24))
+        with patch('confconsole.security_updates_status', return_value='Daily update failed'), \
+             patch('confconsole.get_terminal_size', return_value=terminal):
+            ui, result = self.run_screen('ok')
+        self.assertEqual(result, 'install_security_updates')
+        self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Install updates', 'Advanced Menu'))
+
+    def test_failed_update_keeps_all_three_actions_on_wide_screen(self):
+        terminal = os.terminal_size((100, 30))
+        with patch('confconsole.security_updates_status', return_value='Daily update failed'), \
+             patch('confconsole.get_terminal_size', return_value=terminal):
+            ui, result = self.run_screen('extra')
+        self.assertEqual(result, 'install_security_updates')
+        self.assertEqual(ui.console.actionbox.call_args.args[2:], ('Set up backups', 'Advanced Menu'))
+        self.assertEqual(ui.console.actionbox.call_args.kwargs['extra_label'], 'Install security updates')
+
+    def test_install_runs_shared_terminal_flow_and_returns_to_usage(self):
+        ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
+        with patch('confconsole.run_security_updates') as run:
+            self.assertEqual(ui.install_security_updates(), 'usage')
+        run.assert_called_once_with()
+
     def test_usage_only_secondary_action_quits(self):
         ui, result = self.run_screen('cancel', advanced_enabled=False)
         self.assertEqual(result, 'quit')

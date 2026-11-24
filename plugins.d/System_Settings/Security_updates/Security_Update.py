@@ -1,10 +1,7 @@
-"""Install security updates now"""
+"""Install security updates now."""
 
-from subprocess import check_call, CalledProcessError
+from security_update_runner import run_security_updates
 
 
 def run():
-    try:
-        check_call(["turnkey-install-security-updates"])
-    except CalledProcessError:
-        console.msgbox("An error occurred while running security updates!")
+    run_security_updates()

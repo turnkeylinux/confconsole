@@ -35,6 +35,8 @@ from shutil import get_terminal_size
 import traceback
 from datetime import datetime
 
+from security_update_runner import run_security_updates
+
 import dialog
 from dialog import DialogError
 from systemd.journal import JournalHandler
@@ -210,7 +212,7 @@ def local_dynamic_dns_hostname(device_id: str, registry_dir="/var/lib/hubdns") -
 
 
 def security_updates_status() -> str:
-    """Describe the last security update attempt using the local status helper."""
+    """Show the scheduled update outcome, independently of manual installs."""
     if not os.path.isfile(SECURITY_UPDATES_COMMAND):
         return "Status unavailable"
     try:
@@ -220,40 +222,33 @@ def security_updates_status() -> str:
         if (not isinstance(status, dict) or type(status.get("schema_version")) is not int
                 or status["schema_version"] != 1):
             raise ValueError("unknown status format")
-        outcome = status["result"]
-        reboot = status.get("reboot_required") is True
+        daily = status.get("daily")
+        if not isinstance(daily, dict):
+            return "Status unavailable"
+        outcome = daily.get("result")
         if outcome == "unknown":
             text = "Status unavailable"
-        elif outcome in ("running", "interrupted", "success", "failed"):
-            attempt = datetime.fromisoformat(status["last_attempt"].replace("Z", "+00:00"))
-            if attempt.tzinfo is None:
+        elif outcome == "running":
+            text = "Daily update running"
+        elif outcome in ("failed", "interrupted"):
+            text = "Daily update failed"
+        elif outcome == "success":
+            attempt = datetime.fromisoformat(daily["last_attempt"].replace("Z", "+00:00"))
+            success = datetime.fromisoformat(daily["last_success"].replace("Z", "+00:00"))
+            if attempt.tzinfo is None or success.tzinfo is None:
                 raise ValueError("update time has no timezone")
-            attempt = attempt.astimezone()
             now = datetime.now().astimezone()
-            if attempt > now:
-                raise ValueError("update time is in the future")
-            date = "today" if attempt.date() == now.date() else attempt.strftime("%Y-%m-%d")
-            if outcome == "running":
-                text = "Checking..."
-            elif outcome == "interrupted":
-                text = f"Interrupted {date}"
-            elif outcome == "failed":
-                text = f"Failed {date}"
+            if success < attempt or success > now:
+                raise ValueError("invalid successful update time")
+            success = success.astimezone()
+            date = "today " + success.strftime("%H:%M") if success.date() == now.date() else success.strftime("%Y-%m-%d %H:%M")
+            if (now - success).total_seconds() > 48 * 60 * 60:
+                text = f"Overdue; last successful {success.strftime('%Y-%m-%d')}"
             else:
-                success = datetime.fromisoformat(status["last_success"].replace("Z", "+00:00"))
-                if success.tzinfo is None or success < attempt or success > now:
-                    raise ValueError("invalid successful update time")
-                success = success.astimezone()
-                date = "today" if success.date() == now.date() else success.strftime("%Y-%m-%d")
-                count = status.get("installed")
-                if count is not None and (type(count) is not int or count < 0):
-                    raise ValueError("invalid installed count")
-                text = f"Checked {date}"
-                if count and not reboot:
-                    text += f", {count} installed"
+                text = f"Successful {date}"
         else:
             raise ValueError("unknown update result")
-        if reboot:
+        if status.get("reboot_required") is True:
             text += ", reboot needed"
         return text
     except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError, AttributeError):
@@ -610,8 +605,10 @@ class Console:
         return v
 
     def actionbox(self, title: str, text: str, primary: str, secondary: str,
-                  backtitle: str | None = None) -> str:
+                  backtitle: str | None = None, extra_label: str | None = None) -> str:
         options = {"title": title, "yes_label": primary, "no_label": secondary}
+        if extra_label:
+            options.update(extra_button=True, extra_label=extra_label)
         if backtitle is not None:
             options["backtitle"] = backtitle
         v = self._wrapper("yesno", text, self.height, self.width, **options)
@@ -1219,8 +1216,10 @@ class TurnkeyConsole:
             log_msg = log_msg + f" ipv6: {ipv6_addr}"
 
         log.info(log_msg)
+        update_status = security_updates_status()
+        update_failed = update_status.startswith("Daily update failed")
         text += "\n\n" + hub_service_lines(
-            hub_state, tklbam_status, notification_recipient(), dns_hostname, compact, security_updates_status(),
+            hub_state, tklbam_status, notification_recipient(), dns_hostname, compact, update_status,
         )
         if hub_state.get("connection_status") == "disconnected":
             backup_action = "Connect to Hub"
@@ -1236,17 +1235,23 @@ class TurnkeyConsole:
 
         # Keep the service screen within the current terminal after resizing.
         width, height = self.console.width, self.console.height
+        show_three = bool(update_failed and backup_action and terminal.columns >= 94)
+        if show_three and isinstance(width, int):
+            self.console.width = max(width, 90)
         if isinstance(width, int) and isinstance(height, int):
-            self.console.width = min(width, terminal.columns - 4)
+            self.console.width = min(self.console.width, terminal.columns - 4)
             self.console.height = min(height, terminal.lines - 2)
         # On short terminals, the full-height dialog covers the backtitle.
         display_options = {"backtitle": ""} if terminal.lines <= 24 else {}
         try:
-            if backup_action:
+            if backup_action and (not update_failed or show_three):
                 retcode = self.console.actionbox(
                     f"{hostname} app services", text, backup_action, default_button_label,
                     **display_options,
+                    **({"extra_label": "Install security updates"} if update_failed else {}),
                 )
+                if retcode == "extra" and update_failed:
+                    return "install_security_updates"
                 if retcode == self.OK:
                     if backup_action == "Connect to Hub":
                         return "connect_hub"
@@ -1254,6 +1259,14 @@ class TurnkeyConsole:
                         return "backup_help"
                     return "backup_setup" if backup_state == 11 else "backup_create"
                 return default_return_value
+
+            if update_failed:
+                retcode = self.console.actionbox(
+                    f"{hostname} app services", text,
+                    "Install updates" if terminal.columns < 60 else "Install security updates",
+                    default_button_label, **display_options,
+                )
+                return "install_security_updates" if retcode == self.OK else default_return_value
 
             retcode = self.console.msgbox(
                 f"{hostname} app services", text, button_label=default_button_label,
@@ -1264,6 +1277,11 @@ class TurnkeyConsole:
             return default_return_value
         finally:
             self.console.width, self.console.height = width, height
+
+    def install_security_updates(self) -> str:
+        """Run the same update command used by the Security Update plugin."""
+        run_security_updates()
+        return "usage"
 
     def backup_help(self) -> str:
         if self.backup_problem == "disabled":
