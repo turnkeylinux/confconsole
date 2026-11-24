@@ -8,7 +8,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
     def test_disconnected_has_all_rows_and_backup_status(self):
         text = confconsole.hub_service_lines({'connection_status': 'disconnected'}, 'Backups: Ready to set up')
         self.assertIn('hub.turnkeylinux.org: Not connected\n\n', text)
-        self.assertIn('Email delivery:    Hub not connected', text)
+        self.assertIn('Email delivery:    Connect to Hub for free email delivery', text)
         self.assertIn('Dynamic DNS:     Connect to Hub for free DynDNS', text)
         self.assertIn('Backups:         Ready to set up', text)
 
@@ -43,7 +43,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
         state = {'connection_status': 'disconnected'}
         contact = 'Security contact: admin@example.net'
         text = confconsole.hub_service_lines(state, '', contact)
-        self.assertIn('Security contact:  admin@example.net\nEmail delivery:    Connect to Hub to relay mail', text)
+        self.assertIn('Security contact:  admin@example.net\nEmail delivery:    Connect to Hub for free email delivery', text)
         disabled = confconsole.hub_service_lines(state, '', contact + ' (system mail forwarding off)')
         self.assertNotIn('to relay mail', disabled)
         state.update(mode='custom', status='ready', mail_preference='manual')
@@ -93,7 +93,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
              patch.object(confconsole.netinfo, 'get_hostname', return_value='test'):
             self.assertEqual(ui.usage(), 'connect_hub')
         self.assertEqual(ui.console.actionbox.call_args.args[2], 'Connect to Hub')
-        self.assertIn('Email delivery:    Hub not connected', ui.console.actionbox.call_args.args[1])
+        self.assertIn('Email delivery:    Connect to Hub for free email delivery', ui.console.actionbox.call_args.args[1])
 
     def test_connect_uses_shared_approval_flow_and_returns_to_usage(self):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
@@ -230,7 +230,7 @@ class HubServiceJourneyTests(unittest.TestCase):
             self.assertEqual(ui.usage(), 'advanced')
         first, second = [call.args for call in ui.console.actionbox.call_args_list]
         self.assertEqual(first[2], 'Connect to Hub')
-        self.assertIn('Email delivery:    Hub not connected', first[1])
+        self.assertIn('Email delivery:    Connect to Hub for free email delivery', first[1])
         self.assertIn('hub.turnkeylinux.org: Connected', second[1])
         self.assertIn('Email delivery:    Via TurnKey Hub', second[1])
         self.assertIn('Dynamic DNS:     Setup needed', second[1])
@@ -325,7 +325,7 @@ class HubBackupAndManualMailTests(unittest.TestCase):
                     'mode': 'custom', 'status': 'ready'}, 'Custom SMTP'),
                   ({'connection_status': 'disconnected', 'mail_preference': 'manual',
                     'mode': '', 'status': 'disconnected'}, 'Needs attention'),
-                  ({'connection_status': 'disconnected', 'status': 'disconnected'}, 'Hub not connected')]
+                  ({'connection_status': 'disconnected', 'status': 'disconnected'}, 'Connect to Hub for free email delivery')]
         for state, label in states:
             with self.subTest(label=label):
                 text = confconsole.hub_service_lines(state, 'Backups: Ready to set up')

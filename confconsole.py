@@ -223,12 +223,7 @@ def hub_service_lines(state: dict, backup_status: str,
     email = dns = "Status unavailable"
     if connection == "disconnected":
         dns = "Connect to Hub for free DynDNS"
-        # Offer the Hub relay when forwarding has a recipient. A configured
-        # custom relay takes precedence over this prompt.
-        if contact != "Security contact: Not set" and "forwarding off" not in contact.lower():
-            email = "Connect to Hub to relay mail"
-        else:
-            email = "Hub not connected"
+        email = "Connect to Hub for free email delivery"
         if state.get("mail_preference") == "manual":
             email = "Custom SMTP" if state.get("mode") == "custom" and state.get("status") == "ready" else "Needs attention"
     elif connection == "linked":

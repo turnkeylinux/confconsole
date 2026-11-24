@@ -37,7 +37,7 @@ class InithooksStatusContractTests(unittest.TestCase):
         status = self.status_from_disk({})
         self.assertEqual(status['connection_status'], 'disconnected')
         text = confconsole.hub_service_lines(status, 'Backups: Ready to set up')
-        self.assertIn('Email delivery:    Hub not connected', text)
+        self.assertIn('Email delivery:    Connect to Hub for free email delivery', text)
         self.assertIn('Dynamic DNS:     Connect to Hub for free DynDNS', text)
 
     def test_email_failure_does_not_hide_enabled_dns(self):
