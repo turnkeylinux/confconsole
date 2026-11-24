@@ -33,6 +33,7 @@ from io import StringIO
 from contextlib import ExitStack, contextmanager
 from shutil import get_terminal_size
 import traceback
+from datetime import datetime
 
 import dialog
 from dialog import DialogError
@@ -60,6 +61,7 @@ NETWORKING_PLUGINS = {
 BACKUP_LOG = "/var/log/tklbam-backup"
 TKLBAM_PLAN_LIMIT = 12
 BACKUP_EMAIL_SUCCESS = "/etc/tklbam/email-success"
+SECURITY_UPDATES_COMMAND = "/usr/sbin/turnkey-security-updates-status"
 
 handler = JournalHandler(SYSLOG_IDENTIFIER="confconsole")
 handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
@@ -207,9 +209,60 @@ def local_dynamic_dns_hostname(device_id: str, registry_dir="/var/lib/hubdns") -
     return hostname if valid_dynamic_dns_hostname(hostname) else ""
 
 
+def security_updates_status() -> str:
+    """Describe the last security update attempt using the local status helper."""
+    if not os.path.isfile(SECURITY_UPDATES_COMMAND):
+        return "Status unavailable"
+    try:
+        result = subprocess.run([SECURITY_UPDATES_COMMAND, "--json"], capture_output=True,
+                                text=True, timeout=3, check=True)
+        status = json.loads(result.stdout)
+        if (not isinstance(status, dict) or type(status.get("schema_version")) is not int
+                or status["schema_version"] != 1):
+            raise ValueError("unknown status format")
+        outcome = status["result"]
+        reboot = status.get("reboot_required") is True
+        if outcome == "unknown":
+            text = "Status unavailable"
+        elif outcome in ("running", "interrupted", "success", "failed"):
+            attempt = datetime.fromisoformat(status["last_attempt"].replace("Z", "+00:00"))
+            if attempt.tzinfo is None:
+                raise ValueError("update time has no timezone")
+            attempt = attempt.astimezone()
+            now = datetime.now().astimezone()
+            if attempt > now:
+                raise ValueError("update time is in the future")
+            date = "today" if attempt.date() == now.date() else attempt.strftime("%Y-%m-%d")
+            if outcome == "running":
+                text = "Checking..."
+            elif outcome == "interrupted":
+                text = f"Interrupted {date}"
+            elif outcome == "failed":
+                text = f"Failed {date}"
+            else:
+                success = datetime.fromisoformat(status["last_success"].replace("Z", "+00:00"))
+                if success.tzinfo is None or success < attempt or success > now:
+                    raise ValueError("invalid successful update time")
+                success = success.astimezone()
+                date = "today" if success.date() == now.date() else success.strftime("%Y-%m-%d")
+                count = status.get("installed")
+                if count is not None and (type(count) is not int or count < 0):
+                    raise ValueError("invalid installed count")
+                text = f"Checked {date}"
+                if count and not reboot:
+                    text += f", {count} installed"
+        else:
+            raise ValueError("unknown update result")
+        if reboot:
+            text += ", reboot needed"
+        return text
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError, AttributeError):
+        return "Status unavailable"
+
+
 def hub_service_lines(state: dict, backup_status: str,
                       contact: str = "Security contact: Not set", dns_hostname: str = "",
-                      compact: bool = False) -> str:
+                      compact: bool = False, security_updates: str = "") -> str:
     """Show Hub settings alongside the services applied on this server."""
     connection = state.get("connection_status")
     heading = {"linked": "Connected", "disconnected": "Not connected"}.get(connection, "Status unavailable")
@@ -286,9 +339,10 @@ def hub_service_lines(state: dict, backup_status: str,
     # Keep backup status on the first page if a long DNS name needs scrolling.
     if compact and len(dns) > 100:
         rows.reverse()
+    update_line = f"\n\nSecurity updates:  {security_updates}" if security_updates else ""
     return (f"{contact.replace('Security contact: ', 'Security contact:  ', 1)}\n"
             f"Email delivery:    {email}\n\n"
-            f"hub.turnkeylinux.org: {heading}{service_gap}" + "\n".join(rows))
+            f"hub.turnkeylinux.org: {heading}{service_gap}" + "\n".join(rows) + update_line)
 
 
 def backup_log_position() -> tuple[int, int, int] | None:
@@ -1153,7 +1207,7 @@ class TurnkeyConsole:
         dns_hostname = self.main_dns_hostname(hub_state)
         terminal = get_terminal_size((80, 24))
         dns_update_failed = bool(hub_state.get("hub_dns_update_failed"))
-        compact = bool(terminal.lines <= 24 and (dns_update_failed or
+        compact = bool(terminal.lines <= 24 and (ipv6_addr or dns_update_failed or
                        len(dns_hostname) + 23 > min(65, terminal.columns - 4)))
 
         if ipv6_addr:
@@ -1166,7 +1220,7 @@ class TurnkeyConsole:
 
         log.info(log_msg)
         text += "\n\n" + hub_service_lines(
-            hub_state, tklbam_status, notification_recipient(), dns_hostname, compact,
+            hub_state, tklbam_status, notification_recipient(), dns_hostname, compact, security_updates_status(),
         )
         if hub_state.get("connection_status") == "disconnected":
             backup_action = "Connect to Hub"

@@ -4,7 +4,14 @@ import unittest
 from unittest.mock import Mock, patch
 import confconsole
 
-class HubServiceVisibilityTests(unittest.TestCase):
+class ScreenTests(unittest.TestCase):
+    def setUp(self):
+        status = patch('confconsole.security_updates_status', return_value='Checked today')
+        status.start()
+        self.addCleanup(status.stop)
+
+
+class HubServiceVisibilityTests(ScreenTests):
     def test_disconnected_has_all_rows_and_backup_status(self):
         text = confconsole.hub_service_lines({'connection_status': 'disconnected'}, 'Backups: Ready to set up')
         self.assertIn('hub.turnkeylinux.org: Not connected\n\n', text)
@@ -111,7 +118,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
         self.assertIn('Try again', ui.console.msgbox.call_args.args[1])
 
 
-class HubServiceCombinationTests(unittest.TestCase):
+class HubServiceCombinationTests(ScreenTests):
     """Cross product of common service selections reported by the local helper."""
 
     def test_each_service_choice_is_shown_without_implying_others(self):
@@ -185,7 +192,7 @@ class HubServiceCombinationTests(unittest.TestCase):
                 self.assertEqual(confconsole.local_hub_status(), {})
 
 
-class HubServiceJourneyTests(unittest.TestCase):
+class HubServiceJourneyTests(ScreenTests):
     """Drive the real usage and connect methods through local-helper responses."""
 
     def make_ui(self):
@@ -297,7 +304,7 @@ class HubServiceJourneyTests(unittest.TestCase):
             self.assertEqual(ui.usage(), 'advanced')
 
 
-class HubBackupAndManualMailTests(unittest.TestCase):
+class HubBackupAndManualMailTests(ScreenTests):
     def test_hub_backup_state_overrides_all_local_backup_states(self):
         local_backups = ('Backups: Ready to set up', 'Backups: Ready for first backup',
                          'TKLBAM: Backup ID #4, Updated Tue 2026-11-17 13:50')
@@ -367,7 +374,7 @@ class HubBackupAndManualMailTests(unittest.TestCase):
                     self.assertIn(wording, ui.console.yesno.call_args.args[0])
 
 
-class ReadOnlyCompatibilityTests(unittest.TestCase):
+class ReadOnlyCompatibilityTests(ScreenTests):
     def test_old_helper_reports_unavailable_without_mutating_fallback(self):
         old = subprocess.CompletedProcess([], 2, '', 'error: unrecognized arguments: --read-only')
         with patch('confconsole.subprocess.run', return_value=old) as run:
@@ -392,7 +399,7 @@ class ReadOnlyCompatibilityTests(unittest.TestCase):
             self.assertEqual(run.call_count, 1)
 
 
-class BackupRefreshJourneyTests(unittest.TestCase):
+class BackupRefreshJourneyTests(ScreenTests):
     def make_ui(self, problem='disabled'):
         ui = HubServiceJourneyTests().make_ui()
         ui.backup_problem = problem

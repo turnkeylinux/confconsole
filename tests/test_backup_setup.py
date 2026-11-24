@@ -148,6 +148,11 @@ class BackupSetupTests(unittest.TestCase):
 
 
 class MainScreenTests(unittest.TestCase):
+    def setUp(self):
+        status = patch('confconsole.security_updates_status', return_value='Checked today')
+        status.start()
+        self.addCleanup(status.stop)
+
     def run_screen(self, choice, advanced_enabled=True, backup_state=11):
         ui = confconsole.TurnkeyConsole.__new__(confconsole.TurnkeyConsole)
         ui.advanced_enabled = advanced_enabled
@@ -172,6 +177,8 @@ class MainScreenTests(unittest.TestCase):
         text = ui.console.actionbox.call_args.args[1]
         self.assertIn('Security contact:  admin@example.net\nEmail delivery:', text)
         self.assertLess(text.index('Security contact:'), text.index('Backups:'))
+        self.assertTrue(text.endswith('  Backups:         Ready to set up\n\n'
+                                      'Security updates:  Checked today'))
 
     def test_uninitialized_backups_offer_setup_first(self):
         ui, result = self.run_screen('ok')

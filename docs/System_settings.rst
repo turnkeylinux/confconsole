@@ -22,6 +22,9 @@ Open **Security updates** in **System settings** to choose an action:
   removals during automatic security updates and lets you change it.
 
 TurnKey servers install security updates daily by default.
+The main screen shows the most recent check and the number installed when
+available. Open a shell and run ``turnkey-security-updates-status`` for
+more detail.
 
 Hostname
 --------
