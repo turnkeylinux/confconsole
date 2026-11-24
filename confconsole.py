@@ -243,7 +243,7 @@ def hub_service_lines(state: dict, backup_status: str,
             email = "Waiting for domain verification"
         elif (state.get("mode") == "hub" and state.get("status") == "ready"
               and mail.get("enabled") is True and mail.get("status") != "secret_required"):
-            email = "Via TurnKey Hub"
+            email = "Yes, via TurnKey Hub"
         elif mail.get("enabled") is True and state.get("setup_pending"):
             email = "Setup in progress"
         elif mail.get("enabled") is True:

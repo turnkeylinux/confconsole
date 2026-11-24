@@ -53,7 +53,7 @@ class HubServiceVisibilityTests(unittest.TestCase):
         status = {'connection_status': 'linked', 'status': 'ready', 'mode': 'hub',
                   'services': {'mail': {'enabled': True}, 'dns': {'enabled': False}}}
         text = confconsole.hub_service_lines(status, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Email delivery:    Yes, via TurnKey Hub', text)
         self.assertIn('Dynamic DNS:     Disabled', text)
         self.assertIn('Backups:         Backup ID #4', text)
         status.update(mail_preference='manual')
@@ -116,7 +116,7 @@ class HubServiceCombinationTests(unittest.TestCase):
 
     def test_each_service_choice_is_shown_without_implying_others(self):
         emails = [
-            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Via TurnKey Hub'),
+            ({'enabled': True, 'status': 'active'}, 'hub', 'ready', 'hub', 'Yes, via TurnKey Hub'),
             ({'enabled': False, 'status': 'disabled'}, '', 'linked', 'hub', 'Disabled'),
             ({'enabled': True, 'status': 'active'}, 'custom', 'ready', 'manual', 'Custom SMTP'),
             ({'enabled': True, 'status': 'unavailable'}, '', 'linked', 'hub', 'Needs attention'),
@@ -162,7 +162,7 @@ class HubServiceCombinationTests(unittest.TestCase):
                  'services': {'mail': {'enabled': True, 'status': 'active'},
                               'dns': {'enabled': False, 'status': 'revoked'}}}
         text = confconsole.hub_service_lines(state, 'TKLBAM: Backup ID #4')
-        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Email delivery:    Yes, via TurnKey Hub', text)
         self.assertIn('Dynamic DNS:     Needs attention', text)
 
     def test_missing_service_does_not_imply_it_is_connected(self):
@@ -232,7 +232,7 @@ class HubServiceJourneyTests(unittest.TestCase):
         self.assertEqual(first[2], 'Connect to Hub')
         self.assertIn('Email delivery:    Connect to Hub for free email delivery', first[1])
         self.assertIn('hub.turnkeylinux.org: Connected', second[1])
-        self.assertIn('Email delivery:    Via TurnKey Hub', second[1])
+        self.assertIn('Email delivery:    Yes, via TurnKey Hub', second[1])
         self.assertIn('Dynamic DNS:     Setup needed', second[1])
         self.assertEqual(second[2], 'Set up backups')
         self.assertEqual(calls.count(['/usr/lib/inithooks/bin/turnkey-hub', 'status', '--local', '--read-only', '--json']), 2)

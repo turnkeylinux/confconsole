@@ -60,7 +60,7 @@ class LiveHubStatusTests(unittest.TestCase):
                 state = self.console.main_hub_state()
                 text = confconsole.hub_service_lines(state, '', dns_hostname='old.tklapp.com')
                 self.assertIn('hub.turnkeylinux.org: Status unavailable', text)
-                self.assertIn('Via TurnKey Hub', text)
+                self.assertIn('Yes, via TurnKey Hub', text)
                 self.assertIn('old.tklapp.com', text)
             refresh.assert_called_once_with()
 

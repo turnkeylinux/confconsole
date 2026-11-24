@@ -61,7 +61,7 @@ class InithooksStatusContractTests(unittest.TestCase):
                          'dns': {'enabled': False}},
         })
         text = confconsole.hub_service_lines(status, 'Backups: Backup ID #1')
-        self.assertIn('Email delivery:    Via TurnKey Hub', text)
+        self.assertIn('Email delivery:    Yes, via TurnKey Hub', text)
         self.assertIn('Dynamic DNS:     Disabled', text)
         self.assertIn('Backups:         Backup ID #1', text)
 
