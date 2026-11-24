@@ -26,6 +26,53 @@ class LiveHubStatusTests(unittest.TestCase):
                              'dns': {'enabled': True, 'hostname': 'next.tklapp.com'},
                              'backup': {'requested': False}}}
 
+    def test_pending_setup_waits_then_reads_completed_state(self):
+        pending = dict(self.local(self.first), setup_pending=True)
+        ready = dict(self.local(self.first), setup_pending=False)
+        with patch('confconsole.local_hub_status', side_effect=[pending, ready]), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 0)) as run:
+            result = self.console.main_hub_state()
+        run.assert_called_once_with(['systemctl', 'start', 'turnkey-hub-provision.service'],
+                                    capture_output=True, text=True, timeout=90)
+        self.console.console.infobox.assert_called_once_with('Finishing Hub setup...')
+        self.console.console.msgbox.assert_not_called()
+        self.assertFalse(result['setup_pending'])
+
+    def test_failed_setup_is_reported_once_and_main_screen_remains_available(self):
+        pending = dict(self.local(self.first), setup_pending=True)
+        with patch('confconsole.local_hub_status', return_value=pending), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 1)) as run:
+            self.console.main_hub_state()
+            self.console.main_hub_state()
+        run.assert_called_once()
+        self.console.console.msgbox.assert_called_once()
+
+    def test_completed_setup_does_not_show_progress(self):
+        with patch('confconsole.local_hub_status', return_value=self.local(self.first)), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.subprocess.run') as run:
+            self.console.main_hub_state()
+        run.assert_not_called()
+        self.console.console.infobox.assert_not_called()
+
+    def test_pending_state_after_service_exit_reports_failure(self):
+        pending = dict(self.local(self.first), setup_pending=True)
+        with patch('confconsole.local_hub_status', return_value=pending), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.subprocess.run', return_value=subprocess.CompletedProcess([], 0)):
+            self.console.main_hub_state()
+        self.console.console.msgbox.assert_called_once()
+
+    def test_provision_timeout_reports_failure(self):
+        pending = dict(self.local(self.first), setup_pending=True)
+        with patch('confconsole.local_hub_status', return_value=pending), \
+             patch('confconsole.remote_hub_status', return_value=self.remote(self.first)), \
+             patch('confconsole.subprocess.run', side_effect=subprocess.TimeoutExpired('systemctl', 90)):
+            self.console.main_hub_state()
+        self.console.console.msgbox.assert_called_once()
+
     def test_initial_and_post_pairing_requests_are_once_per_connection(self):
         unlinked = {'connection_status': 'disconnected'}
         linked = self.local(self.first)

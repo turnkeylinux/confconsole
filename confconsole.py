@@ -996,6 +996,26 @@ class TurnkeyConsole:
 
     def main_hub_state(self) -> dict:
         local = local_hub_status()
+        device = local.get("device_id")
+        if (local.get("connection_status") == "linked" and local.get("setup_pending")
+                and device != getattr(self, "_hub_setup_waited", None)):
+            self.console.infobox("Finishing Hub setup...")
+            try:
+                result = subprocess.run(
+                    ["systemctl", "start", "turnkey-hub-provision.service"],
+                    capture_output=True, text=True, timeout=90,
+                )
+                failed = result.returncode != 0
+            except (OSError, subprocess.SubprocessError):
+                failed = True
+            local = local_hub_status()
+            if failed or local.get("setup_pending"):
+                self._hub_setup_waited = device
+                self.console.msgbox(
+                    "Hub setup",
+                    "Hub setup could not finish. The server will retry automatically. "
+                    "You can also retry from the Hub settings.",
+                )
         if local.get("connection_status") == "disconnected":
             self._hub_status_device = None
             return local
