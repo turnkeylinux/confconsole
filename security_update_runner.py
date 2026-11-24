@@ -14,7 +14,7 @@ def run_security_updates():
         print(f'Could not start security updates: {error}', file=sys.stderr, flush=True)
         failed = True
     if failed:
-        print('\nSecurity updates failed. Run sudo security-updates --status for details.', flush=True)
+        print('\nSecurity updates failed.', flush=True)
         if sys.stdin.isatty():
             try:
                 input('Press Enter to return to Confconsole. ')

@@ -55,7 +55,8 @@ class SecurityUpdateTerminalTests(unittest.TestCase):
 
     def test_failure_shows_diagnostics_until_enter(self):
         output = self.exercise(2)
-        self.assertIn(b'sudo security-updates --status', output)
+        self.assertIn(b'Security updates failed.', output)
+        self.assertNotIn(b'sudo security-updates', output)
         self.assertIn(b'Press Enter', output)
 
     def test_advanced_menu_uses_the_same_terminal_flow(self):
